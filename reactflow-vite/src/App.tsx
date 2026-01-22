@@ -19,20 +19,28 @@ import {
   XYPosition,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { ColorPicker, ColorResult } from '@hello-pangea/color-picker'; // Optional: keep if installed
+// Optional: for the color picker node – install with npm install @hello-pangea/color-picker
+// import { ColorPicker, ColorResult } from '@hello-pangea/color-picker';
 
-// Define data shapes for custom nodes
-interface CustomNodeData {
+// Custom data types with index signature to fix TS2344 / Record<string, unknown> constraint
+type CustomNodeData = {
   label: string;
   color?: string;
   shape?: 'rect' | 'circle' | 'diamond';
-}
+  [key: string]: unknown; // ← Critical for React Flow v12+ compatibility
+};
 
-interface ResizableNodeData {
+type ResizableNodeData = {
   label: string;
-}
+  [key: string]: unknown;
+};
 
-// Custom Node with proper typing
+type ColorChangerData = {
+  color: string;
+  [key: string]: unknown;
+};
+
+// Custom Node components with proper NodeProps<Node<YourData>>
 const CustomNode = ({ data, isConnectable }: NodeProps<Node<CustomNodeData>>) => (
   <div
     style={{
@@ -54,7 +62,6 @@ const CustomNode = ({ data, isConnectable }: NodeProps<Node<CustomNodeData>>) =>
   </div>
 );
 
-// Resizable Node
 const ResizableNode = ({ data, selected }: NodeProps<Node<ResizableNodeData>>) => (
   <div
     style={{
@@ -71,11 +78,10 @@ const ResizableNode = ({ data, selected }: NodeProps<Node<ResizableNodeData>>) =
   </div>
 );
 
-// Color Changer Node (optional color picker)
-const ColorChangerNode = ({ id, data }: NodeProps<Node<{ color: string }>>) => {
+const ColorChangerNode = ({ id, data }: NodeProps<Node<ColorChangerData>>) => {
   const { setNodes } = useReactFlow();
 
-  const handleColorChange = (color: ColorResult) => {
+  const handleColorChange = (color: { hex: string }) => {  // Simplified typing if using @hello-pangea/color-picker
     setNodes((nds) =>
       nds.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, color: color.hex } } : n
@@ -86,7 +92,8 @@ const ColorChangerNode = ({ id, data }: NodeProps<Node<{ color: string }>>) => {
   return (
     <div style={{ padding: 10, border: '1px solid gray', background: '#fff' }}>
       Color Picker Node
-      <ColorPicker value={data.color} onChange={handleColorChange} />
+      {/* <ColorPicker value={data.color} onChange={handleColorChange} /> */} {/* Uncomment if installed */}
+      <p>Click to change color (demo)</p>
     </div>
   );
 };
@@ -95,16 +102,16 @@ const nodeTypes = {
   custom: CustomNode,
   resizable: ResizableNode,
   colorChanger: ColorChangerNode,
-} as const; // 'as const' helps TypeScript infer exact types
+} as const;
 
-// Initial nodes/edges (same as before, but typed data)
+// Initial master diagram nodes (typed data)
 const initialNodes: Node[] = [
   { id: '1', type: 'custom', position: { x: 100, y: 100 }, data: { label: 'Basic Node', color: '#ff0072', shape: 'rect' } },
   { id: '2', type: 'custom', position: { x: 300, y: 100 }, data: { label: 'Circle Node', color: '#00ff72', shape: 'circle' } },
   { id: '3', type: 'custom', position: { x: 500, y: 100 }, data: { label: 'Diamond Node', color: '#0072ff', shape: 'diamond' } },
   { id: '4', type: 'resizable', position: { x: 100, y: 300 }, data: { label: 'Resizable Node' } },
   { id: '5', type: 'colorChanger', position: { x: 300, y: 300 }, data: { color: '#ffffff' } },
-  { id: '6', position: { x: 500, y: 300 }, data: { label: 'Hover to Change Color' } },
+  { id: '6', position: { x: 500, y: 300 }, data: { label: 'Hover/Click to Change' } },
   { id: '7', position: { x: 100, y: 500 }, data: { label: 'Undo/Redo Target' } },
 ];
 
@@ -120,7 +127,7 @@ const initialEdges = [
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const { fitView, zoomIn, zoomOut, project } = useReactFlow(); // Added project for accurate drop positions
+  const { fitView, zoomIn, zoomOut, project } = useReactFlow();
   const [bgVariant, setBgVariant] = useState<BackgroundVariant>(BackgroundVariant.Dots);
   const [history, setHistory] = useState<{ nodes: Node[]; edges: typeof initialEdges }[]>([{ nodes: initialNodes, edges: initialEdges }]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -134,7 +141,7 @@ function App() {
     setNodes((nds) =>
       nds.map((n) =>
         n.id === node.id && 'color' in n.data
-          ? { ...n, data: { ...n.data, color: n.data.color === '#ff0072' ? '#00ff72' : '#ff0072' } }
+          ? { ...n, data: { ...n.data, color: (n.data as any).color === '#ff0072' ? '#00ff72' : '#ff0072' } }
           : n
       )
     );
@@ -163,19 +170,8 @@ function App() {
     }
   };
 
-  const addNode = useCallback((type: keyof typeof nodeTypes) => {
-    const newNode: Node = {
-      id: `${nodes.length + 1}`,
-      type,
-      position: { x: Math.random() * 500, y: Math.random() * 500 },
-      data: type === 'custom' ? { label: 'Custom Node', color: '#ccc', shape: 'rect' } :
-            type === 'resizable' ? { label: 'Resizable' } :
-            { color: '#ffffff' },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  }, [nodes, setNodes]);
-
   const saveState = () => localStorage.setItem('react-flow-state', JSON.stringify({ nodes, edges }));
+
   const loadState = () => {
     const saved = localStorage.getItem('react-flow-state');
     if (saved) {
@@ -185,7 +181,7 @@ function App() {
     }
   };
 
-  const onDragStart = (event: DragEvent<HTMLDivElement>, nodeType: keyof typeof nodeTypes) => {
+  const onDragStart = (event: DragEvent<HTMLDivElement>, nodeType: 'custom' | 'resizable' | 'colorChanger') => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
   };
@@ -193,19 +189,20 @@ function App() {
   const onDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      const type = event.dataTransfer.getData('application/reactflow') as keyof typeof nodeTypes;
+      const type = event.dataTransfer.getData('application/reactflow') as 'custom' | 'resizable' | 'colorChanger';
       if (!type) return;
 
-      // Use project() for accurate position relative to the flow viewport
-      const position = project({ x: event.clientX, y: event.clientY });
+      const position: XYPosition = project({ x: event.clientX, y: event.clientY });
+
+      let newData: Record<string, unknown> = { label: `${type} Node` };
+      if (type === 'custom') newData = { label: 'Custom Node', color: '#ccc', shape: 'rect' };
+      if (type === 'colorChanger') newData = { color: '#ffffff' };
 
       const newNode: Node = {
         id: `${nodes.length + 1}`,
         type,
         position,
-        data: type === 'custom' ? { label: 'Custom Node', color: '#ccc', shape: 'rect' } :
-              type === 'resizable' ? { label: 'Resizable' } :
-              { color: '#ffffff' },
+        data: newData,
       };
       setNodes((nds) => [...nds, newNode]);
     },
@@ -243,10 +240,10 @@ function App() {
           </select>
         </Panel>
         <Panel position="top-right">
-          <div>Drag to add:</div>
-          <div draggable onDragStart={(e) => onDragStart(e, 'custom')} style={{ padding: 5, border: '1px solid #ccc', margin: 5 }}>Custom Node</div>
-          <div draggable onDragStart={(e) => onDragStart(e, 'resizable')} style={{ padding: 5, border: '1px solid #ccc', margin: 5 }}>Resizable Node</div>
-          <div draggable onDragStart={(e) => onDragStart(e, 'colorChanger')} style={{ padding: 5, border: '1px solid #ccc', margin: 5 }}>Color Changer</div>
+          <div>Drag to add node:</div>
+          <div draggable onDragStart={(e) => onDragStart(e, 'custom')} style={{ padding: 8, border: '1px solid #ccc', margin: 5, cursor: 'grab' }}>Custom Node</div>
+          <div draggable onDragStart={(e) => onDragStart(e, 'resizable')} style={{ padding: 8, border: '1px solid #ccc', margin: 5, cursor: 'grab' }}>Resizable Node</div>
+          <div draggable onDragStart={(e) => onDragStart(e, 'colorChanger')} style={{ padding: 8, border: '1px solid #ccc', margin: 5, cursor: 'grab' }}>Color Changer</div>
         </Panel>
       </ReactFlow>
     </div>
