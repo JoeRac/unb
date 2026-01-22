@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -132,11 +132,10 @@ export default function App() {
   );
   const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [layout, setLayout] = useState<'vertical' | 'horizontal'>('vertical');
 
   const onConnect = useCallback(
     (c: Connection) => setEdges((eds) => addEdge(c, eds)),
-    []
+    [setEdges]
   );
 
   const onNodeClick = useCallback((_e: any, node: Node) => {
@@ -144,7 +143,6 @@ export default function App() {
   }, []);
 
   const applyLayout = (type: 'vertical' | 'horizontal') => {
-    setLayout(type);
     setNodes((nds) =>
       type === 'vertical' ? verticalLayout(nds) : horizontalLayout(nds)
     );
