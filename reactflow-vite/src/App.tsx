@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -19,7 +19,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-/* ───────────────────── TYPES ───────────────────── */
+/* ───────── Types ───────── */
 
 type DemoNodeData = {
   label: string;
@@ -28,7 +28,7 @@ type DemoNodeData = {
   category: string;
 };
 
-/* ───────────────────── CUSTOM NODE ───────────────────── */
+/* ───────── Custom Node ───────── */
 
 function DemoNode({ data, selected }: NodeProps<DemoNodeData>) {
   return (
@@ -40,16 +40,13 @@ function DemoNode({ data, selected }: NodeProps<DemoNodeData>) {
         color: '#fff',
         minWidth: 160,
         boxShadow: selected
-          ? '0 0 0 3px rgba(255,255,255,0.8)'
+          ? '0 0 0 3px rgba(255,255,255,0.9)'
           : '0 10px 25px rgba(0,0,0,0.25)',
-        transition: 'all 0.2s ease',
       }}
     >
       <Handle type="target" position={Position.Top} />
       <strong>{data.label}</strong>
-      <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>
-        {data.category}
-      </div>
+      <div style={{ fontSize: 12, opacity: 0.8 }}>{data.category}</div>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
@@ -57,16 +54,16 @@ function DemoNode({ data, selected }: NodeProps<DemoNodeData>) {
 
 const nodeTypes = { demo: DemoNode };
 
-/* ───────────────────── INITIAL DATA ───────────────────── */
+/* ───────── Initial Data ───────── */
 
-const baseNodes: Node<DemoNodeData>[] = [
+const initialNodes: Node<DemoNodeData>[] = [
   {
     id: '1',
     type: 'demo',
-    position: { x: 200, y: 40 },
+    position: { x: 200, y: 50 },
     data: {
       label: 'Signal-Producing Experience',
-      description: 'Where the signal is strongest',
+      description: 'Core experience layer',
       color: '#6366f1',
       category: 'Experience',
     },
@@ -74,10 +71,10 @@ const baseNodes: Node<DemoNodeData>[] = [
   {
     id: '2',
     type: 'demo',
-    position: { x: 40, y: 220 },
+    position: { x: 50, y: 250 },
     data: {
-      label: 'Attentive Signal Reading',
-      description: 'Reading somatic meaning',
+      label: 'Signal Reading',
+      description: 'Somatic interpretation',
       color: '#22c55e',
       category: 'Reading',
     },
@@ -85,7 +82,7 @@ const baseNodes: Node<DemoNodeData>[] = [
   {
     id: '3',
     type: 'demo',
-    position: { x: 360, y: 220 },
+    position: { x: 350, y: 250 },
     data: {
       label: 'Cognitive Key',
       description: 'Meaning resolution',
@@ -93,64 +90,37 @@ const baseNodes: Node<DemoNodeData>[] = [
       category: 'Insight',
     },
   },
-  {
-    id: '4',
-    type: 'demo',
-    position: { x: 200, y: 400 },
-    data: {
-      label: 'Implementation',
-      description: 'Thought / Action / Hybrid',
-      color: '#ec4899',
-      category: 'Action',
-    },
-  },
 ];
 
-const baseEdges: Edge[] = [
+const initialEdges: Edge[] = [
   { id: 'e1-2', source: '1', target: '2', animated: true },
   { id: 'e1-3', source: '1', target: '3', animated: true },
-  { id: 'e2-4', source: '2', target: '4' },
-  { id: 'e3-4', source: '3', target: '4' },
 ];
 
-/* ───────────────────── FLOW CANVAS ───────────────────── */
+/* ───────── Canvas ───────── */
 
 function FlowCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(baseNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges);
-  const [bg, setBg] = useState<BackgroundVariant>('dots');
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [bg, setBg] = useState<BackgroundVariant>(BackgroundVariant.Dots);
   const [selectedNode, setSelectedNode] = useState<Node<DemoNodeData> | null>(null);
 
   const onConnect = useCallback(
     (params: Connection) =>
       setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
-    []
+    [setEdges]
   );
-
-  /* ───── Layout Switching ───── */
-
-  const setLayout = (mode: 'vertical' | 'horizontal' | 'grid') => {
-    setNodes((nds) =>
-      nds.map((n, i) => {
-        if (mode === 'vertical') return { ...n, position: { x: 200, y: i * 160 } };
-        if (mode === 'horizontal') return { ...n, position: { x: i * 240, y: 200 } };
-        return { ...n, position: { x: (i % 2) * 260, y: Math.floor(i / 2) * 180 } };
-      })
-    );
-  };
-
-  /* ───── Add Node ───── */
 
   const addNode = () => {
     setNodes((nds) => [
       ...nds,
       {
-        id: crypto.randomUUID(),
+        id: `node-${nds.length + 1}`,
         type: 'demo',
-        position: { x: Math.random() * 500, y: Math.random() * 500 },
+        position: { x: 100 + nds.length * 40, y: 400 },
         data: {
           label: 'New Node',
-          description: 'Dynamically created',
+          description: 'Dynamic node',
           color: '#0ea5e9',
           category: 'Dynamic',
         },
@@ -159,68 +129,38 @@ function FlowCanvas() {
   };
 
   return (
-    <>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={(_, node) => setSelectedNode(node)}
-        fitView
-      >
-        <MiniMap />
-        <Controls />
-        <Background variant={bg} />
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onNodeClick={(_, node) => setSelectedNode(node)}
+      fitView
+    >
+      <MiniMap nodeColor={(n) => n.data?.color || '#999'} />
+      <Controls />
+      <Background variant={bg} />
 
-        {/* LEFT PANEL */}
-        <Panel position="top-left">
-          <button onClick={addNode}>➕ Add Node</button>
-          <button onClick={() => setLayout('vertical')}>⬇ Vertical</button>
-          <button onClick={() => setLayout('horizontal')}>➡ Horizontal</button>
-          <button onClick={() => setLayout('grid')}>🔲 Grid</button>
-        </Panel>
+      <Panel position="top-left">
+        <button onClick={addNode}>➕ Add Node</button>
+        <button onClick={() => setBg(BackgroundVariant.Dots)}>Dots</button>
+        <button onClick={() => setBg(BackgroundVariant.Lines)}>Lines</button>
+        <button onClick={() => setBg(BackgroundVariant.Cross)}>Cross</button>
+      </Panel>
 
-        {/* RIGHT PANEL */}
-        <Panel position="top-right">
-          <select value={bg} onChange={(e) => setBg(e.target.value as BackgroundVariant)}>
-            <option value="dots">Dots</option>
-            <option value="lines">Lines</option>
-            <option value="cross">Cross</option>
-          </select>
-        </Panel>
-      </ReactFlow>
-
-      {/* INFO PANEL */}
       {selectedNode && (
-        <div
-          style={{
-            position: 'absolute',
-            right: 16,
-            bottom: 16,
-            width: 280,
-            padding: 16,
-            background: '#0f172a',
-            color: '#fff',
-            borderRadius: 12,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-          }}
-        >
+        <Panel position="bottom-right">
           <strong>{selectedNode.data.label}</strong>
-          <p style={{ fontSize: 13, opacity: 0.85 }}>
-            {selectedNode.data.description}
-          </p>
-          <div style={{ fontSize: 12, opacity: 0.6 }}>
-            Category: {selectedNode.data.category}
-          </div>
-        </div>
+          <p style={{ fontSize: 12 }}>{selectedNode.data.description}</p>
+        </Panel>
       )}
-    </>
+    </ReactFlow>
   );
 }
 
-/* ───────────────────── APP ───────────────────── */
+/* ───────── App ───────── */
 
 export default function App() {
   return (
