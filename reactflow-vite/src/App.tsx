@@ -13,10 +13,11 @@ import {
   Node,
   Edge,
   Connection,
-  useReactFlow,
+  // Removed unused 'useReactFlow'
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
+// 1. Define the shape of your data
 type NodeData = {
   label: string;
   description?: string;
@@ -24,10 +25,9 @@ type NodeData = {
   category: string;
   wikiUrl?: string;
   details?: string;
-  parentId?: string; // Optional: helps track hierarchy
 };
 
-// Custom Node Component
+// 2. Custom Node Component
 function MethodNode(props: any) {
   const data = props.data as NodeData;
   const selected = props.selected as boolean;
@@ -69,10 +69,9 @@ function MethodNode(props: any) {
 
 const nodeTypes = { method: MethodNode };
 
-// --- DATA SETUP ---
-// Note: I have added 'hidden: true' to children nodes
+// 3. Initial Nodes (Hidden Logic)
 const initialNodes: Node[] = [
-  // LEVEL 1: Visible by default
+  // LEVEL 1: Visible
   {
     id: 'title',
     type: 'method',
@@ -81,17 +80,17 @@ const initialNodes: Node[] = [
       description: 'Cognitive Intelligence Pattern Handling & Emotional Release',
       color: '#1a1a2e',
       category: 'Framework',
-      wikiUrl: 'https://example.com/cipher', 
+      wikiUrl: 'https://example.com/cipher',
       details: 'This is the master node. Click to reveal the framework.',
     },
     position: { x: 600, y: 0 },
   },
   
-  // LEVEL 2: Hidden initially
+  // LEVEL 2: Hidden
   {
     id: 'framework',
     type: 'method',
-    hidden: true, // <--- HIDDEN
+    hidden: true,
     data: {
       label: 'Somatic Intelligence Model',
       description: 'BS/US Signal Architecture',
@@ -140,23 +139,21 @@ const initialNodes: Node[] = [
     position: { x: 600, y: 300 },
   },
 
-  // LEVEL 4 (Quadrants)
+  // LEVEL 4
   { id: 'phantom-threat', type: 'method', hidden: true, position: { x: 350, y: 400 }, data: { label: 'Phantom Threat', color: '#e67e22', category: 'Quadrant' } },
   { id: 'clear-threat', type: 'method', hidden: true, position: { x: 550, y: 400 }, data: { label: 'Clear Threat', color: '#c0392b', category: 'Quadrant' } },
   { id: 'assumed-safety', type: 'method', hidden: true, position: { x: 750, y: 400 }, data: { label: 'Assumed Safety', color: '#f39c12', category: 'Quadrant' } },
   { id: 'grounded-safety', type: 'method', hidden: true, position: { x: 950, y: 400 }, data: { label: 'Grounded Safety', color: '#27ae60', category: 'Quadrant' } },
 
-  // STEPS (Main Path) - Hidden initially
+  // STEPS
   { id: 'step1', type: 'method', hidden: true, position: { x: 150, y: 550 }, data: { label: 'STEP 1: Immerse', color: '#3498db', category: 'Process', wikiUrl: 'https://google.com' } },
   { id: 'step2', type: 'method', hidden: true, position: { x: 450, y: 550 }, data: { label: 'STEP 2: Read Signal', color: '#9b59b6', category: 'Process' } },
   { id: 'step3', type: 'method', hidden: true, position: { x: 750, y: 550 }, data: { label: 'STEP 3: Design Key', color: '#e67e22', category: 'Process' } },
   { id: 'step4', type: 'method', hidden: true, position: { x: 1050, y: 550 }, data: { label: 'STEP 4: Implement', color: '#27ae60', category: 'Process' } },
 
-  // Step 1 Details
   { id: 'step1-thought', type: 'method', hidden: true, position: { x: 0, y: 650 }, data: { label: 'Thought', color: '#5dade2', category: 'Exp Type' } },
   { id: 'step1-real', type: 'method', hidden: true, position: { x: 180, y: 650 }, data: { label: 'Real Situation', color: '#5dade2', category: 'Exp Type' } },
   
-  // Results
   { id: 'result-instant', type: 'method', hidden: true, position: { x: 1050, y: 850 }, data: { label: 'Instant Relief', color: '#1abc9c', category: 'Result' } },
 ];
 
@@ -178,7 +175,6 @@ const initialEdges: Edge[] = [
   { id: 'e15', source: 'step4', target: 'result-instant' },
 ];
 
-// --- MAIN COMPONENT ---
 export default function InteractiveDiagram() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -189,24 +185,19 @@ export default function InteractiveDiagram() {
     [setEdges],
   );
 
-  // ---------------------------------------------------------
-  // THE LOGIC: Reveal Children on Click + Show Panel
-  // ---------------------------------------------------------
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
-      // 1. Set the node for the Side Panel info
       setSelectedNode(node);
-
-      // 2. Find all edges leaving this node
+      
+      // Reveal children logic
       const childrenIds = edges
         .filter((e) => e.source === node.id)
         .map((e) => e.target);
 
-      // 3. Update nodes: reveal specific children
       setNodes((nds) =>
         nds.map((n) => {
           if (childrenIds.includes(n.id)) {
-            return { ...n, hidden: false }; // Change hidden to false
+            return { ...n, hidden: false };
           }
           return n;
         })
@@ -214,6 +205,9 @@ export default function InteractiveDiagram() {
     },
     [edges, setNodes]
   );
+
+  // Helper to safely get data for the selected node
+  const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}>
@@ -224,17 +218,15 @@ export default function InteractiveDiagram() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeClick={onNodeClick} // <--- Attached handler here
+        onNodeClick={onNodeClick}
         fitView
       >
-        <MiniMap nodeColor={(n) => (n.data.color as string) || '#fff'} />
+        <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
         <Controls />
         <Background color="#222" gap={16} />
 
-        {/* -------------------------------------------------- */}
-        {/* RIGHT SIDE PANEL: Displays Info & Link             */}
-        {/* -------------------------------------------------- */}
-        {selectedNode && (
+        {/* INFO PANEL */}
+        {selectedNode && selectedNodeData && (
           <Panel
             position="top-right"
             style={{
@@ -252,31 +244,30 @@ export default function InteractiveDiagram() {
             >
               ✕
             </button>
-            <h3 style={{ marginTop: 0, color: (selectedNode.data.color as string) }}>
-              {selectedNode.data.label as string}
+            <h3 style={{ marginTop: 0, color: selectedNodeData.color }}>
+              {selectedNodeData.label}
             </h3>
             
             <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-              TYPE: {selectedNode.data.category as string}
+              TYPE: {selectedNodeData.category}
             </div>
 
-            {selectedNode.data.description && (
+            {selectedNodeData.description && (
               <p style={{ lineHeight: '1.5' }}>
-                {selectedNode.data.description as string}
+                {selectedNodeData.description}
               </p>
             )}
 
-            {selectedNode.data.details && (
+            {selectedNodeData.details && (
               <p style={{ fontSize: '13px', background: '#f5f5f5', padding: '10px', borderRadius: '4px' }}>
-                {selectedNode.data.details as string}
+                {selectedNodeData.details}
               </p>
             )}
 
-            {/* HYPERLINK LOGIC */}
-            {selectedNode.data.wikiUrl && (
+            {selectedNodeData.wikiUrl && (
               <div style={{ marginTop: '15px' }}>
                 <a 
-                  href={selectedNode.data.wikiUrl as string} 
+                  href={selectedNodeData.wikiUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={{
@@ -296,7 +287,6 @@ export default function InteractiveDiagram() {
             )}
           </Panel>
         )}
-
       </ReactFlow>
     </div>
   );
