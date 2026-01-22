@@ -23,6 +23,7 @@ type NodeData = {
   category: string;
   wikiUrl?: string;
   details?: string;
+  parentId?: string; // Track parent for expand/collapse
 };
 
 // Custom Node Component with enhanced styling
@@ -83,6 +84,8 @@ const initialNodes: Node[] = [
       description: 'Cognitive Intelligence Pattern Handling & Emotional Release',
       color: '#1a1a2e',
       category: 'Framework',
+      wikiUrl: 'https://unburdened.earth/wiki/cipher-method',
+      details: 'CIPHER is a precision tool for decoding and editing your somatic intelligence. Like CRISPR edits genes, CIPHER edits somatic patterns with psychological precision.',
     },
     position: { x: 600, y: 0 },
   },
@@ -96,8 +99,12 @@ const initialNodes: Node[] = [
       description: 'BS/US Signal Architecture',
       color: '#16213e',
       category: 'Core Theory',
+      wikiUrl: 'https://unburdened.earth/wiki/somatic-intelligence',
+      details: 'Your body processes millions of data points about safety and threat. This is the foundational architecture that explains how every feeling works.',
+      parentId: 'title',
     },
     position: { x: 600, y: 100 },
+    hidden: true, // Hidden until title is clicked
   },
   
   {
@@ -108,8 +115,12 @@ const initialNodes: Node[] = [
       description: 'Biological sense of burden/bother that drives action',
       color: '#e74c3c',
       category: 'Signal Type',
+      wikiUrl: 'https://unburdened.earth/wiki/burden-signal',
+      details: 'Any feeling that bothers you. Your body saying "there\'s a safety threat." This chemical/biological pressure makes you want to act.',
+      parentId: 'framework',
     },
     position: { x: 400, y: 200 },
+    hidden: true,
   },
   
   {
@@ -120,8 +131,12 @@ const initialNodes: Node[] = [
       description: 'Relief, joy, safety achieved',
       color: '#27ae60',
       category: 'Signal Type',
+      wikiUrl: 'https://unburdened.earth/wiki/unburden-signal',
+      details: 'Any feeling of relief/joy. Your body saying "safety increased, burden released." The goal of the CIPHER method.',
+      parentId: 'framework',
     },
     position: { x: 800, y: 200 },
+    hidden: true,
   },
 
   // Somatic Intelligence Grid
@@ -133,8 +148,12 @@ const initialNodes: Node[] = [
       description: '4-Quadrant Assessment Tool',
       color: '#8e44ad',
       category: 'Assessment',
+      wikiUrl: 'https://unburdened.earth/wiki/si-grid',
+      details: 'Map any feeling to one of four quadrants based on threat/safety signal and evidence level. This clarifies what you\'re actually dealing with.',
+      parentId: 'framework',
     },
     position: { x: 600, y: 300 },
+    hidden: true,
   },
 
   {
@@ -145,8 +164,12 @@ const initialNodes: Node[] = [
       description: 'High threat + Low evidence',
       color: '#e67e22',
       category: 'Quadrant',
+      wikiUrl: 'https://unburdened.earth/wiki/phantom-threat',
+      details: 'You feel threatened but there\'s little evidence to support it. Most anxiety lives here. Your body remembers past threats and applies them to present.',
+      parentId: 'si-grid',
     },
     position: { x: 350, y: 400 },
+    hidden: true,
   },
 
   {
@@ -157,8 +180,12 @@ const initialNodes: Node[] = [
       description: 'High threat + High evidence',
       color: '#c0392b',
       category: 'Quadrant',
+      wikiUrl: 'https://unburdened.earth/wiki/clear-threat',
+      details: 'Real danger with evidence. Your body is right to signal threat. Action required, but from clarity not panic.',
+      parentId: 'si-grid',
     },
     position: { x: 550, y: 400 },
+    hidden: true,
   },
 
   {
@@ -169,8 +196,12 @@ const initialNodes: Node[] = [
       description: 'High safety + Low evidence',
       color: '#f39c12',
       category: 'Quadrant',
+      wikiUrl: 'https://unburdened.earth/wiki/assumed-safety',
+      details: 'You feel safe but haven\'t verified. Could be naive optimism or wishful thinking. Useful sometimes, dangerous others.',
+      parentId: 'si-grid',
     },
     position: { x: 750, y: 400 },
+    hidden: true,
   },
 
   {
@@ -181,8 +212,12 @@ const initialNodes: Node[] = [
       description: 'High safety + High evidence',
       color: '#27ae60',
       category: 'Quadrant',
+      wikiUrl: 'https://unburdened.earth/wiki/grounded-safety',
+      details: 'Real safety with evidence. This is the goal: feeling safe because you actually are safe. Living unburdened.',
+      parentId: 'si-grid',
     },
     position: { x: 950, y: 400 },
+    hidden: true,
   },
 
   // STEP 1: Immerse
@@ -194,8 +229,12 @@ const initialNodes: Node[] = [
       description: 'Signal-Producing Experience',
       color: '#3498db',
       category: 'Process',
+      wikiUrl: 'https://unburdened.earth/wiki/step1-immerse',
+      details: 'Choose an experience that produces a burden signal. This is what you\'ll decode. Click to see options.',
+      parentId: 'si-grid',
     },
     position: { x: 150, y: 550 },
+    hidden: true,
   },
 
   {
@@ -206,8 +245,12 @@ const initialNodes: Node[] = [
       description: 'Mental content producing signal',
       color: '#5dade2',
       category: 'Experience Type',
+      wikiUrl: 'https://unburdened.earth/wiki/thought',
+      details: 'A thought that creates discomfort. "What if I fail?" "They don\'t like me." Immerse in the thought fully.',
+      parentId: 'step1',
     },
     position: { x: 0, y: 650 },
+    hidden: true,
   },
 
   {
@@ -218,8 +261,12 @@ const initialNodes: Node[] = [
       description: 'Current life circumstance',
       color: '#5dade2',
       category: 'Experience Type',
+      wikiUrl: 'https://unburdened.earth/wiki/real-situation',
+      details: 'An actual situation causing burden. A conversation you need to have, a decision to make, a conflict happening.',
+      parentId: 'step1',
     },
     position: { x: 180, y: 650 },
+    hidden: true,
   },
 
   {
@@ -230,8 +277,12 @@ const initialNodes: Node[] = [
       description: 'Body-based feeling',
       color: '#5dade2',
       category: 'Experience Type',
+      wikiUrl: 'https://unburdened.earth/wiki/sensation',
+      details: 'A physical sensation in your body. Tightness in chest, pit in stomach, tension in shoulders. Start with the body.',
+      parentId: 'step1',
     },
     position: { x: 0, y: 750 },
+    hidden: true,
   },
 
   {
@@ -242,8 +293,12 @@ const initialNodes: Node[] = [
       description: 'Future possibility',
       color: '#5dade2',
       category: 'Experience Type',
+      wikiUrl: 'https://unburdened.earth/wiki/idea',
+      details: 'An idea about your future. Starting a business, moving cities, changing careers. Notice what burden arises.',
+      parentId: 'step1',
     },
     position: { x: 180, y: 750 },
+    hidden: true,
   },
 
   {
@@ -254,8 +309,12 @@ const initialNodes: Node[] = [
       description: 'Past experience',
       color: '#5dade2',
       category: 'Experience Type',
+      wikiUrl: 'https://unburdened.earth/wiki/memory',
+      details: 'A memory that still produces burden. Even years later, thinking about it creates discomfort. Unresolved.',
+      parentId: 'step1',
     },
     position: { x: 90, y: 850 },
+    hidden: true,
   },
 
   // STEP 2: Read Signal
@@ -267,8 +326,12 @@ const initialNodes: Node[] = [
       description: 'Attentive Signal Reading',
       color: '#9b59b6',
       category: 'Process',
+      wikiUrl: 'https://unburdened.earth/wiki/step2-read',
+      details: 'Read your somatic intelligence fully. Decode ALL components of the burden. This is where most methods fail - they skip this step.',
+      parentId: 'step1',
     },
     position: { x: 450, y: 550 },
+    hidden: true,
   },
 
   {
@@ -279,8 +342,10 @@ const initialNodes: Node[] = [
       description: 'Movement-based processing',
       color: '#af7ac5',
       category: 'Reading Method',
+      parentId: 'step2',
     },
     position: { x: 360, y: 650 },
+    hidden: true,
   },
 
   {
@@ -291,8 +356,10 @@ const initialNodes: Node[] = [
       description: 'Written exploration',
       color: '#af7ac5',
       category: 'Reading Method',
+      parentId: 'step2',
     },
     position: { x: 540, y: 650 },
+    hidden: true,
   },
 
   {
@@ -303,8 +370,10 @@ const initialNodes: Node[] = [
       description: 'Professional dialogue',
       color: '#af7ac5',
       category: 'Reading Method',
+      parentId: 'step2',
     },
     position: { x: 300, y: 750 },
+    hidden: true,
   },
 
   {
@@ -315,8 +384,10 @@ const initialNodes: Node[] = [
       description: 'Spiritual practice',
       color: '#af7ac5',
       category: 'Reading Method',
+      parentId: 'step2',
     },
     position: { x: 480, y: 750 },
+    hidden: true,
   },
 
   {
@@ -327,8 +398,10 @@ const initialNodes: Node[] = [
       description: 'Inner inquiry',
       color: '#af7ac5',
       category: 'Reading Method',
+      parentId: 'step2',
     },
     position: { x: 600, y: 750 },
+    hidden: true,
   },
 
   {
@@ -339,8 +412,10 @@ const initialNodes: Node[] = [
       description: 'Verbal processing',
       color: '#af7ac5',
       category: 'Reading Method',
+      parentId: 'step2',
     },
     position: { x: 360, y: 850 },
+    hidden: true,
   },
 
   {
@@ -351,8 +426,10 @@ const initialNodes: Node[] = [
       description: 'Out loud exploration',
       color: '#af7ac5',
       category: 'Reading Method',
+      parentId: 'step2',
     },
     position: { x: 540, y: 850 },
+    hidden: true,
   },
 
   // Somatic Lock Discovery
@@ -364,8 +441,12 @@ const initialNodes: Node[] = [
       description: 'Precise burden identification',
       color: '#e74c3c',
       category: 'Discovery',
+      wikiUrl: 'https://unburdened.earth/wiki/somatic-lock',
+      details: 'The exact pattern your body cemented. Multiple threads woven together. You must identify ALL components.',
+      parentId: 'step2',
     },
     position: { x: 450, y: 950 },
+    hidden: true,
   },
 
   {
@@ -376,8 +457,11 @@ const initialNodes: Node[] = [
       description: 'ALL strands of sensation',
       color: '#c0392b',
       category: 'Detail',
+      details: 'Every thread: the fear of rejection, the memory of being laughed at, the belief you\'re not good enough, the physical sensation in your chest. Miss ONE and the key won\'t work.',
+      parentId: 'somatic-lock',
     },
     position: { x: 450, y: 1050 },
+    hidden: true,
   },
 
   // STEP 3: Design Key
@@ -389,8 +473,12 @@ const initialNodes: Node[] = [
       description: 'Cognitive Key Creation',
       color: '#e67e22',
       category: 'Process',
+      wikiUrl: 'https://unburdened.earth/wiki/step3-design',
+      details: 'Craft a cognitive key that addresses EVERY component of the lock. 90% won\'t work. Must be 100% precise.',
+      parentId: 'somatic-lock',
     },
     position: { x: 750, y: 550 },
+    hidden: true,
   },
 
   {
@@ -401,8 +489,11 @@ const initialNodes: Node[] = [
       description: 'Cognitive reframe only',
       color: '#f39c12',
       category: 'Key Type',
+      details: 'A new belief/story that your body accepts as more true than the old one. "I\'m safe now" doesn\'t work. "I\'m safe now BECAUSE..." might.',
+      parentId: 'step3',
     },
     position: { x: 700, y: 650 },
+    hidden: true,
   },
 
   {
@@ -413,8 +504,11 @@ const initialNodes: Node[] = [
       description: 'Action-based verification',
       color: '#f39c12',
       category: 'Key Type',
+      details: 'Take an action to gather new evidence. Your body needs data, not just stories. Go do the thing that scares you.',
+      parentId: 'step3',
     },
     position: { x: 900, y: 650 },
+    hidden: true,
   },
 
   {
@@ -425,8 +519,11 @@ const initialNodes: Node[] = [
       description: 'Thought + Action combined',
       color: '#f39c12',
       category: 'Key Type',
+      details: 'Combine new belief with new action. Most powerful approach. Body gets story AND evidence.',
+      parentId: 'step3',
     },
     position: { x: 800, y: 750 },
+    hidden: true,
   },
 
   // Key Requirements
@@ -438,8 +535,11 @@ const initialNodes: Node[] = [
       description: '100% match to lock',
       color: '#d35400',
       category: 'Requirement',
+      details: 'Like a combination lock - 99% doesn\'t open it. Your key must match the lock EXACTLY.',
+      parentId: 'step3',
     },
     position: { x: 750, y: 850 },
+    hidden: true,
   },
 
   {
@@ -450,8 +550,11 @@ const initialNodes: Node[] = [
       description: 'Every strand of lock',
       color: '#d35400',
       category: 'Requirement',
+      details: 'If the lock has 5 components and your key only addresses 4, your body rejects it. "Nice try, but you missed something."',
+      parentId: 'step3',
     },
     position: { x: 750, y: 950 },
+    hidden: true,
   },
 
   {
@@ -462,8 +565,11 @@ const initialNodes: Node[] = [
       description: 'Body must believe it',
       color: '#d35400',
       category: 'Requirement',
+      details: 'You must BELIEVE the new story. Not hope it\'s true. KNOW it\'s true. Body detects bullshit instantly.',
+      parentId: 'step3',
     },
     position: { x: 750, y: 1050 },
+    hidden: true,
   },
 
   // STEP 4: Implementation
@@ -475,8 +581,12 @@ const initialNodes: Node[] = [
       description: 'Apply Cognitive Key',
       color: '#27ae60',
       category: 'Process',
+      wikiUrl: 'https://unburdened.earth/wiki/step4-implement',
+      details: 'Use your cognitive key. If it\'s the right key, you\'ll feel instant relief. If not, go back to Step 2.',
+      parentId: 'step3',
     },
     position: { x: 1050, y: 550 },
+    hidden: true,
   },
 
   {
@@ -487,8 +597,10 @@ const initialNodes: Node[] = [
       description: 'Mental reinforcement',
       color: '#52be80',
       category: 'Implementation',
+      parentId: 'step4',
     },
     position: { x: 1000, y: 650 },
+    hidden: true,
   },
 
   {
@@ -499,8 +611,10 @@ const initialNodes: Node[] = [
       description: 'Behavioral execution',
       color: '#52be80',
       category: 'Implementation',
+      parentId: 'step4',
     },
     position: { x: 1180, y: 650 },
+    hidden: true,
   },
 
   {
@@ -511,8 +625,10 @@ const initialNodes: Node[] = [
       description: 'Thought + Action',
       color: '#52be80',
       category: 'Implementation',
+      parentId: 'step4',
     },
     position: { x: 1090, y: 750 },
+    hidden: true,
   },
 
   // Results
@@ -524,8 +640,11 @@ const initialNodes: Node[] = [
       description: 'When key matches lock',
       color: '#1abc9c',
       category: 'Result',
+      details: 'If your key is right, you feel it INSTANTLY. Not gradual. Instant. Fear → Relief in seconds.',
+      parentId: 'step4',
     },
     position: { x: 1050, y: 850 },
+    hidden: true,
   },
 
   {
@@ -536,8 +655,11 @@ const initialNodes: Node[] = [
       description: '100% certainty achieved',
       color: '#16a085',
       category: 'Result',
+      details: 'The moment your body says "YES, that\'s it!" You KNOW you got it. Unmistakable.',
+      parentId: 'result-instant',
     },
     position: { x: 1050, y: 950 },
+    hidden: true,
   },
 
   {
@@ -548,8 +670,11 @@ const initialNodes: Node[] = [
       description: 'BS → US transformation',
       color: '#0e6655',
       category: 'Outcome',
+      details: 'The burden is gone. You moved from BS to US. This is the goal. Repeat for every burden.',
+      parentId: 'result-aha',
     },
     position: { x: 1050, y: 1050 },
+    hidden: true,
   },
 
   // Key Insights
@@ -561,6 +686,7 @@ const initialNodes: Node[] = [
       description: 'Must be 100% precise',
       color: '#34495e',
       category: 'Principle',
+      details: 'This is why most methods fail. They get close but not exact. Your body knows the difference.',
     },
     position: { x: 1300, y: 300 },
   },
@@ -573,6 +699,7 @@ const initialNodes: Node[] = [
       description: 'Read body FIRST',
       color: '#34495e',
       category: 'Principle',
+      details: 'You can\'t fix what you don\'t understand. Most people try to recode (positive thinking) without decoding (reading the lock).',
     },
     position: { x: 1300, y: 400 },
   },
@@ -585,6 +712,7 @@ const initialNodes: Node[] = [
       description: 'Precision gene editing for soma',
       color: '#34495e',
       category: 'Analogy',
+      details: 'CRISPR edits genes with molecular precision. CIPHER edits somatic patterns with psychological precision.',
     },
     position: { x: 1300, y: 500 },
   },
@@ -597,38 +725,30 @@ const initialNodes: Node[] = [
       description: 'Mind/Body split is default',
       color: '#34495e',
       category: 'Core Insight',
+      details: 'You weren\'t born knowing how to read your body. The divorce is built in. CIPHER teaches the reunion.',
     },
     position: { x: 1300, y: 600 },
   },
 ];
 
 const initialEdges: Edge[] = [
-  // Main flow
   { id: 'e-title-framework', source: 'title', target: 'framework', animated: true },
   { id: 'e-framework-bs', source: 'framework', target: 'bs-signal' },
   { id: 'e-framework-us', source: 'framework', target: 'us-signal' },
   { id: 'e-framework-grid', source: 'framework', target: 'si-grid', animated: true },
-  
-  // Grid to quadrants
   { id: 'e-grid-phantom', source: 'si-grid', target: 'phantom-threat' },
   { id: 'e-grid-clear', source: 'si-grid', target: 'clear-threat' },
   { id: 'e-grid-assumed', source: 'si-grid', target: 'assumed-safety' },
   { id: 'e-grid-grounded', source: 'si-grid', target: 'grounded-safety' },
-
-  // Process flow
   { id: 'e-grid-step1', source: 'si-grid', target: 'step1', animated: true, style: { stroke: '#3498db', strokeWidth: 3 } },
   { id: 'e-step1-step2', source: 'step1', target: 'step2', animated: true, style: { stroke: '#9b59b6', strokeWidth: 3 } },
   { id: 'e-step2-step3', source: 'step2', target: 'step3', animated: true, style: { stroke: '#e67e22', strokeWidth: 3 } },
   { id: 'e-step3-step4', source: 'step3', target: 'step4', animated: true, style: { stroke: '#27ae60', strokeWidth: 3 } },
-
-  // Step 1 branches
   { id: 'e-s1-thought', source: 'step1', target: 'step1-thought' },
   { id: 'e-s1-situation', source: 'step1', target: 'step1-real-situation' },
   { id: 'e-s1-sensation', source: 'step1', target: 'step1-sensation' },
   { id: 'e-s1-idea', source: 'step1', target: 'step1-idea' },
   { id: 'e-s1-memory', source: 'step1', target: 'step1-memory' },
-
-  // Step 2 branches
   { id: 'e-s2-walk', source: 'step2', target: 'step2-walk' },
   { id: 'e-s2-journal', source: 'step2', target: 'step2-journal' },
   { id: 'e-s2-therapy', source: 'step2', target: 'step2-therapy' },
@@ -636,177 +756,19 @@ const initialEdges: Edge[] = [
   { id: 'e-s2-introspection', source: 'step2', target: 'step2-introspection' },
   { id: 'e-s2-talk', source: 'step2', target: 'step2-talk' },
   { id: 'e-s2-brainstorm', source: 'step2', target: 'step2-brainstorm' },
-
-  // Lock discovery
   { id: 'e-s2-lock', source: 'step2', target: 'somatic-lock', animated: true },
   { id: 'e-lock-components', source: 'somatic-lock', target: 'lock-components' },
-
-  // Step 3 branches
   { id: 'e-s3-mental', source: 'step3', target: 'step3-mental' },
   { id: 'e-s3-experimental', source: 'step3', target: 'step3-experimental' },
   { id: 'e-s3-mixed', source: 'step3', target: 'step3-mixed' },
-
-  // Key requirements
   { id: 'e-s3-precision', source: 'step3', target: 'key-precision' },
   { id: 'e-s3-addresses', source: 'step3', target: 'key-addresses-all' },
   { id: 'e-s3-certainty', source: 'step3', target: 'key-certainty' },
-
-  // Step 4 branches
   { id: 'e-s4-thought', source: 'step4', target: 'step4-thought' },
   { id: 'e-s4-action', source: 'step4', target: 'step4-action' },
   { id: 'e-s4-mixed', source: 'step4', target: 'step4-mixed' },
-
-  // Results
   { id: 'e-s4-instant', source: 'step4', target: 'result-instant', animated: true },
   { id: 'e-instant-aha', source: 'result-instant', target: 'result-aha' },
   { id: 'e-aha-unburdened', source: 'result-aha', target: 'result-unburdened' },
-
-  // Connect lock to key
   { id: 'e-lock-key', source: 'lock-components', target: 'step3', style: { stroke: '#e74c3c', strokeWidth: 2, strokeDasharray: '5,5' } },
-
-  // Insights connections
-  { id: 'e-insight-90', source: 'key-precision', target: 'insight-90', type: 'straight', style: { stroke: '#95a5a6' } },
-  { id: 'e-insight-decode', source: 'somatic-lock', target: 'insight-decode-first', type: 'straight', style: { stroke: '#95a5a6' } },
-];
-
-export default function CompleteCipherDiagram() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const onConnect = useCallback(
-    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
-    [setEdges]
-  );
-
-  const onNodeClick = useCallback((_: any, node: Node) => {
-    setSelectedNode(node);
-    
-    // Highlight connected nodes
-    const connectedNodeIds = edges
-      .filter(e => e.source === node.id || e.target === node.id)
-      .flatMap(e => [e.source, e.target])
-      .filter(id => id !== node.id);
-
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        style: {
-          ...n.style,
-          opacity: connectedNodeIds.includes(n.id) || n.id === node.id ? 1 : 0.3,
-        },
-      }))
-    );
-  }, [edges, setNodes]);
-
-  const resetHighlight = () => {
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        style: { ...n.style, opacity: 1 },
-      }))
-    );
-    setSelectedNode(null);
-  };
-
-  const filterBySearch = () => {
-    if (!searchTerm) {
-      resetHighlight();
-      return;
-    }
-
-    setNodes((nds) =>
-      nds.map((n) => {
-        const data = n.data as NodeData;
-        const matches = 
-          data.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          data.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          data.category.toLowerCase().includes(searchTerm.toLowerCase());
-
-        return {
-          ...n,
-          style: { ...n.style, opacity: matches ? 1 : 0.2 },
-        };
-      })
-    );
-  };
-
-  return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        fitView
-        minZoom={0.1}
-        maxZoom={2}
-      >
-        <MiniMap
-          nodeColor={(n) => {
-            const data = n.data as NodeData;
-            return data?.color || '#999';
-          }}
-          style={{ background: '#f8f9fa' }}
-        />
-        <Controls />
-        <Background gap={20} size={1} color="#e0e0e0" />
-
-        {/* Top Controls */}
-        <Panel position="top-left" style={{ background: 'white', padding: '12px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-          <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>CIPHER Method Explorer</div>
-          <input
-            type="text"
-            placeholder="Search nodes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyUp={filterBySearch}
-            style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc', width: '200px' }}
-          />
-          <button onClick={resetHighlight} style={{ marginLeft: '8px', padding: '6px 12px', borderRadius: '4px', border: 'none', background: '#3498db', color: 'white', cursor: 'pointer' }}>
-            Reset
-          </button>
-        </Panel>
-
-        {/* Node Info Panel */}
-        {selectedNode && (
-          <Panel position="top-right" style={{ background: 'white', padding: '16px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxWidth: '300px' }}>
-            <h3 style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>
-              {(selectedNode.data as NodeData).label}
-            </h3>
-            <div style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '8px', fontStyle: 'italic' }}>
-              {(selectedNode.data as NodeData).category}
-            </div>
-            {(selectedNode.data as NodeData).description && (
-              <p style={{ fontSize: '13px', color: '#34495e', lineHeight: 1.5 }}>
-                {(selectedNode.data as NodeData).description}
-              </p>
-            )}
-            {(selectedNode.data as NodeData).wikiUrl && (
-              <a href={(selectedNode.data as NodeData).wikiUrl} style={{ fontSize: '12px', color: '#3498db' }}>
-                Learn more →
-              </a>
-            )}
-          </Panel>
-        )}
-
-        {/* Legend */}
-        <Panel position="bottom-left" style={{ background: 'white', padding: '12px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '12px' }}>Legend</div>
-          <div style={{ fontSize: '11px', lineHeight: 1.8 }}>
-            <div><span style={{ color: '#3498db' }}>●</span> Step 1: Immerse</div>
-            <div><span style={{ color: '#9b59b6' }}>●</span> Step 2: Read Signal</div>
-            <div><span style={{ color: '#e67e22' }}>●</span> Step 3: Design Key</div>
-            <div><span style={{ color: '#27ae60' }}>●</span> Step 4: Implement</div>
-            <div><span style={{ color: '#e74c3c' }}>●</span> BS (Burden Signal)</div>
-            <div><span style={{ color: '#27ae60' }}>●</span> US (Unburden Signal)</div>
-          </div>
-        </Panel>
-      </ReactFlow>
-    </div>
-  );
-}
+  { id:
