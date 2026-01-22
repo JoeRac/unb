@@ -771,4 +771,42 @@ const initialEdges: Edge[] = [
   { id: 'e-instant-aha', source: 'result-instant', target: 'result-aha' },
   { id: 'e-aha-unburdened', source: 'result-aha', target: 'result-unburdened' },
   { id: 'e-lock-key', source: 'lock-components', target: 'step3', style: { stroke: '#e74c3c', strokeWidth: 2, strokeDasharray: '5,5' } },
-  { id:
+]; // <--- Closed the array here
+
+// This component was missing and is required to render the flow
+export default function App() {
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges],
+  );
+
+  return (
+    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        nodeTypes={nodeTypes}
+        fitView
+      >
+        <Background color="#222" gap={16} />
+        <Controls />
+        <MiniMap 
+          nodeColor={(n) => {
+            if (n.data.color) return n.data.color as string;
+            return '#fff';
+          }} 
+        />
+        <Panel position="top-right" style={{ background: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 5, color: 'white' }}>
+          <div>CIPHER Method Map</div>
+          <div style={{ fontSize: 10, opacity: 0.7 }}>Click nodes to explore</div>
+        </Panel>
+      </ReactFlow>
+    </div>
+  );
+}
