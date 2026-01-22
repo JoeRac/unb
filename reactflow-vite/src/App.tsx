@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -9,15 +9,16 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
-  Connection,
-  Edge,
+  Panel,
   Node,
+  Edge,
+  Connection,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
 
 /* -----------------------------
-   Node data definition
+   Types
 -------------------------------- */
 type DemoNodeData = {
   label: string;
@@ -27,8 +28,7 @@ type DemoNodeData = {
 };
 
 /* -----------------------------
-   Custom node component
-   NOTE: data is intentionally narrowed
+   Custom Node
 -------------------------------- */
 function DemoNode(props: any) {
   const data = props.data as DemoNodeData;
@@ -41,18 +41,17 @@ function DemoNode(props: any) {
         borderRadius: 14,
         background: data.color,
         color: '#fff',
-        minWidth: 180,
+        minWidth: 190,
         boxShadow: selected
           ? '0 0 0 3px rgba(255,255,255,0.9)'
-          : '0 12px 30px rgba(0,0,0,0.25)',
-        transition: 'all 0.2s ease',
+          : '0 14px 35px rgba(0,0,0,0.25)',
+        transition: 'all 0.25s ease',
+        cursor: 'pointer',
       }}
     >
       <Handle type="target" position={Position.Top} />
-      <div style={{ fontWeight: 700 }}>{data.label}</div>
-      <div style={{ fontSize: 12, opacity: 0.85 }}>
-        {data.category}
-      </div>
+      <strong>{data.label}</strong>
+      <div style={{ fontSize: 12, opacity: 0.85 }}>{data.category}</div>
       <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>
         {data.description}
       </div>
@@ -61,105 +60,110 @@ function DemoNode(props: any) {
   );
 }
 
-/* -----------------------------
-   Node types
--------------------------------- */
-const nodeTypes = {
-  demo: DemoNode,
-};
+const nodeTypes = { demo: DemoNode };
 
 /* -----------------------------
-   Initial nodes & edges
+   Initial Graph
 -------------------------------- */
-const initialNodes: Node[] = [
+const baseNodes: Node[] = [
   {
     id: '1',
     type: 'demo',
-    position: { x: 200, y: 50 },
     data: {
       label: 'Signal-Producing Experience',
-      description: 'Thought, memory, sensation, or situation',
+      description: 'Thought, memory, sensation, situation',
       color: '#6366f1',
       category: 'Experience',
     },
+    position: { x: 0, y: 0 },
   },
   {
     id: '2',
     type: 'demo',
-    position: { x: 200, y: 220 },
     data: {
       label: 'Attentive Signal Reading',
-      description: 'Somatic, reflective, immersive',
+      description: 'Somatic reading & awareness',
       color: '#0ea5e9',
       category: 'Reading',
     },
+    position: { x: 0, y: 150 },
   },
   {
     id: '3',
     type: 'demo',
-    position: { x: 200, y: 400 },
     data: {
       label: 'Cognitive Key',
-      description: 'Mental, experiential, or mixed',
+      description: 'Mental / Experiential / Mixed',
       color: '#10b981',
       category: 'Reframe',
     },
+    position: { x: 0, y: 300 },
   },
 ];
 
-const initialEdges: Edge[] = [
-  {
-    id: 'e1-2',
-    source: '1',
-    target: '2',
-    animated: true,
-    type: 'smoothstep',
-  },
-  {
-    id: 'e2-3',
-    source: '2',
-    target: '3',
-    animated: true,
-    type: 'smoothstep',
-  },
+const baseEdges: Edge[] = [
+  { id: 'e1-2', source: '1', target: '2', animated: true },
+  { id: 'e2-3', source: '2', target: '3', animated: true },
 ];
+
+/* -----------------------------
+   Layout helpers
+-------------------------------- */
+function verticalLayout(nodes: Node[]) {
+  return nodes.map((n, i) => ({
+    ...n,
+    position: { x: 200, y: i * 160 },
+  }));
+}
+
+function horizontalLayout(nodes: Node[]) {
+  return nodes.map((n, i) => ({
+    ...n,
+    position: { x: i * 260, y: 200 },
+  }));
+}
 
 /* -----------------------------
    App
 -------------------------------- */
 export default function App() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    verticalLayout(baseNodes)
+  );
+  const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [layout, setLayout] = useState<'vertical' | 'horizontal'>('vertical');
 
   const onConnect = useCallback(
-    (connection: Connection) =>
-      setEdges((eds) =>
-        addEdge({ ...connection, animated: true }, eds)
-      ),
-    [setEdges]
+    (c: Connection) => setEdges((eds) => addEdge(c, eds)),
+    []
   );
 
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === node.id
-            ? {
-                ...n,
-                data: {
-                  ...(n.data as DemoNodeData),
-                  color:
-                    (n.data as DemoNodeData).color === '#6366f1'
-                      ? '#f97316'
-                      : '#6366f1',
-                },
-              }
-            : n
-        )
-      );
-    },
-    [setNodes]
-  );
+  const onNodeClick = useCallback((_e: any, node: Node) => {
+    setSelectedNode(node);
+  }, []);
+
+  const applyLayout = (type: 'vertical' | 'horizontal') => {
+    setLayout(type);
+    setNodes((nds) =>
+      type === 'vertical' ? verticalLayout(nds) : horizontalLayout(nds)
+    );
+  };
+
+  const updateNodeData = (key: keyof DemoNodeData, value: string) => {
+    if (!selectedNode) return;
+
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === selectedNode.id
+          ? {
+              ...n,
+              data: { ...(n.data as DemoNodeData), [key]: value },
+            }
+          : n
+      )
+    );
+  };
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
@@ -175,15 +179,39 @@ export default function App() {
       >
         <MiniMap
           nodeColor={(n) =>
-            typeof n.data === 'object' &&
-            n.data &&
-            'color' in n.data
+            typeof n.data === 'object' && n.data && 'color' in n.data
               ? (n.data as DemoNodeData).color
               : '#999'
           }
         />
         <Controls />
-        <Background gap={16} />
+        <Background gap={18} />
+
+        {/* Layout Controls */}
+        <Panel position="top-left">
+          <button onClick={() => applyLayout('vertical')}>⬇ Vertical</button>
+          <button onClick={() => applyLayout('horizontal')}>➡ Horizontal</button>
+        </Panel>
+
+        {/* Inspector Panel */}
+        {selectedNode && (
+          <Panel position="top-right">
+            <strong>Edit Node</strong>
+            <input
+              value={(selectedNode.data as DemoNodeData).label}
+              onChange={(e) => updateNodeData('label', e.target.value)}
+            />
+            <input
+              value={(selectedNode.data as DemoNodeData).description}
+              onChange={(e) => updateNodeData('description', e.target.value)}
+            />
+            <input
+              type="color"
+              value={(selectedNode.data as DemoNodeData).color}
+              onChange={(e) => updateNodeData('color', e.target.value)}
+            />
+          </Panel>
+        )}
       </ReactFlow>
     </div>
   );
