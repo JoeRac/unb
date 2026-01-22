@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useCallback, useState, DragEvent } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -16,18 +16,17 @@ import {
   BackgroundVariant,
   NodeProps,
   Node,
-  XYPosition,
+  Edge,
+  Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-// Optional: for the color picker node – install with npm install @hello-pangea/color-picker
-// import { ColorPicker, ColorResult } from '@hello-pangea/color-picker';
 
-// Custom data types with index signature to fix TS2344 / Record<string, unknown> constraint
+// Custom Node Type with proper typing
 type CustomNodeData = {
   label: string;
-  color?: string;
-  shape?: 'rect' | 'circle' | 'diamond';
-  [key: string]: unknown; // ← Critical for React Flow v12+ compatibility
+  color: string;
+  shape: 'rect' | 'circle' | 'diamond';
+  [key: string]: unknown; // For Record compatibility
 };
 
 type ResizableNodeData = {
@@ -35,34 +34,28 @@ type ResizableNodeData = {
   [key: string]: unknown;
 };
 
-type ColorChangerData = {
-  color: string;
-  [key: string]: unknown;
-};
-
-// Custom Node components with proper NodeProps<Node<YourData>>
-const CustomNode = ({ data, isConnectable }: NodeProps<Node<CustomNodeData>>) => (
+const CustomNode: React.FC<NodeProps<Node<CustomNodeData>>> = ({ data, isConnectable }) => (
   <div
     style={{
       padding: 10,
-      border: `2px solid ${data.color ?? '#ff0072'}`,
+      border: `2px solid ${data.color}`,
       borderRadius: data.shape === 'circle' ? '50%' : data.shape === 'diamond' ? '10px' : '5px',
       background: '#fff',
       transform: data.shape === 'diamond' ? 'rotate(45deg)' : 'none',
-      width: data.shape === 'diamond' ? 80 : 'auto',
-      height: data.shape === 'diamond' ? 80 : 'auto',
+      width: data.shape === 'diamond' ? 100 : 'auto',
+      height: data.shape === 'diamond' ? 100 : 'auto',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
     }}
   >
-    <Handle type="target" position={Position.Top} isConnectable={isConnectable} />
+    <Handle type="target" position={Position.Left} isConnectable={isConnectable} />
     {data.label}
-    <Handle type="source" position={Position.Bottom} isConnectable={isConnectable} />
+    <Handle type="source" position={Position.Right} isConnectable={isConnectable} />
   </div>
 );
 
-const ResizableNode = ({ data, selected }: NodeProps<Node<ResizableNodeData>>) => (
+const ResizableNode: React.FC<NodeProps<Node<ResizableNodeData>>> = ({ data, selected }) => (
   <div
     style={{
       padding: 10,
@@ -78,70 +71,58 @@ const ResizableNode = ({ data, selected }: NodeProps<Node<ResizableNodeData>>) =
   </div>
 );
 
-const ColorChangerNode = ({ id, data }: NodeProps<Node<ColorChangerData>>) => {
-  const { setNodes } = useReactFlow();
-
-  const handleColorChange = (color: { hex: string }) => {  // Simplified typing if using @hello-pangea/color-picker
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, color: color.hex } } : n
-      )
-    );
-  };
-
-  return (
-    <div style={{ padding: 10, border: '1px solid gray', background: '#fff' }}>
-      Color Picker Node
-      {/* <ColorPicker value={data.color} onChange={handleColorChange} /> */} {/* Uncomment if installed */}
-      <p>Click to change color (demo)</p>
-    </div>
-  );
-};
-
 const nodeTypes = {
   custom: CustomNode,
   resizable: ResizableNode,
-  colorChanger: ColorChangerNode,
-} as const;
+};
 
-// Initial master diagram nodes (typed data)
+// Initial elaborate diagram
 const initialNodes: Node[] = [
-  { id: '1', type: 'custom', position: { x: 100, y: 100 }, data: { label: 'Basic Node', color: '#ff0072', shape: 'rect' } },
-  { id: '2', type: 'custom', position: { x: 300, y: 100 }, data: { label: 'Circle Node', color: '#00ff72', shape: 'circle' } },
-  { id: '3', type: 'custom', position: { x: 500, y: 100 }, data: { label: 'Diamond Node', color: '#0072ff', shape: 'diamond' } },
-  { id: '4', type: 'resizable', position: { x: 100, y: 300 }, data: { label: 'Resizable Node' } },
-  { id: '5', type: 'colorChanger', position: { x: 300, y: 300 }, data: { color: '#ffffff' } },
-  { id: '6', position: { x: 500, y: 300 }, data: { label: 'Hover/Click to Change' } },
-  { id: '7', position: { x: 100, y: 500 }, data: { label: 'Undo/Redo Target' } },
+  { id: '1', type: 'custom', position: { x: 0, y: 0 }, data: { label: 'Start Node', color: '#ff0072', shape: 'rect' } },
+  { id: '2', type: 'custom', position: { x: 200, y: 0 }, data: { label: 'Circle Node', color: '#00ff72', shape: 'circle' } },
+  { id: '3', type: 'custom', position: { x: 400, y: 0 }, data: { label: 'Diamond Node', color: '#0072ff', shape: 'diamond' } },
+  { id: '4', type: 'resizable', position: { x: 0, y: 200 }, data: { label: 'Resizable' } },
+  { id: '5', position: { x: 200, y: 200 }, data: { label: 'Dynamic Add Target' } },
+  { id: '6', position: { x: 400, y: 200 }, data: { label: 'Undo/Redo Demo' } },
+  { id: '7', position: { x: 0, y: 400 }, data: { label: 'Save/Load Node' } },
+  { id: '8', position: { x: 200, y: 400 }, data: { label: 'Zoom/View Change' } },
 ];
 
-const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2', type: 'smoothstep', label: 'Smooth Edge', animated: true },
-  { id: 'e2-3', source: '2', target: '3', type: 'bezier', label: 'Bezier Edge', markerEnd: { type: MarkerType.ArrowClosed } },
-  { id: 'e3-4', source: '3', target: '4', type: 'step', label: 'Step Edge' },
-  { id: 'e4-5', source: '4', target: '5', type: 'straight', label: 'Straight Edge' },
+const initialEdges: Edge[] = [
+  { id: 'e1-2', source: '1', target: '2', type: 'smoothstep', animated: true, label: 'Smooth' },
+  { id: 'e2-3', source: '2', target: '3', type: 'bezier', label: 'Bezier', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'e3-4', source: '3', target: '4', type: 'step', label: 'Step' },
+  { id: 'e4-5', source: '4', target: '5', type: 'straight', label: 'Straight' },
   { id: 'e5-6', source: '5', target: '6' },
   { id: 'e6-7', source: '6', target: '7' },
+  { id: 'e7-8', source: '7', target: '8' },
 ];
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const { fitView, zoomIn, zoomOut, project } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, setViewport } = useReactFlow();
   const [bgVariant, setBgVariant] = useState<BackgroundVariant>(BackgroundVariant.Dots);
-  const [history, setHistory] = useState<{ nodes: Node[]; edges: typeof initialEdges }[]>([{ nodes: initialNodes, edges: initialEdges }]);
+  const [history, setHistory] = useState<{ nodes: Node[]; edges: Edge[] }[]>([{ nodes: initialNodes, edges: initialEdges }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: true }, eds)),
-    [setEdges]
-  );
+  const onConnect = useCallback((params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: true }, eds)), [setEdges]);
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setNodes((nds) =>
       nds.map((n) =>
-        n.id === node.id && 'color' in n.data
-          ? { ...n, data: { ...n.data, color: (n.data as any).color === '#ff0072' ? '#00ff72' : '#ff0072' } }
+        n.id === node.id && n.type === 'custom'
+          ? { ...n, data: { ...n.data, color: (n.data as CustomNodeData).color === '#ff0072' ? '#00ff72' : '#ff0072' } }
+          : n
+      )
+    );
+  }, [setNodes]);
+
+  const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === node.id && n.type === 'custom'
+          ? { ...n, data: { ...n.data, shape: (n.data as CustomNodeData).shape === 'rect' ? 'circle' : (n.data as CustomNodeData).shape === 'circle' ? 'diamond' : 'rect' } }
           : n
       )
     );
@@ -170,10 +151,34 @@ function App() {
     }
   };
 
-  const saveState = () => localStorage.setItem('react-flow-state', JSON.stringify({ nodes, edges }));
+  const addCustomNode = useCallback(() => {
+    const newNode: Node = {
+      id: `${nodes.length + 1}`,
+      type: 'custom',
+      position: { x: Math.random() * 400, y: Math.random() * 400 },
+      data: { label: `New Custom Node ${nodes.length + 1}`, color: '#ccc', shape: 'rect' },
+    };
+    setNodes((nds) => nds.concat(newNode));
+  }, [nodes, setNodes]);
+
+  const addResizableNode = useCallback(() => {
+    const newNode: Node = {
+      id: `${nodes.length + 1}`,
+      type: 'resizable',
+      position: { x: Math.random() * 400, y: Math.random() * 400 },
+      data: { label: `New Resizable ${nodes.length + 1}` },
+    };
+    setNodes((nds) => nds.concat(newNode));
+  }, [nodes, setNodes]);
+
+  const removeLastNode = useCallback(() => {
+    setNodes((nds) => nds.slice(0, -1));
+  }, [setNodes]);
+
+  const saveState = () => localStorage.setItem('react-flow-demo', JSON.stringify({ nodes, edges }));
 
   const loadState = () => {
-    const saved = localStorage.getItem('react-flow-state');
+    const saved = localStorage.getItem('react-flow-demo');
     if (saved) {
       const { nodes: savedNodes, edges: savedEdges } = JSON.parse(saved);
       setNodes(savedNodes);
@@ -181,36 +186,18 @@ function App() {
     }
   };
 
-  const onDragStart = (event: DragEvent<HTMLDivElement>, nodeType: 'custom' | 'resizable' | 'colorChanger') => {
-    event.dataTransfer.setData('application/reactflow', nodeType);
-    event.dataTransfer.effectAllowed = 'move';
-  };
-
-  const onDrop = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      const type = event.dataTransfer.getData('application/reactflow') as 'custom' | 'resizable' | 'colorChanger';
-      if (!type) return;
-
-      const position: XYPosition = project({ x: event.clientX, y: event.clientY });
-
-      let newData: Record<string, unknown> = { label: `${type} Node` };
-      if (type === 'custom') newData = { label: 'Custom Node', color: '#ccc', shape: 'rect' };
-      if (type === 'colorChanger') newData = { color: '#ffffff' };
-
-      const newNode: Node = {
-        id: `${nodes.length + 1}`,
-        type,
-        position,
-        data: newData,
-      };
-      setNodes((nds) => [...nds, newNode]);
-    },
-    [nodes, setNodes, project]
-  );
+  const autoLayout = useCallback(() => {
+    // Simple force-directed layout demo (adjust positions roughly)
+    setNodes((nds) =>
+      nds.map((n, i) => ({
+        ...n,
+        position: { x: (i % 4) * 200, y: Math.floor(i / 4) * 200 },
+      }))
+    );
+  }, [setNodes]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh' }} onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
+    <div style={{ width: '100vw', height: '100vh' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -218,6 +205,7 @@ function App() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
@@ -229,21 +217,21 @@ function App() {
           <button onClick={() => fitView({ duration: 500 })}>Fit View</button>
           <button onClick={zoomIn}>Zoom In</button>
           <button onClick={zoomOut}>Zoom Out</button>
+          <button onClick={autoLayout}>Auto Layout</button>
           <button onClick={undo}>Undo</button>
           <button onClick={redo}>Redo</button>
           <button onClick={saveState}>Save</button>
           <button onClick={loadState}>Load</button>
-          <select value={bgVariant} onChange={(e) => setBgVariant(e.target.value as BackgroundVariant)}>
+        </Panel>
+        <Panel position="top-right">
+          <button onClick={addCustomNode}>Add Custom Node</button>
+          <button onClick={addResizableNode}>Add Resizable Node</button>
+          <button onClick={removeLastNode}>Remove Last Node</button>
+          <select value={bgVariant} onChange={(e) => setBgVariant(Number(e.target.value) as BackgroundVariant)}>
             <option value={BackgroundVariant.Dots}>Dots</option>
             <option value={BackgroundVariant.Lines}>Lines</option>
             <option value={BackgroundVariant.Cross}>Cross</option>
           </select>
-        </Panel>
-        <Panel position="top-right">
-          <div>Drag to add node:</div>
-          <div draggable onDragStart={(e) => onDragStart(e, 'custom')} style={{ padding: 8, border: '1px solid #ccc', margin: 5, cursor: 'grab' }}>Custom Node</div>
-          <div draggable onDragStart={(e) => onDragStart(e, 'resizable')} style={{ padding: 8, border: '1px solid #ccc', margin: 5, cursor: 'grab' }}>Resizable Node</div>
-          <div draggable onDragStart={(e) => onDragStart(e, 'colorChanger')} style={{ padding: 8, border: '1px solid #ccc', margin: 5, cursor: 'grab' }}>Color Changer</div>
         </Panel>
       </ReactFlow>
     </div>
