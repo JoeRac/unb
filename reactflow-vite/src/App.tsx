@@ -20,11 +20,26 @@ import '@xyflow/react/dist/style.css';
 
 type NodeData = {
   label: string;
-  description?: string;
   color: string;
   category: string;
-  wikiUrl?: string;
+
+  // Text
+  description?: string;
   details?: string;
+  longDescription?: string;
+
+  // Links
+  wikiUrl?: string;
+  externalLinks?: { label: string; url: string }[];
+
+  // Images
+  images?: { src: string; alt?: string }[];
+
+  // Video (YouTube / Vimeo / hosted)
+  video?: {
+    type: 'youtube' | 'vimeo' | 'html5';
+    url: string;
+  };
 };
 
 function MethodNode(props: any) {
@@ -69,7 +84,38 @@ function MethodNode(props: any) {
 const nodeTypes = { method: MethodNode };
 
 const initialNodes: Node[] = [
-  { id: 'title', type: 'method', position: { x: 600, y: 0 }, data: { label: 'CIPHER METHOD', color: '#1a1a2e', category: 'Framework', wikiUrl: 'https://example.com/cipher', details: 'Master framework' } },
+  {
+  id: 'title',
+  type: 'method',
+  position: { x: 600, y: 0 },
+  data: {
+    label: 'CIPHER METHOD',
+    color: '#1a1a2e',
+    category: 'Framework',
+
+    description: 'High-precision unburdening framework',
+
+    longDescription:
+      'The Cipher Method is a structured system for decoding internal resistance patterns and producing permanent somatic resolution.',
+
+    wikiUrl: 'https://example.com/cipher',
+
+    externalLinks: [
+      { label: 'Scientific Basis', url: 'https://example.com/research' },
+      { label: 'Full Course', url: 'https://example.com/course' }
+    ],
+
+    images: [
+      { src: '/images/cipher-overview.png', alt: 'Cipher Overview' },
+      { src: '/images/somatic-grid.png', alt: 'Somatic Grid' }
+    ],
+
+    video: {
+      type: 'youtube',
+      url: 'https://www.youtube.com/embed/VIDEO_ID'
+    }
+  }
+},
   { id: 'framework', type: 'method', hidden: true, position: { x: 600, y: 100 }, data: { label: 'Somatic Intelligence Model', color: '#16213e', category: 'Core Theory' } },
   { id: 'bs-signal', type: 'method', hidden: true, position: { x: 400, y: 200 }, data: { label: 'BS (Burden Signal)', color: '#e74c3c', category: 'Signal Type', wikiUrl: 'https://example.com/bs' } },
   { id: 'us-signal', type: 'method', hidden: true, position: { x: 800, y: 200 }, data: { label: 'US (Unburden Signal)', color: '#27ae60', category: 'Signal Type' } },
@@ -372,81 +418,119 @@ function DiagramContent() {
         </Panel>
 
         {selectedNode && selectedNodeData && (
-          <Panel
-            position="top-right"
+  <Panel
+    position="top-right"
+    style={{
+      background: 'white',
+      padding: '20px',
+      borderRadius: '10px',
+      width: '360px',
+      maxHeight: '90vh',
+      overflowY: 'auto',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+      color: '#333',
+    }}
+  >
+    <button
+      onClick={() => setSelectedNode(null)}
+      style={{
+        float: 'right',
+        border: 'none',
+        background: 'none',
+        cursor: 'pointer',
+        fontSize: '18px'
+      }}
+    >
+      ✕
+    </button>
+
+    <h2 style={{ marginTop: 0, color: selectedNodeData.color }}>
+      {selectedNodeData.label}
+    </h2>
+
+    <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: 12 }}>
+      {selectedNodeData.category}
+    </div>
+
+    {selectedNodeData.longDescription && (
+      <p style={{ lineHeight: 1.6 }}>
+        {selectedNodeData.longDescription}
+      </p>
+    )}
+
+    {/* Images */}
+    {selectedNodeData.images?.map((img) => (
+      <img
+        key={img.src}
+        src={img.src}
+        alt={img.alt || ''}
+        style={{
+          width: '100%',
+          borderRadius: 8,
+          marginTop: 12
+        }}
+      />
+    ))}
+
+    {/* Video */}
+    {selectedNodeData.video && (
+      <iframe
+        src={selectedNodeData.video.url}
+        style={{
+          width: '100%',
+          aspectRatio: '16 / 9',
+          borderRadius: 8,
+          marginTop: 16
+        }}
+        allowFullScreen
+      />
+    )}
+
+    {/* External links */}
+    {selectedNodeData.externalLinks?.length && (
+      <div style={{ marginTop: 16 }}>
+        {selectedNodeData.externalLinks.map((link) => (
+          <a
+            key={link.url}
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '8px',
-              width: '300px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              color: '#333',
-              animation: 'slideIn 0.3s ease',
+              display: 'block',
+              marginBottom: 8,
+              color: '#3498db',
+              fontWeight: 'bold'
             }}
           >
-            <style>
-              {`
-                @keyframes slideIn {
-                  from {
-                    opacity: 0;
-                    transform: translateX(20px);
-                  }
-                  to {
-                    opacity: 1;
-                    transform: translateX(0);
-                  }
-                }
-              `}
-            </style>
-            <button 
-              onClick={() => setSelectedNode(null)}
-              style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px' }}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginTop: 0, color: selectedNodeData.color }}>
-              {selectedNodeData.label}
-            </h3>
-            
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-              TYPE: {selectedNodeData.category}
-            </div>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    )}
 
-            {selectedNodeData.description && (
-              <p style={{ lineHeight: '1.5' }}>
-                {selectedNodeData.description}
-              </p>
-            )}
-
-            {selectedNodeData.details && (
-              <p style={{ fontSize: '13px', background: '#f5f5f5', padding: '10px', borderRadius: '4px' }}>
-                {selectedNodeData.details}
-              </p>
-            )}
-
-            {selectedNodeData.wikiUrl && (
-              <div style={{ marginTop: '15px' }}>
-                <a 
-                  href={selectedNodeData.wikiUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'block',
-                    textAlign: 'center',
-                    background: '#3498db',
-                    color: 'white',
-                    padding: '10px',
-                    borderRadius: '5px',
-                    textDecoration: 'none',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Open Documentation ↗
-                </a>
-              </div>
-            )}
-          </Panel>
-        )}
+    {/* Wiki */}
+    {selectedNodeData.wikiUrl && (
+      <a
+        href={selectedNodeData.wikiUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'block',
+          marginTop: 20,
+          padding: 10,
+          background: '#3498db',
+          color: 'white',
+          textAlign: 'center',
+          borderRadius: 6,
+          fontWeight: 'bold',
+          textDecoration: 'none'
+        }}
+      >
+        Open Documentation
+      </a>
+    )}
+  </Panel>
+)}
       </ReactFlow>
     </div>
   );
