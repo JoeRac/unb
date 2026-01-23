@@ -14,6 +14,7 @@ import {
   Edge,
   Connection,
   useReactFlow,
+  ReactFlowProvider,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -141,7 +142,7 @@ const paths = {
   'Quadrant Deep Dive': ['title', 'framework', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
 };
 
-export default function InteractiveDiagram() {
+function DiagramContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
@@ -164,7 +165,6 @@ export default function InteractiveDiagram() {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
     
-    // First fade out nodes not in path
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -176,7 +176,6 @@ export default function InteractiveDiagram() {
       }))
     );
 
-    // Then hide them after fade
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => ({
@@ -189,7 +188,6 @@ export default function InteractiveDiagram() {
         }))
       );
       
-      // Animate camera to fit new view
       setTimeout(() => {
         fitView({ 
           duration: 600,
@@ -202,7 +200,6 @@ export default function InteractiveDiagram() {
   const resetView = () => {
     setActivePath(null);
     
-    // Fade out all
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -214,7 +211,6 @@ export default function InteractiveDiagram() {
       }))
     );
 
-    // Then show only title
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => ({
@@ -239,7 +235,6 @@ export default function InteractiveDiagram() {
   const showAll = () => {
     setActivePath('All Nodes');
     
-    // Reveal all with fade in
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -454,5 +449,13 @@ export default function InteractiveDiagram() {
         )}
       </ReactFlow>
     </div>
+  );
+}
+
+export default function InteractiveDiagram() {
+  return (
+    <ReactFlowProvider>
+      <DiagramContent />
+    </ReactFlowProvider>
   );
 }
