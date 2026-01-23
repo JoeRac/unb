@@ -13,11 +13,9 @@ import {
   Node,
   Edge,
   Connection,
-  // Removed unused 'useReactFlow'
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-// 1. Define the shape of your data
 type NodeData = {
   label: string;
   description?: string;
@@ -27,7 +25,6 @@ type NodeData = {
   details?: string;
 };
 
-// 2. Custom Node Component
 function MethodNode(props: any) {
   const data = props.data as NodeData;
   const selected = props.selected as boolean;
@@ -69,92 +66,35 @@ function MethodNode(props: any) {
 
 const nodeTypes = { method: MethodNode };
 
-// 3. Initial Nodes (Hidden Logic)
 const initialNodes: Node[] = [
-  // LEVEL 1: Visible
-  {
-    id: 'title',
-    type: 'method',
-    data: {
-      label: 'CIPHER METHOD',
-      description: 'Cognitive Intelligence Pattern Handling & Emotional Release',
-      color: '#1a1a2e',
-      category: 'Framework',
-      wikiUrl: 'https://example.com/cipher',
-      details: 'This is the master node. Click to reveal the framework.',
-    },
-    position: { x: 600, y: 0 },
-  },
-  
-  // LEVEL 2: Hidden
-  {
-    id: 'framework',
-    type: 'method',
-    hidden: true,
-    data: {
-      label: 'Somatic Intelligence Model',
-      description: 'BS/US Signal Architecture',
-      color: '#16213e',
-      category: 'Core Theory',
-    },
-    position: { x: 600, y: 100 },
-  },
-  
-  // LEVEL 3
-  {
-    id: 'bs-signal',
-    type: 'method',
-    hidden: true,
-    data: {
-      label: 'BS (Burden Signal)',
-      description: 'Biological sense of burden',
-      color: '#e74c3c',
-      category: 'Signal Type',
-      wikiUrl: 'https://en.wikipedia.org/wiki/Stress_(biology)',
-    },
-    position: { x: 400, y: 200 },
-  },
-  {
-    id: 'us-signal',
-    type: 'method',
-    hidden: true,
-    data: {
-      label: 'US (Unburden Signal)',
-      description: 'Relief, joy, safety achieved',
-      color: '#27ae60',
-      category: 'Signal Type',
-    },
-    position: { x: 800, y: 200 },
-  },
-  {
-    id: 'si-grid',
-    type: 'method',
-    hidden: true,
-    data: {
-      label: 'Somatic Intelligence Grid',
-      description: '4-Quadrant Assessment Tool',
-      color: '#8e44ad',
-      category: 'Assessment',
-    },
-    position: { x: 600, y: 300 },
-  },
-
-  // LEVEL 4
+  { id: 'title', type: 'method', position: { x: 600, y: 0 }, data: { label: 'CIPHER METHOD', color: '#1a1a2e', category: 'Framework', wikiUrl: 'https://example.com/cipher', details: 'Master framework' } },
+  { id: 'framework', type: 'method', hidden: true, position: { x: 600, y: 100 }, data: { label: 'Somatic Intelligence Model', color: '#16213e', category: 'Core Theory' } },
+  { id: 'bs-signal', type: 'method', hidden: true, position: { x: 400, y: 200 }, data: { label: 'BS (Burden Signal)', color: '#e74c3c', category: 'Signal Type', wikiUrl: 'https://example.com/bs' } },
+  { id: 'us-signal', type: 'method', hidden: true, position: { x: 800, y: 200 }, data: { label: 'US (Unburden Signal)', color: '#27ae60', category: 'Signal Type' } },
+  { id: 'si-grid', type: 'method', hidden: true, position: { x: 600, y: 300 }, data: { label: 'Somatic Intelligence Grid', color: '#8e44ad', category: 'Assessment' } },
   { id: 'phantom-threat', type: 'method', hidden: true, position: { x: 350, y: 400 }, data: { label: 'Phantom Threat', color: '#e67e22', category: 'Quadrant' } },
   { id: 'clear-threat', type: 'method', hidden: true, position: { x: 550, y: 400 }, data: { label: 'Clear Threat', color: '#c0392b', category: 'Quadrant' } },
   { id: 'assumed-safety', type: 'method', hidden: true, position: { x: 750, y: 400 }, data: { label: 'Assumed Safety', color: '#f39c12', category: 'Quadrant' } },
   { id: 'grounded-safety', type: 'method', hidden: true, position: { x: 950, y: 400 }, data: { label: 'Grounded Safety', color: '#27ae60', category: 'Quadrant' } },
-
-  // STEPS
-  { id: 'step1', type: 'method', hidden: true, position: { x: 150, y: 550 }, data: { label: 'STEP 1: Immerse', color: '#3498db', category: 'Process', wikiUrl: 'https://google.com' } },
+  { id: 'step1', type: 'method', hidden: true, position: { x: 150, y: 550 }, data: { label: 'STEP 1: Immerse', color: '#3498db', category: 'Process', wikiUrl: 'https://example.com/step1' } },
   { id: 'step2', type: 'method', hidden: true, position: { x: 450, y: 550 }, data: { label: 'STEP 2: Read Signal', color: '#9b59b6', category: 'Process' } },
   { id: 'step3', type: 'method', hidden: true, position: { x: 750, y: 550 }, data: { label: 'STEP 3: Design Key', color: '#e67e22', category: 'Process' } },
   { id: 'step4', type: 'method', hidden: true, position: { x: 1050, y: 550 }, data: { label: 'STEP 4: Implement', color: '#27ae60', category: 'Process' } },
-
-  { id: 'step1-thought', type: 'method', hidden: true, position: { x: 0, y: 650 }, data: { label: 'Thought', color: '#5dade2', category: 'Exp Type' } },
-  { id: 'step1-real', type: 'method', hidden: true, position: { x: 180, y: 650 }, data: { label: 'Real Situation', color: '#5dade2', category: 'Exp Type' } },
-  
+  { id: 'step1-thought', type: 'method', hidden: true, position: { x: 0, y: 650 }, data: { label: 'Thought', color: '#5dade2', category: 'Experience Type' } },
+  { id: 'step1-situation', type: 'method', hidden: true, position: { x: 180, y: 650 }, data: { label: 'Real Situation', color: '#5dade2', category: 'Experience Type' } },
+  { id: 'step1-sensation', type: 'method', hidden: true, position: { x: 0, y: 750 }, data: { label: 'Sensation', color: '#5dade2', category: 'Experience Type' } },
+  { id: 'step1-memory', type: 'method', hidden: true, position: { x: 180, y: 750 }, data: { label: 'Memory', color: '#5dade2', category: 'Experience Type' } },
+  { id: 'step2-journal', type: 'method', hidden: true, position: { x: 360, y: 650 }, data: { label: 'Journal', color: '#af7ac5', category: 'Reading Method' } },
+  { id: 'step2-walk', type: 'method', hidden: true, position: { x: 540, y: 650 }, data: { label: 'Go for Walk', color: '#af7ac5', category: 'Reading Method' } },
+  { id: 'step2-therapy', type: 'method', hidden: true, position: { x: 360, y: 750 }, data: { label: 'Talk Therapy', color: '#af7ac5', category: 'Reading Method' } },
+  { id: 'somatic-lock', type: 'method', hidden: true, position: { x: 450, y: 850 }, data: { label: 'Somatic Lock', color: '#e74c3c', category: 'Discovery' } },
+  { id: 'step3-mental', type: 'method', hidden: true, position: { x: 700, y: 650 }, data: { label: 'Pure Mental Key', color: '#f39c12', category: 'Key Type' } },
+  { id: 'step3-experimental', type: 'method', hidden: true, position: { x: 900, y: 650 }, data: { label: 'Pure Experimental', color: '#f39c12', category: 'Key Type' } },
+  { id: 'step3-mixed', type: 'method', hidden: true, position: { x: 800, y: 750 }, data: { label: 'Mixed Key', color: '#f39c12', category: 'Key Type' } },
+  { id: 'step4-thought', type: 'method', hidden: true, position: { x: 1000, y: 650 }, data: { label: 'Repeated Thought', color: '#52be80', category: 'Implementation' } },
+  { id: 'step4-action', type: 'method', hidden: true, position: { x: 1180, y: 650 }, data: { label: 'Real-World Action', color: '#52be80', category: 'Implementation' } },
   { id: 'result-instant', type: 'method', hidden: true, position: { x: 1050, y: 850 }, data: { label: 'Instant Relief', color: '#1abc9c', category: 'Result' } },
+  { id: 'result-unburdened', type: 'method', hidden: true, position: { x: 1050, y: 950 }, data: { label: 'Living Unburdened', color: '#0e6655', category: 'Outcome' } },
 ];
 
 const initialEdges: Edge[] = [
@@ -166,19 +106,46 @@ const initialEdges: Edge[] = [
   { id: 'e6', source: 'si-grid', target: 'clear-threat' },
   { id: 'e7', source: 'si-grid', target: 'assumed-safety' },
   { id: 'e8', source: 'si-grid', target: 'grounded-safety' },
-  { id: 'e9', source: 'si-grid', target: 'step1', animated: true, style: { strokeWidth: 2 } },
+  { id: 'e9', source: 'si-grid', target: 'step1', animated: true },
   { id: 'e10', source: 'step1', target: 'step2', animated: true },
   { id: 'e11', source: 'step2', target: 'step3', animated: true },
   { id: 'e12', source: 'step3', target: 'step4', animated: true },
   { id: 'e13', source: 'step1', target: 'step1-thought' },
-  { id: 'e14', source: 'step1', target: 'step1-real' },
-  { id: 'e15', source: 'step4', target: 'result-instant' },
+  { id: 'e14', source: 'step1', target: 'step1-situation' },
+  { id: 'e15', source: 'step1', target: 'step1-sensation' },
+  { id: 'e16', source: 'step1', target: 'step1-memory' },
+  { id: 'e17', source: 'step2', target: 'step2-journal' },
+  { id: 'e18', source: 'step2', target: 'step2-walk' },
+  { id: 'e19', source: 'step2', target: 'step2-therapy' },
+  { id: 'e20', source: 'step2', target: 'somatic-lock' },
+  { id: 'e21', source: 'step3', target: 'step3-mental' },
+  { id: 'e22', source: 'step3', target: 'step3-experimental' },
+  { id: 'e23', source: 'step3', target: 'step3-mixed' },
+  { id: 'e24', source: 'step4', target: 'step4-thought' },
+  { id: 'e25', source: 'step4', target: 'step4-action' },
+  { id: 'e26', source: 'step4', target: 'result-instant' },
+  { id: 'e27', source: 'result-instant', target: 'result-unburdened' },
 ];
+
+// Define paths - each path is an array of node IDs to reveal
+const paths = {
+  'Complete Overview': ['title', 'framework', 'bs-signal', 'us-signal', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
+  'Full Process Flow': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step4', 'result-instant', 'result-unburdened'],
+  'Step 1: Immerse Options': ['title', 'framework', 'si-grid', 'step1', 'step1-thought', 'step1-situation', 'step1-sensation', 'step1-memory'],
+  'Step 2: Reading Methods': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step2-journal', 'step2-walk', 'step2-therapy', 'somatic-lock'],
+  'Step 3: Key Design': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step3-mental', 'step3-experimental', 'step3-mixed'],
+  'Step 4: Implementation': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step4', 'step4-thought', 'step4-action'],
+  'Burden Signal Path': ['title', 'framework', 'bs-signal', 'si-grid', 'phantom-threat', 'clear-threat'],
+  'Unburden Signal Path': ['title', 'framework', 'us-signal', 'si-grid', 'assumed-safety', 'grounded-safety'],
+  'Full Journey to Relief': ['title', 'framework', 'si-grid', 'step1', 'step1-thought', 'step2', 'step2-journal', 'somatic-lock', 'step3', 'step3-mental', 'step4', 'step4-thought', 'result-instant', 'result-unburdened'],
+  'Quadrant Deep Dive': ['title', 'framework', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
+};
 
 export default function InteractiveDiagram() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [activePath, setActivePath] = useState<string | null>(null);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -188,25 +155,42 @@ export default function InteractiveDiagram() {
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
       setSelectedNode(node);
-      
-      // Reveal children logic
-      const childrenIds = edges
-        .filter((e) => e.source === node.id)
-        .map((e) => e.target);
-
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (childrenIds.includes(n.id)) {
-            return { ...n, hidden: false };
-          }
-          return n;
-        })
-      );
     },
-    [edges, setNodes]
+    []
   );
 
-  // Helper to safely get data for the selected node
+  const showPath = (pathName: string) => {
+    const pathNodes = paths[pathName as keyof typeof paths];
+    setActivePath(pathName);
+    
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        hidden: !pathNodes.includes(n.id),
+      }))
+    );
+  };
+
+  const resetView = () => {
+    setActivePath(null);
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        hidden: n.id !== 'title',
+      }))
+    );
+  };
+
+  const showAll = () => {
+    setActivePath('All Nodes');
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        hidden: false,
+      }))
+    );
+  };
+
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
   return (
@@ -224,6 +208,87 @@ export default function InteractiveDiagram() {
         <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
         <Controls />
         <Background color="#222" gap={16} />
+
+        {/* PATH BUTTONS */}
+        <Panel position="top-left" style={{ 
+          background: 'rgba(255,255,255,0.95)', 
+          padding: '16px', 
+          borderRadius: '8px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          width: '220px'
+        }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
+          
+          <button
+            onClick={resetView}
+            style={{
+              width: '100%',
+              padding: '8px',
+              marginBottom: '8px',
+              background: activePath === null ? '#3498db' : '#ecf0f1',
+              color: activePath === null ? 'white' : '#333',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}
+          >
+            🔄 Reset View
+          </button>
+
+          <button
+            onClick={showAll}
+            style={{
+              width: '100%',
+              padding: '8px',
+              marginBottom: '12px',
+              background: activePath === 'All Nodes' ? '#3498db' : '#ecf0f1',
+              color: activePath === 'All Nodes' ? 'white' : '#333',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}
+          >
+            🌐 Show All
+          </button>
+
+          {Object.keys(paths).map((pathName) => (
+            <button
+              key={pathName}
+              onClick={() => showPath(pathName)}
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginBottom: '6px',
+                background: activePath === pathName ? '#3498db' : 'white',
+                color: activePath === pathName ? 'white' : '#333',
+                border: activePath === pathName ? 'none' : '1px solid #ddd',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                fontWeight: activePath === pathName ? 'bold' : 'normal'
+              }}
+              onMouseEnter={(e) => {
+                if (activePath !== pathName) {
+                  e.currentTarget.style.background = '#e8f4f8';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activePath !== pathName) {
+                  e.currentTarget.style.background = 'white';
+                }
+              }}
+            >
+              {pathName}
+            </button>
+          ))}
+        </Panel>
 
         {/* INFO PANEL */}
         {selectedNode && selectedNodeData && (
