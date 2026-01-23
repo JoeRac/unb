@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -13,6 +13,7 @@ import {
   Node,
   Edge,
   Connection,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -41,7 +42,7 @@ function MethodNode(props: any) {
         boxShadow: selected
           ? '0 0 0 3px #ffd700, 0 8px 24px rgba(0,0,0,0.3)'
           : '0 4px 12px rgba(0,0,0,0.15)',
-        transition: 'all 0.2s ease',
+        transition: 'all 0.3s ease',
         cursor: 'pointer',
         border: '2px solid rgba(255,255,255,0.2)',
       }}
@@ -127,7 +128,6 @@ const initialEdges: Edge[] = [
   { id: 'e27', source: 'result-instant', target: 'result-unburdened' },
 ];
 
-// Define paths - each path is an array of node IDs to reveal
 const paths = {
   'Complete Overview': ['title', 'framework', 'bs-signal', 'us-signal', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
   'Full Process Flow': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step4', 'result-instant', 'result-unburdened'],
@@ -146,6 +146,7 @@ export default function InteractiveDiagram() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const { fitView } = useReactFlow();
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -163,32 +164,113 @@ export default function InteractiveDiagram() {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
     
+    // First fade out nodes not in path
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
-        hidden: !pathNodes.includes(n.id),
+        style: {
+          ...n.style,
+          opacity: pathNodes.includes(n.id) ? 1 : 0,
+          transition: 'opacity 0.4s ease, transform 0.4s ease',
+        },
       }))
     );
+
+    // Then hide them after fade
+    setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          hidden: !pathNodes.includes(n.id),
+          style: {
+            ...n.style,
+            opacity: 1,
+          },
+        }))
+      );
+      
+      // Animate camera to fit new view
+      setTimeout(() => {
+        fitView({ 
+          duration: 600,
+          padding: 0.2,
+        });
+      }, 50);
+    }, 400);
   };
 
   const resetView = () => {
     setActivePath(null);
+    
+    // Fade out all
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
-        hidden: n.id !== 'title',
+        style: {
+          ...n.style,
+          opacity: 0,
+          transition: 'opacity 0.4s ease, transform 0.4s ease',
+        },
       }))
     );
+
+    // Then show only title
+    setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          hidden: n.id !== 'title',
+          style: {
+            ...n.style,
+            opacity: 1,
+          },
+        }))
+      );
+      
+      setTimeout(() => {
+        fitView({ 
+          duration: 600,
+          padding: 0.2,
+        });
+      }, 50);
+    }, 400);
   };
 
   const showAll = () => {
     setActivePath('All Nodes');
+    
+    // Reveal all with fade in
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
         hidden: false,
+        style: {
+          ...n.style,
+          opacity: 0,
+          transition: 'opacity 0.5s ease, transform 0.5s ease',
+        },
       }))
     );
+
+    setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n, index) => ({
+          ...n,
+          style: {
+            ...n.style,
+            opacity: 1,
+            transitionDelay: `${index * 0.02}s`,
+          },
+        }))
+      );
+      
+      setTimeout(() => {
+        fitView({ 
+          duration: 800,
+          padding: 0.1,
+        });
+      }, 100);
+    }, 50);
   };
 
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
@@ -209,7 +291,6 @@ export default function InteractiveDiagram() {
         <Controls />
         <Background color="#222" gap={16} />
 
-        {/* PATH BUTTONS */}
         <Panel position="top-left" style={{ 
           background: 'rgba(255,255,255,0.95)', 
           padding: '16px', 
@@ -232,7 +313,8 @@ export default function InteractiveDiagram() {
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease'
             }}
           >
             🔄 Reset View
@@ -250,7 +332,8 @@ export default function InteractiveDiagram() {
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease'
             }}
           >
             🌐 Show All
@@ -271,17 +354,20 @@ export default function InteractiveDiagram() {
                 cursor: 'pointer',
                 fontSize: '11px',
                 textAlign: 'left',
-                transition: 'all 0.2s',
-                fontWeight: activePath === pathName ? 'bold' : 'normal'
+                transition: 'all 0.3s ease',
+                fontWeight: activePath === pathName ? 'bold' : 'normal',
+                transform: activePath === pathName ? 'translateX(4px)' : 'translateX(0)'
               }}
               onMouseEnter={(e) => {
                 if (activePath !== pathName) {
                   e.currentTarget.style.background = '#e8f4f8';
+                  e.currentTarget.style.transform = 'translateX(4px)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (activePath !== pathName) {
                   e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.transform = 'translateX(0)';
                 }
               }}
             >
@@ -290,7 +376,6 @@ export default function InteractiveDiagram() {
           ))}
         </Panel>
 
-        {/* INFO PANEL */}
         {selectedNode && selectedNodeData && (
           <Panel
             position="top-right"
@@ -301,8 +386,23 @@ export default function InteractiveDiagram() {
               width: '300px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
               color: '#333',
+              animation: 'slideIn 0.3s ease',
             }}
           >
+            <style>
+              {`
+                @keyframes slideIn {
+                  from {
+                    opacity: 0;
+                    transform: translateX(20px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateX(0);
+                  }
+                }
+              `}
+            </style>
             <button 
               onClick={() => setSelectedNode(null)}
               style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px' }}
