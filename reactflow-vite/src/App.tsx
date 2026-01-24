@@ -23,6 +23,7 @@ type NodeData = {
   color: string;
   category: string;
 
+  
   // Text
   description?: string;
   details?: string;
@@ -69,14 +70,14 @@ function MethodNode(props: any) {
         e.currentTarget.style.transform = 'scale(1)';
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#555' }} />
+      <Handle type="target" position={Position.Top} style={{ background: '#555' }} isConnectable={false} />
       <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{data.label}</div>
       {data.category && (
         <div style={{ fontSize: 10, opacity: 0.8, fontStyle: 'italic' }}>
           {data.category}
         </div>
       )}
-      <Handle type="source" position={Position.Bottom} style={{ background: '#555' }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: '#555' }} isConnectable={false} />
     </div>
   );
 }
@@ -324,8 +325,10 @@ function DiagramContent() {
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
         onNodeClick={onNodeClick}
+        nodesDraggable={true}
+        nodesConnectable={false}
+        edgesConnectable={false}
         fitView
       >
         <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
