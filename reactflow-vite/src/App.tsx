@@ -1,3 +1,10 @@
+  // Show all nodes on initial mount so the diagram is always visible
+  import { useEffect } from 'react';
+
+  useEffect(() => {
+    showAll();
+    // eslint-disable-next-line
+  }, []);
 import { useCallback, useState } from 'react';
 import dagre from '@dagrejs/dagre';
 import {
