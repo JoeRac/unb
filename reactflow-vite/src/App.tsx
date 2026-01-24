@@ -227,9 +227,9 @@ function DiagramContent() {
   const { fitView, setViewport } = useReactFlow();
   // Cinematic fitView animation after layout
   const cinematicFitView = () => {
-    setViewport({ x: 0, y: 0, zoom: 0.2 }, { duration: 400 });
+    setViewport({ x: 0, y: 0, zoom: 0.2 }, { duration: 400, easing: 'easeInOutCubic' });
     setTimeout(() => {
-      fitView({ duration: 1200, padding: 0.18 });
+      fitView({ duration: 1200, padding: 0.18, easing: 'easeInOutCubic' });
     }, 420);
   };
 
