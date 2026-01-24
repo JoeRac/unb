@@ -206,8 +206,9 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    const highlightColor = '#5a7fa3'; // soft blue-gray, professional
-    const paleColor = '#e5e7eb'; // soft gray for light bg
+    // Ultra professional: black, white, and shades of grey
+    const highlightColor = '#18191a'; // deep black/grey for highlight
+    const paleColor = '#f4f4f5';      // very light grey for background
     setNodes((nds) =>
       nds.map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -215,9 +216,9 @@ function DiagramContent() {
           ...n,
           style: {
             background: isActive ? highlightColor : paleColor,
-            color: isActive ? '#fff' : '#666',
+            color: isActive ? '#fff' : '#222',
             opacity: isActive ? 1 : 0.35,
-            boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+            boxShadow: isActive ? '0 0 0 4px #222, 0 8px 24px rgba(0,0,0,0.18)' : 'none',
             boxHighlight: isActive ? true : false,
             transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
@@ -233,9 +234,9 @@ function DiagramContent() {
             hidden: false,
             style: {
               background: isActive ? highlightColor : paleColor,
-              color: isActive ? '#fff' : '#666',
+              color: isActive ? '#fff' : '#222',
               opacity: isActive ? 1 : 0.35,
-              boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+              boxShadow: isActive ? '0 0 0 4px #222, 0 8px 24px rgba(0,0,0,0.18)' : 'none',
               boxHighlight: isActive ? true : false,
               transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
             },
@@ -256,7 +257,7 @@ function DiagramContent() {
         return {
           ...e,
           style: {
-            stroke: isActive ? highlightColor : paleColor,
+            stroke: isActive ? '#222' : '#bbb',
             opacity: isActive ? 1 : 0.25,
             strokeWidth: isActive ? 3 : 1.5,
             transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
@@ -353,7 +354,7 @@ function DiagramContent() {
         snapToGrid={true}
         snapGrid={[30, 30]}
       >
-        <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
+        {/* MiniMap removed for ultra professional look */}
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
 
