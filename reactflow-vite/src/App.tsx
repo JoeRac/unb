@@ -120,7 +120,7 @@ const initialNodes: Node[] = [
   type: 'method',
   position: { x: 600, y: 0 },
   data: {
-    label: 'CIPHER METHOD',
+    label: 'Unburdened',
     color: '#1a1a2e',
     category: 'Framework',
 
@@ -227,14 +227,31 @@ function DiagramContent() {
     { label: 'Right-Left', value: 'RL' },
   ];
   const [layoutIndex, setLayoutIndex] = useState(0);
-  const [nodes, setNodes, onNodesChange] = useNodesState(getLayoutedNodes(initialNodes, initialEdges, layoutDirections[0].value as 'TB'));
-    // Toggle layout direction
-    const toggleLayout = () => {
-      const nextIndex = (layoutIndex + 1) % layoutDirections.length;
-      setLayoutIndex(nextIndex);
-      setNodes((nds) => getLayoutedNodes(nds, edges, layoutDirections[nextIndex].value as 'TB'));
-    };
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  // Toggle layout direction
+  const toggleLayout = () => {
+    const nextIndex = (layoutIndex + 1) % layoutDirections.length;
+    setLayoutIndex(nextIndex);
+    setNodes((nds) => getLayoutedNodes(nds, edges, layoutDirections[nextIndex].value as 'TB'));
+  };
+  // Load data from Google Sheets on mount
+  useEffect(() => {
+    // TODO: Replace with your actual API key and range
+    const sheetId = '1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ';
+    const apiKey = 'YOUR_GOOGLE_SHEETS_API_KEY';
+    const range = 'Sheet1';
+    fetchSheetData(sheetId, apiKey, range)
+      .then(({ nodes, edges }) => {
+        setNodes(getLayoutedNodes(nodes, edges, layoutDirections[layoutIndex].value as 'TB'));
+        setEdges(edges);
+      })
+      .catch((err) => {
+        // fallback: show nothing or static data
+        console.error('Failed to load sheet data', err);
+      });
+    // eslint-disable-next-line
+  }, []);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const { fitView } = useReactFlow();
