@@ -217,12 +217,8 @@ function DiagramContent() {
             background: isActive ? highlightColor : paleColor,
             color: isActive ? '#fff' : '#666',
             opacity: isActive ? 1 : 0.35,
-            fontSize: isActive ? 18 : 13,
-            minWidth: isActive ? 180 : 140,
-            maxWidth: isActive ? 220 : 160,
             boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
-            transform: isActive ? 'scale(1.08)' : 'scale(0.95)',
-            transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
+            transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
         };
       })
@@ -238,12 +234,8 @@ function DiagramContent() {
               background: isActive ? highlightColor : paleColor,
               color: isActive ? '#fff' : '#666',
               opacity: isActive ? 1 : 0.35,
-              fontSize: isActive ? 18 : 13,
-              minWidth: isActive ? 180 : 140,
-              maxWidth: isActive ? 220 : 160,
               boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
-              transform: isActive ? 'scale(1.08)' : 'scale(0.95)',
-              transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
+              transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
             },
           };
         })
