@@ -3,7 +3,6 @@ import {
   ReactFlow,
   MiniMap,
   Controls,
-  Background,
   Handle,
   Position,
   useNodesState,
