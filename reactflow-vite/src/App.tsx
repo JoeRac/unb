@@ -196,10 +196,7 @@ function DiagramContent() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const { fitView } = useReactFlow();
 
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges],
-  );
+  
 
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
@@ -328,7 +325,7 @@ function DiagramContent() {
         onNodeClick={onNodeClick}
         nodesDraggable={true}
         nodesConnectable={false}
-        edgesConnectable={false}
+        connectable={false}
         fitView
       >
         <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
