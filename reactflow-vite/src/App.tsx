@@ -257,9 +257,20 @@ function DiagramContent() {
     };
   };
 
-  const manualHighlightStyle = {
-    boxShadow: '0 0 0 4px #f59e0b, 0 8px 24px rgba(0,0,0,0.25)',
+  const manualActiveStyle = {
+    background: '#1976d2',
+    color: '#fff',
+    opacity: 1,
+    boxShadow: '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)',
     boxHighlight: true,
+  };
+
+  const manualInactiveStyle = {
+    background: '#e5e7eb',
+    color: '#666',
+    opacity: 0.35,
+    boxShadow: 'none',
+    boxHighlight: false,
   };
 
   const onNodeClick = useCallback(
@@ -283,7 +294,7 @@ function DiagramContent() {
               hidden: false,
               style: {
                 ...baseNodeStyle(n),
-                ...(isActive ? manualHighlightStyle : {}),
+                ...(isActive ? manualActiveStyle : manualInactiveStyle),
               },
             };
           })
@@ -291,7 +302,7 @@ function DiagramContent() {
         return next;
       });
     },
-    [mode, setNodes, baseNodeStyle, manualHighlightStyle]
+    [mode, setNodes, baseNodeStyle, manualActiveStyle, manualInactiveStyle]
   );
 
   const enterManualMode = () => {
@@ -305,7 +316,7 @@ function DiagramContent() {
         hidden: false,
         style: {
           ...baseNodeStyle(n),
-          boxHighlight: false,
+          ...manualInactiveStyle,
         },
       }))
     );
