@@ -1,3 +1,30 @@
+import dagre from 'dagre';
+// Dagre layout helper
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+const nodeWidth = 240;
+const nodeHeight = 80;
+
+function getLayoutedNodes(nodes, edges, direction = 'TB') {
+  dagreGraph.setGraph({ rankdir: direction });
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+  dagre.layout(dagreGraph);
+  return nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - nodeWidth / 2,
+        y: nodeWithPosition.y - nodeHeight / 2,
+      },
+    };
+  });
+}
 import { useCallback, useState } from 'react';
 import {
   ReactFlow,
@@ -188,7 +215,7 @@ const paths = {
 };
 
 function DiagramContent() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(getLayoutedNodes(initialNodes, initialEdges));
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -208,8 +235,8 @@ function DiagramContent() {
     setActivePath(pathName);
     const highlightColor = '#1976d2'; // brighter blue
     const paleColor = '#e5e7eb'; // soft gray for light bg
-    setNodes((nds) =>
-      nds.map((n) => {
+    setNodes((nds) => {
+      const updated = nds.map((n) => {
         const isActive = pathNodes.includes(n.id);
         return {
           ...n,
@@ -224,8 +251,9 @@ function DiagramContent() {
             transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
         };
-      })
-    );
+      });
+      return getLayoutedNodes(updated, edges);
+    });
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => {
