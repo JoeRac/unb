@@ -224,14 +224,7 @@ function DiagramContent() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
-  const { fitView, setViewport } = useReactFlow();
-  // Cinematic fitView animation after layout
-  const cinematicFitView = () => {
-    setViewport({ x: 0, y: 0, zoom: 0.2 }, { duration: 400, easing: 'easeInOutCubic' });
-    setTimeout(() => {
-      fitView({ duration: 1200, padding: 0.18, easing: 'easeInOutCubic' });
-    }, 420);
-  };
+  const { fitView } = useReactFlow();
 
   
 
@@ -266,9 +259,6 @@ function DiagramContent() {
       });
       return getLayoutedNodes(updated, edges);
     });
-    setTimeout(() => {
-      cinematicFitView();
-    }, 100);
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => {
@@ -315,6 +305,7 @@ function DiagramContent() {
 
   const resetView = () => {
     setActivePath(null);
+    
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -325,6 +316,7 @@ function DiagramContent() {
         },
       }))
     );
+
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => ({
@@ -336,8 +328,12 @@ function DiagramContent() {
           },
         }))
       );
+      
       setTimeout(() => {
-        cinematicFitView();
+        fitView({ 
+          duration: 600,
+          padding: 0.2,
+        });
       }, 50);
     }, 400);
   };
