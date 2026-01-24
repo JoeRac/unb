@@ -1,6 +1,7 @@
-  // Show all nodes on initial mount so the diagram is always visible
-  import { useEffect } from 'react';
+  // ...existing code...
 
+  // Show all nodes on initial mount so the diagram is always visible
+  // (must be after showAll is defined)
   useEffect(() => {
     showAll();
     // eslint-disable-next-line
