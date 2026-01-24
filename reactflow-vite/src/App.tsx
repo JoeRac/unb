@@ -1,9 +1,7 @@
-import { 
-  useCallback, 
-  useState 
-} from 'react';
+import { useCallback, useState } from 'react';
 import {
   ReactFlow,
+  MiniMap,
   Controls,
   Handle,
   Position,
@@ -14,10 +12,7 @@ import {
   Edge,
   useReactFlow,
   ReactFlowProvider,
-  Background,
-  BackgroundVariant
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
 import '@xyflow/react/dist/style.css';
 
 type NodeData = {
@@ -52,37 +47,25 @@ function MethodNode(props: any) {
   return (
     <div
       style={{
-        padding: props.style?.boxHighlight ? 22 : 14,
+        padding: props.style?.boxHighlight ? 20 : 12,
         fontSize: props.style?.boxHighlight ? 18 : 13,
-        borderRadius: 18,
+        borderRadius: 10,
         background: props.style?.background,
         color: props.style?.color,
-        minWidth: props.style?.boxHighlight ? 220 : 170,
-        maxWidth: props.style?.boxHighlight ? 280 : 210,
+        minWidth: props.style?.boxHighlight ? 200 : 160,
+        maxWidth: props.style?.boxHighlight ? 260 : 200,
         boxShadow: selected
-          ? '0 2px 16px 2px rgba(30,30,40,0.18), 0 0 0 4px #222'
-          : '0 2px 12px 1px rgba(30,30,40,0.10)',
-        border: selected
-          ? '2.5px solid #222'
-          : '1.5px solid #e5e7eb',
-        transition: 'all 0.25s cubic-bezier(.4,2,.3,1)',
+          ? '0 0 0 3px #ffd700, 0 8px 24px rgba(0,0,0,0.3)'
+          : '0 4px 12px rgba(0,0,0,0.15)',
+        transition: 'all 0.3s ease',
         cursor: 'pointer',
-        backdropFilter: 'blur(1.5px)',
-        backgroundClip: 'padding-box',
+        border: '2px solid rgba(255,255,255,0.2)',
       }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = 'scale(1.045)';
-        e.currentTarget.style.boxShadow = '0 4px 24px 4px rgba(30,30,40,0.22), 0 0 0 4px #444';
-        e.currentTarget.style.border = '2.5px solid #444';
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'scale(1.05)';
       }}
-      onMouseLeave={e => {
+      onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'scale(1)';
-        e.currentTarget.style.boxShadow = selected
-          ? '0 2px 16px 2px rgba(30,30,40,0.18), 0 0 0 4px #222'
-          : '0 2px 12px 1px rgba(30,30,40,0.10)';
-        e.currentTarget.style.border = selected
-          ? '2.5px solid #222'
-          : '1.5px solid #e5e7eb';
       }}
     >
       <Handle type="target" position={Position.Top} style={{ background: '#555' }} isConnectable={false} />
@@ -223,9 +206,8 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    // Ultra professional: black, white, and shades of grey
-    const highlightColor = '#23272f'; // modern deep grey for highlight
-    const paleColor = '#f7f7fa';      // ultra-light grey for background
+    const highlightColor = '#1976d2'; // brighter blue
+    const paleColor = '#e5e7eb'; // soft gray for light bg
     setNodes((nds) =>
       nds.map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -233,9 +215,9 @@ function DiagramContent() {
           ...n,
           style: {
             background: isActive ? highlightColor : paleColor,
-            color: isActive ? '#f8f9fa' : '#23272f',
+            color: isActive ? '#fff' : '#666',
             opacity: isActive ? 1 : 0.35,
-            boxShadow: isActive ? '0 0 0 4px #23272f, 0 8px 24px rgba(30,30,40,0.13)' : 'none',
+            boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
             boxHighlight: isActive ? true : false,
             transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
@@ -251,9 +233,9 @@ function DiagramContent() {
             hidden: false,
             style: {
               background: isActive ? highlightColor : paleColor,
-              color: isActive ? '#fff' : '#222',
+              color: isActive ? '#fff' : '#666',
               opacity: isActive ? 1 : 0.35,
-              boxShadow: isActive ? '0 0 0 4px #222, 0 8px 24px rgba(0,0,0,0.18)' : 'none',
+              boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
               boxHighlight: isActive ? true : false,
               transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
             },
@@ -274,12 +256,10 @@ function DiagramContent() {
         return {
           ...e,
           style: {
-            stroke: isActive ? '#23272f' : '#c7c9ce',
+            stroke: isActive ? highlightColor : paleColor,
             opacity: isActive ? 1 : 0.25,
             strokeWidth: isActive ? 3 : 1.5,
-            filter: isActive ? 'drop-shadow(0 2px 6px rgba(30,30,40,0.10))' : 'none',
             transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
-            cursor: isActive ? 'pointer' : 'default',
           },
         };
       })
@@ -363,11 +343,7 @@ function DiagramContent() {
     <div style={{ width: '100vw', height: '100vh', background: '#f7f7fa' }}>
       <ReactFlow
         nodes={nodes}
-        edges={edges.map(e => ({
-          ...e,
-          type: 'smoothstep',
-          markerEnd: 'arrowclosed',
-        }))}
+        edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -377,13 +353,9 @@ function DiagramContent() {
         snapToGrid={true}
         snapGrid={[30, 30]}
       >
-        {/* MiniMap removed for ultra professional look */}
+        <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
         <Controls />
-        <Background
-          color="#e5e7eb"
-          gap={32}
-          variant={BackgroundVariant.Lines}
-        />
+        {/* <Background color="#222" gap={16} /> */}
 
         <Panel position="top-left" style={{ 
           background: 'rgba(255,255,255,0.95)', 
