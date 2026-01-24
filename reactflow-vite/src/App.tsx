@@ -1,20 +1,25 @@
 import dagre from 'dagre';
+import type { Node as FlowNode, Edge as FlowEdge } from '@xyflow/react';
 // Dagre layout helper
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
-function getLayoutedNodes(nodes, edges, direction = 'TB') {
+function getLayoutedNodes(
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+  direction: 'TB' | 'LR' = 'TB'
+): FlowNode[] {
   dagreGraph.setGraph({ rankdir: direction });
-  nodes.forEach((node) => {
+  nodes.forEach((node: FlowNode) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
   });
-  edges.forEach((edge) => {
+  edges.forEach((edge: FlowEdge) => {
     dagreGraph.setEdge(edge.source, edge.target);
   });
   dagre.layout(dagreGraph);
-  return nodes.map((node) => {
+  return nodes.map((node: FlowNode) => {
     const nodeWithPosition = dagreGraph.node(node.id);
     return {
       ...node,
