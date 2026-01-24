@@ -206,30 +206,29 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
         style: {
           ...n.style,
-          opacity: pathNodes.includes(n.id) ? 1 : 0,
-          transition: 'opacity 0.4s ease, transform 0.4s ease',
+          opacity: pathNodes.includes(n.id) ? 1 : 0.25,
+          filter: pathNodes.includes(n.id) ? 'none' : 'grayscale(0.8) brightness(1.5)',
+          transition: 'opacity 0.4s ease, filter 0.4s ease, transform 0.4s ease',
         },
       }))
     );
-
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => ({
           ...n,
-          hidden: !pathNodes.includes(n.id),
+          hidden: false,
           style: {
             ...n.style,
-            opacity: 1,
+            opacity: pathNodes.includes(n.id) ? 1 : 0.25,
+            filter: pathNodes.includes(n.id) ? 'none' : 'grayscale(0.8) brightness(1.5)',
           },
         }))
       );
-      
       setTimeout(() => {
         fitView({ 
           duration: 600,
@@ -237,6 +236,18 @@ function DiagramContent() {
         });
       }, 50);
     }, 400);
+    // Also update edge styles
+    setEdges((eds) =>
+      eds.map((e) => ({
+        ...e,
+        style: {
+          ...e.style,
+          opacity: pathNodes.includes(e.source) && pathNodes.includes(e.target) ? 1 : 0.25,
+          filter: pathNodes.includes(e.source) && pathNodes.includes(e.target) ? 'none' : 'grayscale(0.8) brightness(1.5)',
+          transition: 'opacity 0.4s ease, filter 0.4s ease',
+        },
+      }))
+    );
   };
 
   const resetView = () => {
