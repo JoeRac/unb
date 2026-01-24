@@ -49,7 +49,7 @@ function MethodNode(props: any) {
       style={{
         padding: props.style?.boxHighlight ? 20 : 12,
         fontSize: props.style?.boxHighlight ? 18 : 13,
-        borderRadius: 10,
+        borderRadius: 18,
         background: props.style?.background,
         color: props.style?.color,
         minWidth: props.style?.boxHighlight ? 200 : 160,
@@ -218,6 +218,7 @@ function DiagramContent() {
             color: isActive ? '#fff' : '#666',
             opacity: isActive ? 1 : 0.35,
             boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+            borderRadius: 18,
             boxHighlight: isActive ? true : false,
             transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
