@@ -59,7 +59,7 @@ function MethodNode(props: any) {
           : '0 4px 12px rgba(0,0,0,0.15)',
         transition: 'all 0.3s ease',
         cursor: 'pointer',
-        border: '2px solid rgba(255,255,255,0.2)',
+        // No border to avoid square outline
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'scale(1.05)';
