@@ -220,7 +220,20 @@ const paths = {
 };
 
 function DiagramContent() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(getLayoutedNodes(initialNodes, initialEdges));
+  const layoutDirections = [
+    { label: 'Top-Bottom', value: 'TB' },
+    { label: 'Bottom-Top', value: 'BT' },
+    { label: 'Left-Right', value: 'LR' },
+    { label: 'Right-Left', value: 'RL' },
+  ];
+  const [layoutIndex, setLayoutIndex] = useState(0);
+  const [nodes, setNodes, onNodesChange] = useNodesState(getLayoutedNodes(initialNodes, initialEdges, layoutDirections[0].value as 'TB'));
+    // Toggle layout direction
+    const toggleLayout = () => {
+      const nextIndex = (layoutIndex + 1) % layoutDirections.length;
+      setLayoutIndex(nextIndex);
+      setNodes((nds) => getLayoutedNodes(nds, edges, layoutDirections[nextIndex].value as 'TB'));
+    };
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -402,6 +415,24 @@ function DiagramContent() {
           overflowY: 'auto',
           width: '220px'
         }}>
+          <button
+            onClick={toggleLayout}
+            style={{
+              width: '100%',
+              padding: '8px',
+              marginBottom: '10px',
+              background: '#222',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            🔄 Switch Layout ({layoutDirections[layoutIndex].label})
+          </button>
           <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
           
           <button
