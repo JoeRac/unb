@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
   ReactFlow,
-  MiniMap,
   Controls,
   Handle,
   Position,
