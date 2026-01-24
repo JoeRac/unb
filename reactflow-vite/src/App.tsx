@@ -206,14 +206,18 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
+    const highlightColor = '#3498db'; // blue
+    const paleColor = '#e0e0e0'; // light gray
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
         style: {
           ...n.style,
-          opacity: pathNodes.includes(n.id) ? 1 : 0.25,
-          filter: pathNodes.includes(n.id) ? 'none' : 'grayscale(0.8) brightness(1.5)',
-          transition: 'opacity 0.4s ease, filter 0.4s ease, transform 0.4s ease',
+          background: pathNodes.includes(n.id) ? highlightColor : paleColor,
+          color: pathNodes.includes(n.id) ? '#fff' : '#888',
+          opacity: 1,
+          filter: 'none',
+          transition: 'background 0.4s ease, color 0.4s ease, transform 0.4s ease',
         },
       }))
     );
@@ -224,8 +228,10 @@ function DiagramContent() {
           hidden: false,
           style: {
             ...n.style,
-            opacity: pathNodes.includes(n.id) ? 1 : 0.25,
-            filter: pathNodes.includes(n.id) ? 'none' : 'grayscale(0.8) brightness(1.5)',
+            background: pathNodes.includes(n.id) ? highlightColor : paleColor,
+            color: pathNodes.includes(n.id) ? '#fff' : '#888',
+            opacity: 1,
+            filter: 'none',
           },
         }))
       );
@@ -242,9 +248,10 @@ function DiagramContent() {
         ...e,
         style: {
           ...e.style,
-          opacity: pathNodes.includes(e.source) && pathNodes.includes(e.target) ? 1 : 0.25,
-          filter: pathNodes.includes(e.source) && pathNodes.includes(e.target) ? 'none' : 'grayscale(0.8) brightness(1.5)',
-          transition: 'opacity 0.4s ease, filter 0.4s ease',
+          stroke: pathNodes.includes(e.source) && pathNodes.includes(e.target) ? highlightColor : paleColor,
+          opacity: 1,
+          filter: 'none',
+          transition: 'stroke 0.4s ease',
         },
       }))
     );
