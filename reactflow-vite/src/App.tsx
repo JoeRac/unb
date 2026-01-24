@@ -219,6 +219,7 @@ function DiagramContent() {
             color: isActive ? '#fff' : '#666',
             opacity: isActive ? 1 : 0.35,
             boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+            boxHighlight: isActive ? true : false,
             transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
         };
@@ -236,6 +237,7 @@ function DiagramContent() {
               color: isActive ? '#fff' : '#666',
               opacity: isActive ? 1 : 0.35,
               boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+              boxHighlight: isActive ? true : false,
               transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
             },
           };
