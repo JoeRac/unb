@@ -8,11 +8,9 @@ import {
   Position,
   useNodesState,
   useEdgesState,
-  addEdge,
   Panel,
   Node,
   Edge,
-  Connection,
   useReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react';
@@ -191,7 +189,7 @@ const paths = {
 
 function DiagramContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const { fitView } = useReactFlow();
@@ -324,8 +322,6 @@ function DiagramContent() {
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         nodesDraggable={true}
-        nodesConnectable={false}
-        connectable={false}
         fitView
       >
         <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
