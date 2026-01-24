@@ -207,7 +207,7 @@ function DiagramContent() {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
     const highlightColor = '#1976d2'; // brighter blue
-    const paleColor = '#b0b0b0'; // darker gray
+    const paleColor = '#e5e7eb'; // soft gray for light bg
     setNodes((nds) =>
       nds.map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -338,7 +338,7 @@ function DiagramContent() {
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#f7f7fa' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
