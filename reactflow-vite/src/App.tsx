@@ -1,4 +1,7 @@
-import { useCallback, useState } from 'react';
+import { 
+  useCallback, 
+  useState 
+} from 'react';
 import {
   ReactFlow,
   Controls,
@@ -11,7 +14,10 @@ import {
   Edge,
   useReactFlow,
   ReactFlowProvider,
+  Background,
+  BackgroundVariant
 } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import '@xyflow/react/dist/style.css';
 
 type NodeData = {
@@ -360,12 +366,7 @@ function DiagramContent() {
         edges={edges.map(e => ({
           ...e,
           type: 'smoothstep',
-          markerEnd: {
-            type: 'arrowclosed',
-            color: e.style?.stroke || '#23272f',
-            width: 18,
-            height: 18,
-          },
+          markerEnd: 'arrowclosed',
         }))}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
@@ -381,7 +382,7 @@ function DiagramContent() {
         <Background
           color="#e5e7eb"
           gap={32}
-          variant="lines"
+          variant={BackgroundVariant.Lines}
         />
 
         <Panel position="top-left" style={{ 
