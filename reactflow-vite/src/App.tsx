@@ -50,8 +50,8 @@ function MethodNode(props: any) {
       style={{
         padding: 12,
         borderRadius: 10,
-        background: props.style?.background || data.color,
-        color: props.style?.color || '#fff',
+        background: props.style?.background,
+        color: props.style?.color,
         minWidth: 160,
         maxWidth: 200,
         boxShadow: selected
