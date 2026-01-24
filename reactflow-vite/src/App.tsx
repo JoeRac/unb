@@ -48,12 +48,13 @@ function MethodNode(props: any) {
   return (
     <div
       style={{
-        padding: 12,
+        padding: props.style?.boxHighlight ? 20 : 12,
+        fontSize: props.style?.boxHighlight ? 18 : 13,
         borderRadius: 10,
         background: props.style?.background,
         color: props.style?.color,
-        minWidth: 160,
-        maxWidth: 200,
+        minWidth: props.style?.boxHighlight ? 200 : 160,
+        maxWidth: props.style?.boxHighlight ? 260 : 200,
         boxShadow: selected
           ? '0 0 0 3px #ffd700, 0 8px 24px rgba(0,0,0,0.3)'
           : '0 4px 12px rgba(0,0,0,0.15)',
@@ -348,10 +349,12 @@ function DiagramContent() {
         onNodeClick={onNodeClick}
         nodesDraggable={true}
         fitView
+        snapToGrid={true}
+        snapGrid={[30, 30]}
       >
         <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
         <Controls />
-        <Background color="#222" gap={16} />
+        {/* <Background color="#222" gap={16} /> */}
 
         <Panel position="top-left" style={{ 
           background: 'rgba(255,255,255,0.95)', 
