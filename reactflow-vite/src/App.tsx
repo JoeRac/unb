@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import dagre from '@dagrejs/dagre';
 import {
   ReactFlow,
   MiniMap,
@@ -80,7 +81,39 @@ function MethodNode(props: any) {
   );
 }
 
+
 const nodeTypes = { method: MethodNode };
+
+// Dagre layout helper
+const nodeWidth = 200;
+const nodeHeight = 80;
+function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'TB') {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  return nodes.map((node) => {
+    const pos = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: pos.x - nodeWidth / 2,
+        y: pos.y - nodeHeight / 2,
+      },
+      sourcePosition: 'bottom',
+      targetPosition: 'top',
+    };
+  });
+}
 
 const initialNodes: Node[] = [
   {
@@ -187,14 +220,25 @@ const paths = {
   'Quadrant Deep Dive': ['title', 'framework', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
 };
 
+
 function DiagramContent() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(getLayoutedElements(initialNodes, initialEdges));
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const { fitView } = useReactFlow();
 
-  
+  // Helper to always layout visible nodes
+  const layoutAndSetNodes = (nds: Node[], eds: Edge[]) => {
+    const visibleNodes = nds.filter((n) => !n.hidden);
+    const layouted = getLayoutedElements(visibleNodes, eds);
+    setNodes(
+      nds.map((n) => {
+        const found = layouted.find((ln) => ln.id === n.id);
+        return found ? { ...n, position: found.position } : n;
+      })
+    );
+  };
 
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
@@ -206,8 +250,10 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    const highlightColor = '#5a7fa3'; // soft blue-gray, professional
-    const paleColor = '#e5e7eb'; // soft gray for light bg
+    const highlightColor = '#222'; // professional black
+    const paleColor = '#e5e7eb';   // light grey
+    const highlightText = '#fff';  // white text
+    const paleText = '#444';       // dark grey text
     setNodes((nds) =>
       nds.map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -215,9 +261,9 @@ function DiagramContent() {
           ...n,
           style: {
             background: isActive ? highlightColor : paleColor,
-            color: isActive ? '#fff' : '#666',
+            color: isActive ? highlightText : paleText,
             opacity: isActive ? 1 : 0.35,
-            boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+            boxShadow: isActive ? '0 0 0 4px #111, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
             boxHighlight: isActive ? true : false,
             transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
@@ -233,9 +279,9 @@ function DiagramContent() {
             hidden: false,
             style: {
               background: isActive ? highlightColor : paleColor,
-              color: isActive ? '#fff' : '#666',
+              color: isActive ? highlightText : paleText,
               opacity: isActive ? 1 : 0.35,
-              boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+              boxShadow: isActive ? '0 0 0 4px #111, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
               boxHighlight: isActive ? true : false,
               transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
             },
@@ -243,13 +289,18 @@ function DiagramContent() {
         })
       );
       setTimeout(() => {
-        fitView({ 
-          duration: 600,
-          padding: 0.2,
-        });
+        layoutAndSetNodes(
+          nodes.map((n) => ({
+            ...n,
+            hidden: !pathNodes.includes(n.id),
+          })),
+          edges
+        );
+        setTimeout(() => {
+          fitView({ duration: 600, padding: 0.2 });
+        }, 50);
       }, 50);
     }, 400);
-    // Also update edge styles
     setEdges((eds: Edge[]) =>
       eds.map((e: Edge) => {
         const isActive = pathNodes.includes(e.source) && pathNodes.includes(e.target);
@@ -268,7 +319,6 @@ function DiagramContent() {
 
   const resetView = () => {
     setActivePath(null);
-    
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -279,7 +329,6 @@ function DiagramContent() {
         },
       }))
     );
-
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => ({
@@ -291,19 +340,23 @@ function DiagramContent() {
           },
         }))
       );
-      
       setTimeout(() => {
-        fitView({ 
-          duration: 600,
-          padding: 0.2,
-        });
+        layoutAndSetNodes(
+          nodes.map((n) => ({
+            ...n,
+            hidden: n.id !== 'title',
+          })),
+          edges
+        );
+        setTimeout(() => {
+          fitView({ duration: 600, padding: 0.2 });
+        }, 50);
       }, 50);
     }, 400);
   };
 
   const showAll = () => {
     setActivePath('All Nodes');
-    
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -315,7 +368,6 @@ function DiagramContent() {
         },
       }))
     );
-
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n, index) => ({
@@ -327,13 +379,18 @@ function DiagramContent() {
           },
         }))
       );
-      
       setTimeout(() => {
-        fitView({ 
-          duration: 800,
-          padding: 0.1,
-        });
-      }, 100);
+        layoutAndSetNodes(
+          nodes.map((n) => ({
+            ...n,
+            hidden: false,
+          })),
+          edges
+        );
+        setTimeout(() => {
+          fitView({ duration: 800, padding: 0.1 });
+        }, 100);
+      }, 50);
     }, 50);
   };
 
@@ -366,7 +423,6 @@ function DiagramContent() {
           width: '220px'
         }}>
           <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
-          
           <button
             onClick={resetView}
             style={{
@@ -385,7 +441,6 @@ function DiagramContent() {
           >
             🔄 Reset View
           </button>
-
           <button
             onClick={showAll}
             style={{
@@ -404,7 +459,6 @@ function DiagramContent() {
           >
             🌐 Show All
           </button>
-
           {Object.keys(paths).map((pathName) => (
             <button
               key={pathName}
@@ -441,7 +495,6 @@ function DiagramContent() {
             </button>
           ))}
         </Panel>
-
         {selectedNode && selectedNodeData && (
   <Panel
     position="top-right"
@@ -468,21 +521,17 @@ function DiagramContent() {
     >
       ✕
     </button>
-
     <h2 style={{ marginTop: 0, color: selectedNodeData.color }}>
       {selectedNodeData.label}
     </h2>
-
     <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: 12 }}>
       {selectedNodeData.category}
     </div>
-
     {selectedNodeData.longDescription && (
       <p style={{ lineHeight: 1.6 }}>
         {selectedNodeData.longDescription}
       </p>
     )}
-
     {/* Images */}
     {selectedNodeData.images?.map((img) => (
       <img
@@ -496,7 +545,6 @@ function DiagramContent() {
         }}
       />
     ))}
-
     {/* Video */}
     {selectedNodeData.video && (
       <iframe
@@ -510,7 +558,6 @@ function DiagramContent() {
         allowFullScreen
       />
     )}
-
     {/* External links */}
     {selectedNodeData.externalLinks?.length && (
       <div style={{ marginTop: 16 }}>
@@ -532,7 +579,6 @@ function DiagramContent() {
         ))}
       </div>
     )}
-
     {/* Wiki */}
     {selectedNodeData.wikiUrl && (
       <a
