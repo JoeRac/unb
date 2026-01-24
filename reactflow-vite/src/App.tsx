@@ -206,28 +206,47 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    const highlightColor = '#3498db'; // blue
-    const paleColor = '#e0e0e0'; // light gray
+    const highlightColor = '#1976d2'; // brighter blue
+    const paleColor = '#b0b0b0'; // darker gray
     setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        style: {
-          background: pathNodes.includes(n.id) ? highlightColor : paleColor,
-          color: pathNodes.includes(n.id) ? '#fff' : '#888',
-          transition: 'background 0.4s ease, color 0.4s ease, transform 0.4s ease',
-        },
-      }))
+      nds.map((n) => {
+        const isActive = pathNodes.includes(n.id);
+        return {
+          ...n,
+          style: {
+            background: isActive ? highlightColor : paleColor,
+            color: isActive ? '#fff' : '#666',
+            opacity: isActive ? 1 : 0.35,
+            fontSize: isActive ? 18 : 13,
+            minWidth: isActive ? 180 : 140,
+            maxWidth: isActive ? 220 : 160,
+            boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+            transform: isActive ? 'scale(1.08)' : 'scale(0.95)',
+            transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
+          },
+        };
+      })
     );
     setTimeout(() => {
       setNodes((nds) =>
-        nds.map((n) => ({
-          ...n,
-          hidden: false,
-          style: {
-            background: pathNodes.includes(n.id) ? highlightColor : paleColor,
-            color: pathNodes.includes(n.id) ? '#fff' : '#888',
-          },
-        }))
+        nds.map((n) => {
+          const isActive = pathNodes.includes(n.id);
+          return {
+            ...n,
+            hidden: false,
+            style: {
+              background: isActive ? highlightColor : paleColor,
+              color: isActive ? '#fff' : '#666',
+              opacity: isActive ? 1 : 0.35,
+              fontSize: isActive ? 18 : 13,
+              minWidth: isActive ? 180 : 140,
+              maxWidth: isActive ? 220 : 160,
+              boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+              transform: isActive ? 'scale(1.08)' : 'scale(0.95)',
+              transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
+            },
+          };
+        })
       );
       setTimeout(() => {
         fitView({ 
@@ -238,13 +257,18 @@ function DiagramContent() {
     }, 400);
     // Also update edge styles
     setEdges((eds: Edge[]) =>
-      eds.map((e: Edge) => ({
-        ...e,
-        style: {
-          stroke: pathNodes.includes(e.source) && pathNodes.includes(e.target) ? highlightColor : paleColor,
-          transition: 'stroke 0.4s ease',
-        },
-      }))
+      eds.map((e: Edge) => {
+        const isActive = pathNodes.includes(e.source) && pathNodes.includes(e.target);
+        return {
+          ...e,
+          style: {
+            stroke: isActive ? highlightColor : paleColor,
+            opacity: isActive ? 1 : 0.25,
+            strokeWidth: isActive ? 3 : 1.5,
+            transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
+          },
+        };
+      })
     );
   };
 
