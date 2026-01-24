@@ -206,7 +206,7 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    const highlightColor = '#1976d2'; // brighter blue
+    const highlightColor = '#5a7fa3'; // soft blue-gray, professional
     const paleColor = '#e5e7eb'; // soft gray for light bg
     setNodes((nds) =>
       nds.map((n) => {
