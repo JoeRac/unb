@@ -237,16 +237,110 @@ function DiagramContent() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [mode, setMode] = useState<'guided' | 'manual'>('guided');
+  const [manualHighlights, setManualHighlights] = useState<Set<string>>(new Set());
   const { fitView } = useReactFlow();
 
   
 
+  const baseNodeStyle = (node: Node) => {
+    const data = node.data as NodeData | undefined;
+    return {
+      background: data?.color || '#1f2937',
+      color: '#fff',
+      opacity: 1,
+      borderRadius: 18,
+      overflow: 'hidden',
+      boxShadow: '0 2px 12px 0 rgba(30,30,40,0.10)',
+      transition: 'background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.2s ease',
+      boxHighlight: false,
+    };
+  };
+
+  const manualHighlightStyle = {
+    boxShadow: '0 0 0 4px #f59e0b, 0 8px 24px rgba(0,0,0,0.25)',
+    boxHighlight: true,
+  };
+
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
       setSelectedNode(node);
+      if (mode !== 'manual') {
+        return;
+      }
+      setManualHighlights((prev) => {
+        const next = new Set(prev);
+        if (next.has(node.id)) {
+          next.delete(node.id);
+        } else {
+          next.add(node.id);
+        }
+        setNodes((nds) =>
+          nds.map((n) => {
+            const isActive = next.has(n.id);
+            return {
+              ...n,
+              hidden: false,
+              style: {
+                ...baseNodeStyle(n),
+                ...(isActive ? manualHighlightStyle : {}),
+              },
+            };
+          })
+        );
+        return next;
+      });
     },
-    []
+    [mode, setNodes, baseNodeStyle, manualHighlightStyle]
   );
+
+  const enterManualMode = () => {
+    setMode('manual');
+    setActivePath(null);
+    setSelectedNode(null);
+    setManualHighlights(new Set());
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        hidden: false,
+        style: {
+          ...baseNodeStyle(n),
+          boxHighlight: false,
+        },
+      }))
+    );
+    setEdges((eds) =>
+      eds.map((e) => ({
+        ...e,
+        style: {
+          stroke: '#9ca3af',
+          opacity: 0.9,
+          strokeWidth: 1.5,
+        },
+      }))
+    );
+    setTimeout(() => {
+      fitView({
+        duration: 600,
+        padding: 0.1,
+      });
+    }, 50);
+  };
+
+  const enterGuidedMode = () => {
+    setMode('guided');
+    setActivePath(null);
+    setSelectedNode(null);
+    setManualHighlights(new Set());
+    setEdges(initialEdges);
+    setNodes(getLayoutedNodes(initialNodes, initialEdges, layoutDirections[layoutIndex].value as 'TB'));
+    setTimeout(() => {
+      fitView({
+        duration: 600,
+        padding: 0.2,
+      });
+    }, 50);
+  };
 
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
@@ -415,6 +509,40 @@ function DiagramContent() {
           overflowY: 'auto',
           width: '220px'
         }}>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            <button
+              onClick={enterGuidedMode}
+              style={{
+                flex: 1,
+                padding: '8px',
+                background: mode === 'guided' ? '#3498db' : '#ecf0f1',
+                color: mode === 'guided' ? 'white' : '#333',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 'bold',
+              }}
+            >
+              Guided
+            </button>
+            <button
+              onClick={enterManualMode}
+              style={{
+                flex: 1,
+                padding: '8px',
+                background: mode === 'manual' ? '#f59e0b' : '#ecf0f1',
+                color: mode === 'manual' ? '#111827' : '#333',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 'bold',
+              }}
+            >
+              Manual
+            </button>
+          </div>
           <button
             onClick={toggleLayout}
             style={{
@@ -433,81 +561,92 @@ function DiagramContent() {
           >
             🔄 Switch Layout ({layoutDirections[layoutIndex].label})
           </button>
-          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
-          
-          <button
-            onClick={resetView}
-            style={{
-              width: '100%',
-              padding: '8px',
-              marginBottom: '8px',
-              background: activePath === null ? '#3498db' : '#ecf0f1',
-              color: activePath === null ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            🔄 Reset View
-          </button>
+          {mode === 'manual' ? (
+            <div style={{ fontSize: '12px', color: '#555', lineHeight: 1.4 }}>
+              Click any shape to toggle its highlight.
+              <div style={{ marginTop: 8, fontSize: '11px', opacity: 0.75 }}>
+                Highlighted: {manualHighlights.size}
+              </div>
+            </div>
+          ) : (
+            <>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
+              
+              <button
+                onClick={resetView}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  marginBottom: '8px',
+                  background: activePath === null ? '#3498db' : '#ecf0f1',
+                  color: activePath === null ? 'white' : '#333',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                🔄 Reset View
+              </button>
 
-          <button
-            onClick={showAll}
-            style={{
-              width: '100%',
-              padding: '8px',
-              marginBottom: '12px',
-              background: activePath === 'All Nodes' ? '#3498db' : '#ecf0f1',
-              color: activePath === 'All Nodes' ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            🌐 Show All
-          </button>
+              <button
+                onClick={showAll}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  marginBottom: '12px',
+                  background: activePath === 'All Nodes' ? '#3498db' : '#ecf0f1',
+                  color: activePath === 'All Nodes' ? 'white' : '#333',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                🌐 Show All
+              </button>
 
-          {Object.keys(paths).map((pathName) => (
-            <button
-              key={pathName}
-              onClick={() => showPath(pathName)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginBottom: '6px',
-                background: activePath === pathName ? '#3498db' : 'white',
-                color: activePath === pathName ? 'white' : '#333',
-                border: activePath === pathName ? 'none' : '1px solid #ddd',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '11px',
-                textAlign: 'left',
-                transition: 'all 0.3s ease',
-                fontWeight: activePath === pathName ? 'bold' : 'normal',
-                transform: activePath === pathName ? 'translateX(4px)' : 'translateX(0)'
-              }}
-              onMouseEnter={(e) => {
-                if (activePath !== pathName) {
-                  e.currentTarget.style.background = '#e8f4f8';
-                  e.currentTarget.style.transform = 'translateX(4px)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activePath !== pathName) {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.transform = 'translateX(0)';
-                }
-              }}
-            >
-              {pathName}
-            </button>
-          ))}
+              {Object.keys(paths).map((pathName) => (
+                <button
+                  key={pathName}
+                  onClick={() => showPath(pathName)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    marginBottom: '6px',
+                    background: activePath === pathName ? '#3498db' : 'white',
+                    color: activePath === pathName ? 'white' : '#333',
+                    border: activePath === pathName ? 'none' : '1px solid #ddd',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    textAlign: 'left',
+                    transition: 'all 0.3s ease',
+                    fontWeight: activePath === pathName ? 'bold' : 'normal',
+                    transform: activePath === pathName ? 'translateX(4px)' : 'translateX(0)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activePath !== pathName) {
+                      e.currentTarget.style.background = '#e8f4f8';
+                      e.currentTarget.style.transform = 'translateX(4px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activePath !== pathName) {
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.transform = 'translateX(0)';
+                    }
+                  }}
+                >
+                  {pathName}
+                </button>
+              ))}
+            </>
+          )}
         </Panel>
 
         {selectedNode && selectedNodeData && (
