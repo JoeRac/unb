@@ -109,8 +109,8 @@ function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'TB') {
         x: pos.x - nodeWidth / 2,
         y: pos.y - nodeHeight / 2,
       },
-      sourcePosition: 'bottom',
-      targetPosition: 'top',
+      sourcePosition: Position.Bottom,
+      targetPosition: Position.Top,
     };
   });
 }
@@ -235,7 +235,19 @@ function DiagramContent() {
     setNodes(
       nds.map((n) => {
         const found = layouted.find((ln) => ln.id === n.id);
-        return found ? { ...n, position: found.position } : n;
+        if (found) {
+          return {
+            ...n,
+            position: found.position,
+            sourcePosition: found.sourcePosition ?? Position.Bottom,
+            targetPosition: found.targetPosition ?? Position.Top,
+          };
+        }
+        return {
+          ...n,
+          sourcePosition: n.sourcePosition ?? Position.Bottom,
+          targetPosition: n.targetPosition ?? Position.Top,
+        };
       })
     );
   };
