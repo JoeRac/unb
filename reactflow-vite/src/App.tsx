@@ -50,8 +50,8 @@ function MethodNode(props: any) {
       style={{
         padding: 12,
         borderRadius: 10,
-        background: data.color,
-        color: '#fff',
+        background: props.style?.background || data.color,
+        color: props.style?.color || '#fff',
         minWidth: 160,
         maxWidth: 200,
         boxShadow: selected
@@ -212,11 +212,8 @@ function DiagramContent() {
       nds.map((n) => ({
         ...n,
         style: {
-          ...n.style,
           background: pathNodes.includes(n.id) ? highlightColor : paleColor,
           color: pathNodes.includes(n.id) ? '#fff' : '#888',
-          opacity: 1,
-          filter: 'none',
           transition: 'background 0.4s ease, color 0.4s ease, transform 0.4s ease',
         },
       }))
@@ -227,11 +224,8 @@ function DiagramContent() {
           ...n,
           hidden: false,
           style: {
-            ...n.style,
             background: pathNodes.includes(n.id) ? highlightColor : paleColor,
             color: pathNodes.includes(n.id) ? '#fff' : '#888',
-            opacity: 1,
-            filter: 'none',
           },
         }))
       );
@@ -247,10 +241,7 @@ function DiagramContent() {
       eds.map((e: Edge) => ({
         ...e,
         style: {
-          ...e.style,
           stroke: pathNodes.includes(e.source) && pathNodes.includes(e.target) ? highlightColor : paleColor,
-          opacity: 1,
-          filter: 'none',
           transition: 'stroke 0.4s ease',
         },
       }))
