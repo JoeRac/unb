@@ -30,7 +30,8 @@ function getLayoutedNodes(
     };
   });
 }
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Papa from 'papaparse';
 import {
   ReactFlow,
   MiniMap,
@@ -71,6 +72,19 @@ type NodeData = {
     url: string;
   };
 };
+
+type SheetRow = {
+  id?: string;
+  parentId?: string;
+  label?: string;
+  category?: string;
+  color?: string;
+  wikiUrl?: string;
+  hidden_by_default?: string | boolean;
+};
+
+const SHEET_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?tqx=out:csv';
 
 function MethodNode(props: any) {
   const data = props.data as NodeData;
@@ -220,12 +234,15 @@ const paths = {
 };
 
 function DiagramContent() {
-  const layoutDirections = [
-    { label: 'Top-Bottom', value: 'TB' },
-    { label: 'Bottom-Top', value: 'BT' },
-    { label: 'Left-Right', value: 'LR' },
-    { label: 'Right-Left', value: 'RL' },
-  ];
+  const layoutDirections = useMemo(
+    () => [
+      { label: 'Top-Bottom', value: 'TB' },
+      { label: 'Bottom-Top', value: 'BT' },
+      { label: 'Left-Right', value: 'LR' },
+      { label: 'Right-Left', value: 'RL' },
+    ],
+    []
+  );
   const [layoutIndex, setLayoutIndex] = useState(0);
   const [nodes, setNodes, onNodesChange] = useNodesState(getLayoutedNodes(initialNodes, initialEdges, layoutDirections[0].value as 'TB'));
     // Toggle layout direction
@@ -239,7 +256,99 @@ function DiagramContent() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [mode, setMode] = useState<'guided' | 'manual'>('guided');
   const [manualHighlights, setManualHighlights] = useState<Set<string>>(new Set());
+  const [baseNodes, setBaseNodes] = useState<Node[]>(initialNodes);
+  const [baseEdges, setBaseEdges] = useState<Edge[]>(initialEdges);
+  const [rootIds, setRootIds] = useState<string[]>(['title']);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
   const { fitView } = useReactFlow();
+
+  const layoutNodes = useCallback(
+    (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
+      getLayoutedNodes(nodesToLayout, edgesToLayout, layoutDirections[layoutIndex].value as 'TB'),
+    [layoutIndex, layoutDirections]
+  );
+
+  const parseHidden = (value?: string | boolean) => {
+    if (typeof value === 'boolean') return value;
+    if (!value) return false;
+    return value.toString().trim().toLowerCase() === 'true';
+  };
+
+  const buildFromRows = useCallback((rows: SheetRow[]) => {
+    const cleanRows = rows
+      .map((row) => ({
+        id: row.id?.toString().trim(),
+        parentId: row.parentId?.toString().trim(),
+        label: row.label?.toString().trim(),
+        category: row.category?.toString().trim(),
+        color: row.color?.toString().trim(),
+        wikiUrl: row.wikiUrl?.toString().trim(),
+        hidden_by_default: row.hidden_by_default,
+      }))
+      .filter((row) => row.id);
+
+    const nodesFromSheet: Node[] = cleanRows.map((row) => ({
+      id: row.id as string,
+      type: 'method',
+      position: { x: 0, y: 0 },
+      hidden: parseHidden(row.hidden_by_default),
+      data: {
+        label: row.label || row.id,
+        category: row.category || '',
+        color: row.color || '#1f2937',
+        wikiUrl: row.wikiUrl || '',
+      },
+    }));
+
+    const edgesFromSheet: Edge[] = cleanRows
+      .filter((row) => row.parentId)
+      .map((row) => ({
+        id: `${row.parentId}->${row.id}`,
+        source: row.parentId as string,
+        target: row.id as string,
+      }));
+
+    const roots = cleanRows.filter((row) => !row.parentId).map((row) => row.id as string);
+
+    return { nodesFromSheet, edgesFromSheet, roots };
+  }, []);
+
+  useEffect(() => {
+    const loadSheet = async () => {
+      setDataLoading(true);
+      setDataError(null);
+      try {
+        const response = await fetch(SHEET_CSV_URL);
+        if (!response.ok) {
+          throw new Error(`Sheet load failed: ${response.status}`);
+        }
+        const csvText = await response.text();
+        const parsed = Papa.parse<SheetRow>(csvText, {
+          header: true,
+          skipEmptyLines: true,
+        });
+        if (parsed.errors?.length) {
+          throw new Error(parsed.errors[0].message);
+        }
+        const { nodesFromSheet, edgesFromSheet, roots } = buildFromRows(parsed.data || []);
+        if (!nodesFromSheet.length) {
+          throw new Error('No nodes found in sheet');
+        }
+        setBaseNodes(nodesFromSheet);
+        setBaseEdges(edgesFromSheet);
+        setRootIds(roots.length ? roots : nodesFromSheet.slice(0, 1).map((n) => n.id));
+        setEdges(edgesFromSheet);
+        setNodes(layoutNodes(nodesFromSheet, edgesFromSheet));
+      } catch (error: any) {
+        setDataError(error?.message || 'Failed to load sheet');
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    loadSheet();
+  }, [buildFromRows, layoutNodes, setEdges, setNodes]);
 
   
 
@@ -343,8 +452,8 @@ function DiagramContent() {
     setActivePath(null);
     setSelectedNode(null);
     setManualHighlights(new Set());
-    setEdges(initialEdges);
-    setNodes(getLayoutedNodes(initialNodes, initialEdges, layoutDirections[layoutIndex].value as 'TB'));
+    setEdges(baseEdges);
+    setNodes(layoutNodes(baseNodes, baseEdges));
     setTimeout(() => {
       fitView({
         duration: 600,
@@ -439,7 +548,7 @@ function DiagramContent() {
       setNodes((nds) =>
         nds.map((n) => ({
           ...n,
-          hidden: n.id !== 'title',
+          hidden: rootIds.length ? !rootIds.includes(n.id) : false,
           style: {
             ...n.style,
             opacity: 1,
@@ -520,6 +629,20 @@ function DiagramContent() {
           overflowY: 'auto',
           width: '220px'
         }}>
+          {(dataLoading || dataError) && (
+            <div
+              style={{
+                marginBottom: '10px',
+                padding: '8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                background: dataError ? '#fee2e2' : '#eef2ff',
+                color: dataError ? '#991b1b' : '#3730a3',
+              }}
+            >
+              {dataError ? `Sheet error: ${dataError}` : 'Loading sheet data…'}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
             <button
               onClick={enterGuidedMode}
