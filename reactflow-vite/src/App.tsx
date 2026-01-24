@@ -55,11 +55,11 @@ function MethodNode(props: any) {
         minWidth: props.style?.boxHighlight ? 200 : 160,
         maxWidth: props.style?.boxHighlight ? 260 : 200,
         boxShadow: selected
-          ? '0 0 0 3px #ffd700, 0 8px 24px rgba(0,0,0,0.3)'
-          : '0 4px 12px rgba(0,0,0,0.15)',
+          ? '0 0 0 4px #1976d2, 0 8px 24px 0 rgba(0,0,0,0.18)'
+          : '0 2px 12px 0 rgba(30,30,40,0.10)',
         transition: 'all 0.3s ease',
         cursor: 'pointer',
-        border: '2px solid rgba(255,255,255,0.2)',
+        // Remove border to avoid square outline
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'scale(1.05)';
