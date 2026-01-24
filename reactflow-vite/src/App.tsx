@@ -1,13 +1,4 @@
-  // ...existing code...
-
-  // Show all nodes on initial mount so the diagram is always visible
-  // (must be after showAll is defined)
-  useEffect(() => {
-    showAll();
-    // eslint-disable-next-line
-  }, []);
 import { useCallback, useState } from 'react';
-import dagre from '@dagrejs/dagre';
 import {
   ReactFlow,
   MiniMap,
@@ -89,67 +80,41 @@ function MethodNode(props: any) {
   );
 }
 
-
 const nodeTypes = { method: MethodNode };
-
-// Dagre layout helper
-const nodeWidth = 200;
-const nodeHeight = 80;
-function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'TB') {
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-  dagreGraph.setGraph({ rankdir: direction });
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-  });
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-
-  return nodes.map((node) => {
-    const pos = dagreGraph.node(node.id);
-    return {
-      ...node,
-      position: {
-        x: pos.x - nodeWidth / 2,
-        y: pos.y - nodeHeight / 2,
-      },
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
-    };
-  });
-}
 
 const initialNodes: Node[] = [
   {
-    id: 'title',
-    type: 'method',
-    position: { x: 600, y: 0 },
-    data: {
-      label: 'CIPHER METHOD',
-      color: '#1a1a2e',
-      category: 'Framework',
-      description: 'High-precision unburdening framework',
-      longDescription:
-        'The Cipher Method is a structured system for decoding internal resistance patterns and producing permanent somatic resolution.',
-      wikiUrl: 'https://example.com/cipher',
-      externalLinks: [
-        { label: 'Scientific Basis', url: 'https://example.com/research' },
-        { label: 'Full Course', url: 'https://example.com/course' }
-      ],
-      images: [
-        { src: '/images/cipher-overview.png', alt: 'Cipher Overview' },
-        { src: '/images/somatic-grid.png', alt: 'Somatic Grid' }
-      ],
-      video: {
-        type: 'youtube',
-        url: 'https://www.youtube.com/embed/VIDEO_ID'
-      }
+  id: 'title',
+  type: 'method',
+  position: { x: 600, y: 0 },
+  data: {
+    label: 'CIPHER METHOD',
+    color: '#1a1a2e',
+    category: 'Framework',
+
+    description: 'High-precision unburdening framework',
+
+    longDescription:
+      'The Cipher Method is a structured system for decoding internal resistance patterns and producing permanent somatic resolution.',
+
+    wikiUrl: 'https://example.com/cipher',
+
+    externalLinks: [
+      { label: 'Scientific Basis', url: 'https://example.com/research' },
+      { label: 'Full Course', url: 'https://example.com/course' }
+    ],
+
+    images: [
+      { src: '/images/cipher-overview.png', alt: 'Cipher Overview' },
+      { src: '/images/somatic-grid.png', alt: 'Somatic Grid' }
+    ],
+
+    video: {
+      type: 'youtube',
+      url: 'https://www.youtube.com/embed/VIDEO_ID'
     }
-  },
+  }
+},
   { id: 'framework', type: 'method', hidden: true, position: { x: 600, y: 100 }, data: { label: 'Somatic Intelligence Model', color: '#16213e', category: 'Core Theory' } },
   { id: 'bs-signal', type: 'method', hidden: true, position: { x: 400, y: 200 }, data: { label: 'BS (Burden Signal)', color: '#e74c3c', category: 'Signal Type', wikiUrl: 'https://example.com/bs' } },
   { id: 'us-signal', type: 'method', hidden: true, position: { x: 800, y: 200 }, data: { label: 'US (Unburden Signal)', color: '#27ae60', category: 'Signal Type' } },
@@ -222,7 +187,6 @@ const paths = {
   'Quadrant Deep Dive': ['title', 'framework', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
 };
 
-
 function DiagramContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -230,29 +194,7 @@ function DiagramContent() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const { fitView } = useReactFlow();
 
-  // Helper to always layout visible nodes
-  const layoutAndSetNodes = (nds: Node[], eds: Edge[]) => {
-    const visibleNodes = nds.filter((n) => !n.hidden);
-    const layouted = getLayoutedElements(visibleNodes, eds);
-    setNodes(
-      nds.map((n) => {
-        const found = layouted.find((ln) => ln.id === n.id);
-        if (found) {
-          return {
-            ...n,
-            position: found.position,
-            sourcePosition: found.sourcePosition ?? Position.Bottom,
-            targetPosition: found.targetPosition ?? Position.Top,
-          };
-        }
-        return {
-          ...n,
-          sourcePosition: n.sourcePosition ?? Position.Bottom,
-          targetPosition: n.targetPosition ?? Position.Top,
-        };
-      })
-    );
-  };
+  
 
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
@@ -264,10 +206,8 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    const highlightColor = '#222'; // professional black
-    const paleColor = '#e5e7eb';   // light grey
-    const highlightText = '#fff';  // white text
-    const paleText = '#444';       // dark grey text
+    const highlightColor = '#5a7fa3'; // soft blue-gray, professional
+    const paleColor = '#e5e7eb'; // soft gray for light bg
     setNodes((nds) =>
       nds.map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -275,9 +215,9 @@ function DiagramContent() {
           ...n,
           style: {
             background: isActive ? highlightColor : paleColor,
-            color: isActive ? highlightText : paleText,
+            color: isActive ? '#fff' : '#666',
             opacity: isActive ? 1 : 0.35,
-            boxShadow: isActive ? '0 0 0 4px #111, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+            boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
             boxHighlight: isActive ? true : false,
             transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
           },
@@ -293,9 +233,9 @@ function DiagramContent() {
             hidden: false,
             style: {
               background: isActive ? highlightColor : paleColor,
-              color: isActive ? highlightText : paleText,
+              color: isActive ? '#fff' : '#666',
               opacity: isActive ? 1 : 0.35,
-              boxShadow: isActive ? '0 0 0 4px #111, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
+              boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
               boxHighlight: isActive ? true : false,
               transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
             },
@@ -303,18 +243,13 @@ function DiagramContent() {
         })
       );
       setTimeout(() => {
-        layoutAndSetNodes(
-          nodes.map((n) => ({
-            ...n,
-            hidden: !pathNodes.includes(n.id),
-          })),
-          edges
-        );
-        setTimeout(() => {
-          fitView({ duration: 600, padding: 0.2 });
-        }, 50);
+        fitView({ 
+          duration: 600,
+          padding: 0.2,
+        });
       }, 50);
     }, 400);
+    // Also update edge styles
     setEdges((eds: Edge[]) =>
       eds.map((e: Edge) => {
         const isActive = pathNodes.includes(e.source) && pathNodes.includes(e.target);
@@ -333,6 +268,7 @@ function DiagramContent() {
 
   const resetView = () => {
     setActivePath(null);
+    
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -343,6 +279,7 @@ function DiagramContent() {
         },
       }))
     );
+
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => ({
@@ -354,23 +291,19 @@ function DiagramContent() {
           },
         }))
       );
+      
       setTimeout(() => {
-        layoutAndSetNodes(
-          nodes.map((n) => ({
-            ...n,
-            hidden: n.id !== 'title',
-          })),
-          edges
-        );
-        setTimeout(() => {
-          fitView({ duration: 600, padding: 0.2 });
-        }, 50);
+        fitView({ 
+          duration: 600,
+          padding: 0.2,
+        });
       }, 50);
     }, 400);
   };
 
   const showAll = () => {
     setActivePath('All Nodes');
+    
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -382,6 +315,7 @@ function DiagramContent() {
         },
       }))
     );
+
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n, index) => ({
@@ -393,18 +327,13 @@ function DiagramContent() {
           },
         }))
       );
+      
       setTimeout(() => {
-        layoutAndSetNodes(
-          nodes.map((n) => ({
-            ...n,
-            hidden: false,
-          })),
-          edges
-        );
-        setTimeout(() => {
-          fitView({ duration: 800, padding: 0.1 });
-        }, 100);
-      }, 50);
+        fitView({ 
+          duration: 800,
+          padding: 0.1,
+        });
+      }, 100);
     }, 50);
   };
 
@@ -437,6 +366,7 @@ function DiagramContent() {
           width: '220px'
         }}>
           <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
+          
           <button
             onClick={resetView}
             style={{
@@ -455,6 +385,7 @@ function DiagramContent() {
           >
             🔄 Reset View
           </button>
+
           <button
             onClick={showAll}
             style={{
@@ -473,6 +404,7 @@ function DiagramContent() {
           >
             🌐 Show All
           </button>
+
           {Object.keys(paths).map((pathName) => (
             <button
               key={pathName}
@@ -509,6 +441,7 @@ function DiagramContent() {
             </button>
           ))}
         </Panel>
+
         {selectedNode && selectedNodeData && (
   <Panel
     position="top-right"
@@ -535,17 +468,21 @@ function DiagramContent() {
     >
       ✕
     </button>
+
     <h2 style={{ marginTop: 0, color: selectedNodeData.color }}>
       {selectedNodeData.label}
     </h2>
+
     <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: 12 }}>
       {selectedNodeData.category}
     </div>
+
     {selectedNodeData.longDescription && (
       <p style={{ lineHeight: 1.6 }}>
         {selectedNodeData.longDescription}
       </p>
     )}
+
     {/* Images */}
     {selectedNodeData.images?.map((img) => (
       <img
@@ -559,6 +496,7 @@ function DiagramContent() {
         }}
       />
     ))}
+
     {/* Video */}
     {selectedNodeData.video && (
       <iframe
@@ -572,6 +510,7 @@ function DiagramContent() {
         allowFullScreen
       />
     )}
+
     {/* External links */}
     {selectedNodeData.externalLinks?.length && (
       <div style={{ marginTop: 16 }}>
@@ -593,6 +532,7 @@ function DiagramContent() {
         ))}
       </div>
     )}
+
     {/* Wiki */}
     {selectedNodeData.wikiUrl && (
       <a
