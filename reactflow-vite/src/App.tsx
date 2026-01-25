@@ -271,6 +271,26 @@ function DiagramContent() {
 
   const highlightColor = '#1976d2';
   const paleColor = '#e5e7eb';
+  const guidedActiveStyle = {
+    background: highlightColor,
+    color: '#fff',
+    opacity: 1,
+    boxShadow: `0 0 0 4px ${highlightColor}, 0 8px 24px rgba(0,0,0,0.25)`,
+    borderRadius: 18,
+    overflow: 'hidden',
+    boxHighlight: true,
+    transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
+  };
+  const guidedInactiveStyle = {
+    background: paleColor,
+    color: '#666',
+    opacity: 0.35,
+    boxShadow: 'none',
+    borderRadius: 18,
+    overflow: 'hidden',
+    boxHighlight: false,
+    transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
+  };
 
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
@@ -317,6 +337,10 @@ function DiagramContent() {
     const trimmed = url.trim();
     if (trimmed.startsWith('//')) return `https:${trimmed}`;
     if (trimmed.startsWith('http')) return normalizeDriveUrl(trimmed);
+    if (trimmed.startsWith('/')) {
+      const base = import.meta.env.BASE_URL || '/';
+      return new URL(trimmed.replace(/^\//, ''), `${window.location.origin}${base}`).toString();
+    }
     return trimmed;
   };
 
@@ -469,34 +493,15 @@ function DiagramContent() {
   
 
   const baseNodeStyle = (node: Node) => {
-    const data = node.data as NodeData | undefined;
     return {
-      background: data?.color || '#1f2937',
-      color: '#fff',
-      opacity: 1,
-      borderRadius: 18,
-      overflow: 'hidden',
       boxShadow: '0 2px 12px 0 rgba(30,30,40,0.10)',
-      transition: 'background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.2s ease',
+      transition: 'background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease',
       boxHighlight: false,
     };
   };
 
-  const manualActiveStyle = {
-    background: highlightColor,
-    color: '#fff',
-    opacity: 1,
-    boxShadow: `0 0 0 4px ${highlightColor}, 0 8px 24px rgba(0,0,0,0.25)`,
-    boxHighlight: true,
-  };
-
-  const manualInactiveStyle = {
-    background: paleColor,
-    color: '#666',
-    opacity: 0.35,
-    boxShadow: 'none',
-    boxHighlight: false,
-  };
+  const manualActiveStyle = guidedActiveStyle;
+  const manualInactiveStyle = guidedInactiveStyle;
 
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
@@ -587,14 +592,8 @@ function DiagramContent() {
         return {
           ...n,
           style: {
-            background: isActive ? highlightColor : paleColor,
-            color: isActive ? '#fff' : '#666',
-            opacity: isActive ? 1 : 0.35,
-            boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
-            borderRadius: 18,
-            overflow: 'hidden',
-            boxHighlight: isActive ? true : false,
-            transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
+            ...baseNodeStyle(n),
+            ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
           },
         };
       });
@@ -608,14 +607,8 @@ function DiagramContent() {
             ...n,
             hidden: false,
             style: {
-              background: isActive ? highlightColor : paleColor,
-              color: isActive ? '#fff' : '#666',
-              opacity: isActive ? 1 : 0.35,
-              boxShadow: isActive ? '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)' : 'none',
-              borderRadius: 18,
-              overflow: 'hidden',
-              boxHighlight: isActive ? true : false,
-              transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
+              ...baseNodeStyle(n),
+              ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
             },
           };
         })
