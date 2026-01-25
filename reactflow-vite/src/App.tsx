@@ -7,9 +7,9 @@ const nodeWidth = 240;
 const nodeHeight = 80;
 
 const CANVAS_BG = '#f6f7fb';
-const NODE_SURFACE = '#ffffff';
-const NODE_SURFACE_MUTED = '#f5f7fb';
-const NODE_BORDER = '#1a73e8';
+const NODE_SURFACE = '#f5f7ff';
+const NODE_SURFACE_MUTED = '#eef2ff';
+const NODE_BORDER = '#1f2937';
 const HIGHLIGHT_COLOR = '#1a73e8';
 const ACCENT_GLOW = 'rgba(26,115,232,0.25)';
 const INACTIVE_GLOW = 'rgba(31,41,55,0.10)';
@@ -116,9 +116,6 @@ function MethodNode(props: any) {
       ? `0 0 0 3px ${HIGHLIGHT_COLOR}, 0 14px 30px ${ACCENT_GLOW}`
       : '0 8px 22px rgba(15,23,42,0.12)');
   const transition = props.style?.transition ?? 'all 0.3s ease';
-  const glassBackground = selected ? 'rgba(255,255,255,0.9)' : background;
-  const glassBorder = selected ? `2px solid ${HIGHLIGHT_COLOR}` : border;
-  const glassShadow = selected ? `0 0 0 2px ${HIGHLIGHT_COLOR}, 0 18px 36px ${ACCENT_GLOW}` : boxShadow;
 
   return (
     <div
@@ -126,18 +123,16 @@ function MethodNode(props: any) {
         padding: props.style?.boxHighlight ? 18 : 10,
         fontSize: props.style?.boxHighlight ? 17 : 13,
         borderRadius: 18,
-        background: glassBackground,
+        background,
         color,
         opacity,
-        border: glassBorder,
+        border,
         minWidth: props.style?.boxHighlight ? 210 : 170,
         maxWidth: props.style?.boxHighlight ? 280 : 210,
-        boxShadow: glassShadow,
+        boxShadow,
         transition,
         cursor: 'pointer',
         position: 'relative',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'scale(1.05)';
