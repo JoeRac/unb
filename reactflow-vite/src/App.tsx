@@ -116,6 +116,9 @@ function MethodNode(props: any) {
       ? `0 0 0 3px ${HIGHLIGHT_COLOR}, 0 14px 30px ${ACCENT_GLOW}`
       : '0 8px 22px rgba(15,23,42,0.12)');
   const transition = props.style?.transition ?? 'all 0.3s ease';
+  const glassBackground = selected ? 'rgba(255,255,255,0.9)' : background;
+  const glassBorder = selected ? `2px solid ${HIGHLIGHT_COLOR}` : border;
+  const glassShadow = selected ? `0 0 0 2px ${HIGHLIGHT_COLOR}, 0 18px 36px ${ACCENT_GLOW}` : boxShadow;
 
   return (
     <div
@@ -123,18 +126,18 @@ function MethodNode(props: any) {
         padding: props.style?.boxHighlight ? 18 : 10,
         fontSize: props.style?.boxHighlight ? 17 : 13,
         borderRadius: 18,
-        background,
+        background: glassBackground,
         color,
         opacity,
-        border,
+        border: glassBorder,
         minWidth: props.style?.boxHighlight ? 210 : 170,
         maxWidth: props.style?.boxHighlight ? 280 : 210,
-        boxShadow,
+        boxShadow: glassShadow,
         transition,
         cursor: 'pointer',
         position: 'relative',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'scale(1.05)';
@@ -236,6 +239,15 @@ function DiagramContent() {
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
       getLayoutedNodes(nodesToLayout, edgesToLayout, layoutDirections[layoutIndex].value as 'TB'),
     [layoutIndex, layoutDirections]
+  );
+
+  const enforceRootHidden = useCallback(
+    (nds: Node[]) =>
+      nds.map((n) => ({
+        ...n,
+        hidden: rootIds.includes(n.id) ? true : n.hidden,
+      })),
+    [rootIds]
   );
 
   const parseHidden = (value?: string | boolean) => {
