@@ -313,6 +313,12 @@ function DiagramContent() {
           .map((v) => v.trim())
           .filter(Boolean);
       }
+      if (/\s/.test(raw)) {
+        return raw
+          .split(/\s+/)
+          .map((v) => v.trim())
+          .filter(Boolean);
+      }
       return [raw];
     };
 
