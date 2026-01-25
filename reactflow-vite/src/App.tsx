@@ -305,6 +305,12 @@ function DiagramContent() {
       }
       const raw = (value || '').trim();
       if (!raw) return [];
+      if (raw.startsWith('[') && raw.endsWith(']')) {
+        const parsed = parseJsonArray<string>(raw);
+        if (parsed?.length) {
+          return parsed.map((v) => v.trim()).filter(Boolean);
+        }
+      }
       if (raw.includes(',') || raw.includes('|') || raw.includes(';')) {
         return raw
           .split(/,|\||;/)
