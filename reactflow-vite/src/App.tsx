@@ -6,14 +6,14 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
-const CANVAS_BG = 'radial-gradient(1200px 800px at 10% 10%, #f0f7ff 0%, #f7f9fc 40%, #f3f4f6 100%)';
-const NODE_SURFACE = 'linear-gradient(180deg, #ffffff 0%, #f1f5ff 100%)';
-const NODE_SURFACE_MUTED = 'linear-gradient(180deg, #f6f8ff 0%, #eef2ff 100%)';
+const CANVAS_BG = 'radial-gradient(1200px 800px at 8% 12%, #fef3c7 0%, #e0f2fe 35%, #e9d5ff 70%, #f8fafc 100%)';
+const NODE_SURFACE = 'linear-gradient(180deg, #ffffff 0%, #f0f9ff 55%, #ecfeff 100%)';
+const NODE_SURFACE_MUTED = 'linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)';
 const NODE_BORDER = '#0f172a';
-const HIGHLIGHT_COLOR = '#2563eb';
-const ACCENT_GLOW = 'rgba(37,99,235,0.25)';
-const INACTIVE_GLOW = 'rgba(15,23,42,0.08)';
-const EDGE_COLOR = '#94a3b8';
+const HIGHLIGHT_COLOR = '#f97316';
+const ACCENT_GLOW = 'rgba(249,115,22,0.3)';
+const INACTIVE_GLOW = 'rgba(15,23,42,0.10)';
+const EDGE_COLOR = '#64748b';
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -111,8 +111,8 @@ function MethodNode(props: any) {
   const boxShadow =
     props.style?.boxShadow ??
     (selected
-      ? `0 0 0 3px ${HIGHLIGHT_COLOR}, 0 8px 24px 0 rgba(0,0,0,0.18)`
-      : '0 2px 12px 0 rgba(30,30,40,0.10)');
+      ? `0 0 0 3px ${HIGHLIGHT_COLOR}, 0 14px 30px ${ACCENT_GLOW}`
+      : '0 8px 22px rgba(15,23,42,0.12)');
   const transition = props.style?.transition ?? 'all 0.3s ease';
 
   return (
@@ -154,7 +154,7 @@ function MethodNode(props: any) {
           height: 6,
           borderTopLeftRadius: 18,
           borderTopRightRadius: 18,
-          background: 'linear-gradient(90deg, #60a5fa 0%, #22d3ee 100%)',
+          background: 'linear-gradient(90deg, #f97316 0%, #f59e0b 45%, #22d3ee 100%)',
           opacity: props.style?.boxHighlight ? 1 : 0.75,
         }}
       />
@@ -228,7 +228,7 @@ function DiagramContent() {
     color: '#0f172a',
     opacity: 1,
     border: `2px solid ${highlightColor}`,
-    boxShadow: `0 0 0 2px ${highlightColor}, 0 12px 28px ${ACCENT_GLOW}`,
+    boxShadow: `0 0 0 2px ${highlightColor}, 0 16px 34px ${ACCENT_GLOW}`,
     borderRadius: 18,
     overflow: 'hidden',
     boxHighlight: true,
@@ -237,9 +237,9 @@ function DiagramContent() {
   const guidedInactiveStyle = {
     background: nodeSurfaceMuted,
     color: '#334155',
-    opacity: 0.65,
+    opacity: 0.7,
     border: `1px solid ${nodeBorder}`,
-    boxShadow: `0 6px 16px ${INACTIVE_GLOW}`,
+    boxShadow: `0 10px 24px ${INACTIVE_GLOW}`,
     borderRadius: 18,
     overflow: 'hidden',
     boxHighlight: false,
@@ -733,14 +733,14 @@ function DiagramContent() {
         {/* <Background color="#222" gap={16} /> */}
 
         <Panel position="top-left" style={{ 
-          background: 'rgba(255,255,255,0.9)', 
+          background: 'rgba(255,255,255,0.92)', 
           padding: '16px', 
-          borderRadius: '12px',
+          borderRadius: '14px',
           maxHeight: '90vh',
           overflowY: 'auto',
           width: '230px',
-          boxShadow: '0 12px 30px rgba(15,23,42,0.12)',
-          border: '1px solid rgba(148,163,184,0.4)'
+          boxShadow: '0 18px 40px rgba(15,23,42,0.14)',
+          border: '1px solid rgba(248,113,113,0.2)'
         }}>
           {(dataLoading || dataError) && (
             <div
@@ -900,14 +900,14 @@ function DiagramContent() {
   <Panel
     position="top-right"
     style={{
-      background: 'rgba(255,255,255,0.95)',
+      background: 'rgba(255,255,255,0.96)',
       padding: '20px',
       borderRadius: '14px',
       width: '360px',
       maxHeight: '90vh',
       overflowY: 'auto',
-      boxShadow: '0 18px 40px rgba(15,23,42,0.18)',
-      border: '1px solid rgba(148,163,184,0.4)',
+      boxShadow: '0 22px 48px rgba(15,23,42,0.2)',
+      border: '1px solid rgba(59,130,246,0.25)',
       color: '#333',
     }}
   >
