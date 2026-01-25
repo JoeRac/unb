@@ -269,6 +269,9 @@ function DiagramContent() {
   const [dataError, setDataError] = useState<string | null>(null);
   const { fitView } = useReactFlow();
 
+  const highlightColor = '#1976d2';
+  const paleColor = '#e5e7eb';
+
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
       getLayoutedNodes(nodesToLayout, edgesToLayout, layoutDirections[layoutIndex].value as 'TB'),
@@ -299,6 +302,43 @@ function DiagramContent() {
     } catch {
       return undefined;
     }
+  };
+
+  const normalizeDriveUrl = (url: string) => {
+    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match?.[1]) {
+      return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    }
+    return url;
+  };
+
+  const normalizeImageUrl = (url?: string) => {
+    if (!url) return url;
+    const trimmed = url.trim();
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    if (trimmed.startsWith('http')) return normalizeDriveUrl(trimmed);
+    return trimmed;
+  };
+
+  const normalizeVideoUrl = (url?: string) => {
+    if (!url) return url;
+    const trimmed = url.trim();
+    if (trimmed.includes('youtube.com/watch')) {
+      const match = trimmed.match(/[?&]v=([^&]+)/);
+      const id = match?.[1];
+      return id ? `https://www.youtube.com/embed/${id}` : trimmed;
+    }
+    if (trimmed.includes('youtu.be/')) {
+      const match = trimmed.match(/youtu\.be\/([^?]+)/);
+      const id = match?.[1];
+      return id ? `https://www.youtube.com/embed/${id}` : trimmed;
+    }
+    if (trimmed.includes('vimeo.com/')) {
+      const match = trimmed.match(/vimeo\.com\/(\d+)/);
+      const id = match?.[1];
+      return id ? `https://player.vimeo.com/video/${id}` : trimmed;
+    }
+    return trimmed;
   };
 
   const buildFromRows = useCallback((rows: SheetRow[]) => {
@@ -355,8 +395,25 @@ function DiagramContent() {
         details: row.details || '',
         longDescription: row.longDescription || '',
         externalLinks: parseJsonArray<{ label: string; url: string }>(row.externalLinks),
-        images: parseJsonArray<{ src: string; alt?: string }>(row.images),
-        video: parseJsonObject<{ type: 'youtube' | 'vimeo' | 'html5'; url: string }>(row.video),
+        images: parseJsonArray<{ src: string; alt?: string }>(row.images)?.map((img) => ({
+          ...img,
+          src: normalizeImageUrl(img.src) || img.src,
+        })),
+        video: (() => {
+          const parsed = parseJsonObject<{ type?: 'youtube' | 'vimeo' | 'html5'; url?: string }>(row.video);
+          if (!parsed?.url) return undefined;
+          const normalizedUrl = normalizeVideoUrl(parsed.url);
+          let type = parsed.type;
+          if (!type) {
+            if (normalizedUrl?.includes('youtube.com') || normalizedUrl?.includes('youtu.be')) type = 'youtube';
+            else if (normalizedUrl?.includes('vimeo.com')) type = 'vimeo';
+            else type = 'html5';
+          }
+          return {
+            type: type as 'youtube' | 'vimeo' | 'html5',
+            url: normalizedUrl || parsed.url,
+          };
+        })(),
       },
     }));
 
@@ -426,15 +483,15 @@ function DiagramContent() {
   };
 
   const manualActiveStyle = {
-    background: '#1976d2',
+    background: highlightColor,
     color: '#fff',
     opacity: 1,
-    boxShadow: '0 0 0 4px #1976d2, 0 8px 24px rgba(0,0,0,0.25)',
+    boxShadow: `0 0 0 4px ${highlightColor}, 0 8px 24px rgba(0,0,0,0.25)`,
     boxHighlight: true,
   };
 
   const manualInactiveStyle = {
-    background: '#e5e7eb',
+    background: paleColor,
     color: '#666',
     opacity: 0.35,
     boxShadow: 'none',
@@ -524,8 +581,6 @@ function DiagramContent() {
   const showPath = (pathName: string) => {
     const pathNodes = paths[pathName as keyof typeof paths];
     setActivePath(pathName);
-    const highlightColor = '#1976d2'; // brighter blue
-    const paleColor = '#e5e7eb'; // soft gray for light bg
     setNodes((nds) => {
       const updated = nds.map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -899,16 +954,29 @@ function DiagramContent() {
 
     {/* Video */}
     {selectedNodeData.video && (
-      <iframe
-        src={selectedNodeData.video.url}
-        style={{
-          width: '100%',
-          aspectRatio: '16 / 9',
-          borderRadius: 8,
-          marginTop: 16
-        }}
-        allowFullScreen
-      />
+      selectedNodeData.video.type === 'html5' ? (
+        <video
+          controls
+          src={selectedNodeData.video.url}
+          style={{
+            width: '100%',
+            borderRadius: 8,
+            marginTop: 16
+          }}
+        />
+      ) : (
+        <iframe
+          src={selectedNodeData.video.url}
+          style={{
+            width: '100%',
+            aspectRatio: '16 / 9',
+            borderRadius: 8,
+            marginTop: 16
+          }}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      )
     )}
 
     {/* External links */}
