@@ -492,7 +492,7 @@ function DiagramContent() {
 
   
 
-  const baseNodeStyle = (node: Node) => {
+  const baseNodeStyle = () => {
     return {
       boxShadow: '0 2px 12px 0 rgba(30,30,40,0.10)',
       transition: 'background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease',
