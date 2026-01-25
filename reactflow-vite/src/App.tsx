@@ -648,22 +648,22 @@ function DiagramContent() {
     // Get the rightmost position of current visible nodes
     const visibleNodes = nodes.filter((n) => !n.hidden && !n.id.startsWith('personalized-'));
     const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
-    const startX = maxX + 250; // Gap between original diagram and personalized section
+    const startX = maxX + 300; // Gap between original diagram and personalized section
     const startY = 150; // Vertical position for the horizontal row
 
     // Get selected nodes data
     const selectedNodeIds = Array.from(manualHighlights);
     const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
 
-    // Create duplicated nodes with unique IDs - create fresh nodes, don't spread original
+    // Create duplicated nodes with unique IDs - create fresh nodes with correct positions
     const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => {
       const nodeData = n.data as NodeData;
-      const xPos = startX + (index * (nodeWidth + 50));
+      const xPos = startX + (index * (nodeWidth + 60));
       const yPos = startY;
       
       return {
         id: `personalized-${n.id}`,
-        type: n.type,
+        type: 'methodNode',
         position: { x: xPos, y: yPos },
         data: {
           label: nodeData.label,
@@ -682,74 +682,50 @@ function DiagramContent() {
           border: '2px solid #10b981',
           boxShadow: '0 8px 32px rgba(16, 185, 129, 0.25), 0 4px 16px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
           borderRadius: 20,
-          opacity: 0,
-          transform: 'scale(0.8) translateY(20px)',
-          transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
         },
         draggable: true,
         selectable: true,
+        hidden: false,
       };
     });
 
-    console.log('Creating personalized nodes:', duplicatedNodes.map(n => ({ id: n.id, position: n.position })));
-
-    // Add the duplicated nodes to the canvas
-    setNodes((nds) => [...nds, ...duplicatedNodes]);
+    // Set all nodes at once, including the new personalized ones
+    setNodes((nds) => {
+      // Filter out any existing personalized versions of the same nodes
+      const existingPersonalizedIds = duplicatedNodes.map(dn => dn.id);
+      const filteredNodes = nds.filter(n => !existingPersonalizedIds.includes(n.id));
+      return [...filteredNodes, ...duplicatedNodes];
+    });
     setPersonalizedNodes((prev) => [...prev, ...duplicatedNodes]);
 
-    // Animate: fade in and scale up with staggered delay
+    // Fit view to show both original and personalized after a brief delay
     setTimeout(() => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id.startsWith('personalized-')) {
-            // Find the index of this personalized node for stagger
-            const personalizedIndex = duplicatedNodes.findIndex((dn) => dn.id === n.id);
-            const delay = personalizedIndex >= 0 ? personalizedIndex * 0.08 : 0;
-            return {
-              ...n,
-              style: {
-                ...n.style,
-                opacity: 1,
-                transform: 'scale(1) translateY(0)',
-                transitionDelay: `${delay}s`,
-              },
-            };
-          }
-          return n;
-        })
-      );
-
-      // Fit view to show both original and personalized
-      setTimeout(() => {
-        fitView({
-          duration: 800,
-          padding: 0.12,
-        });
-      }, 200);
-    }, 50);
-
-    // Clean up transition delay after animation
-    setTimeout(() => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id.startsWith('personalized-')) {
-            return {
-              ...n,
-              style: {
-                ...n.style,
-                transform: 'scale(1)',
-              },
-            };
-          }
-          return n;
-        })
-      );
-    }, 1000);
+      fitView({
+        duration: 800,
+        padding: 0.1,
+      });
+    }, 100);
   };
 
   const clearPersonalized = () => {
+    // Remove personalized nodes
     setNodes((nds) => nds.filter((n) => !n.id.startsWith('personalized-')));
     setPersonalizedNodes([]);
+    // Clear the manual highlights that were personalized
+    setManualHighlights(new Set());
+    // Reset all remaining nodes to inactive style
+    setTimeout(() => {
+      setNodes((nds) =>
+        enforceRootHidden(nds).map((n) => ({
+          ...n,
+          style: {
+            ...baseNodeStyle(),
+            ...guidedInactiveStyle,
+          },
+        }))
+      );
+      fitView({ duration: 400, padding: 0.15 });
+    }, 50);
   };
 
   const showPath = (pathName: string) => {
@@ -1103,6 +1079,64 @@ function DiagramContent() {
                   {path.name}
                 </button>
               ))}
+
+              {/* Personalize section for Guided mode */}
+              {activePath && activePath !== 'All Nodes' && pathsMap[activePath]?.length > 0 && (
+                <>
+                  <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
+                      Path has {pathsMap[activePath]?.length || 0} nodes
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Set manualHighlights to the current path nodes, then personalize
+                        const pathNodeIds = pathsMap[activePath] || [];
+                        setManualHighlights(new Set(pathNodeIds));
+                        // Small delay to ensure state is set
+                        setTimeout(() => {
+                          personalizeSelection();
+                        }, 50);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                      }}
+                    >
+                      ✨ Personalize Path
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {personalizedNodes.length > 0 && (
+                <button
+                  onClick={clearPersonalized}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    marginTop: '12px',
+                    background: '#fee2e2',
+                    color: '#991b1b',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  🗑️ Clear Personalized ({personalizedNodes.length})
+                </button>
+              )}
             </>
           )}
         </Panel>
