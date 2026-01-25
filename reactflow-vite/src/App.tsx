@@ -200,8 +200,8 @@ function DiagramContent() {
   const highlightColor = '#2563eb';
   const paleColor = '#cbd5e1';
   const nodeBorder = '#0f172a';
-  const nodeSurface = '#f8fafc';
-  const nodeSurfaceMuted = '#eef2f6';
+  const nodeSurface = '#e7f0ff';
+  const nodeSurfaceMuted = '#d9e6ff';
   const guidedActiveStyle = {
     background: nodeSurface,
     color: '#0f172a',
@@ -696,7 +696,7 @@ function DiagramContent() {
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#eff6ff' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#f3f4f6' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
