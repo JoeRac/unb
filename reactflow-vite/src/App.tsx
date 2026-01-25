@@ -6,14 +6,14 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
-const CANVAS_BG = 'radial-gradient(1200px 800px at 8% 12%, #fef3c7 0%, #e0f2fe 35%, #e9d5ff 70%, #f8fafc 100%)';
-const NODE_SURFACE = 'linear-gradient(180deg, #ffffff 0%, #f0f9ff 55%, #ecfeff 100%)';
-const NODE_SURFACE_MUTED = 'linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)';
-const NODE_BORDER = '#0f172a';
-const HIGHLIGHT_COLOR = '#f97316';
-const ACCENT_GLOW = 'rgba(249,115,22,0.3)';
-const INACTIVE_GLOW = 'rgba(15,23,42,0.10)';
-const EDGE_COLOR = '#64748b';
+const CANVAS_BG = '#f6f7fb';
+const NODE_SURFACE = 'linear-gradient(180deg, #ffffff 0%, #f5f7ff 100%)';
+const NODE_SURFACE_MUTED = 'linear-gradient(180deg, #f8f9ff 0%, #eef2ff 100%)';
+const NODE_BORDER = '#1f2937';
+const HIGHLIGHT_COLOR = '#1a73e8';
+const ACCENT_GLOW = 'rgba(26,115,232,0.25)';
+const INACTIVE_GLOW = 'rgba(31,41,55,0.10)';
+const EDGE_COLOR = '#9aa5b1';
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -154,7 +154,7 @@ function MethodNode(props: any) {
           height: 6,
           borderTopLeftRadius: 18,
           borderTopRightRadius: 18,
-          background: 'linear-gradient(90deg, #f97316 0%, #f59e0b 45%, #22d3ee 100%)',
+          background: 'linear-gradient(90deg, #1a73e8 0%, #4f8ef7 55%, #34a853 100%)',
           opacity: props.style?.boxHighlight ? 1 : 0.75,
         }}
       />
@@ -740,7 +740,7 @@ function DiagramContent() {
           overflowY: 'auto',
           width: '230px',
           boxShadow: '0 18px 40px rgba(15,23,42,0.14)',
-          border: '1px solid rgba(248,113,113,0.2)'
+          border: '1px solid rgba(26,115,232,0.18)'
         }}>
           {(dataLoading || dataError) && (
             <div
@@ -907,7 +907,7 @@ function DiagramContent() {
       maxHeight: '90vh',
       overflowY: 'auto',
       boxShadow: '0 22px 48px rgba(15,23,42,0.2)',
-      border: '1px solid rgba(59,130,246,0.25)',
+      border: '1px solid rgba(26,115,232,0.22)',
       color: '#333',
     }}
   >
