@@ -90,7 +90,7 @@ type SheetRow = {
 };
 
 const SHEET_CSV_URL =
-  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?tqx=out:csv';
+  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
 
 function MethodNode(props: any) {
   const data = props.data as NodeData;
@@ -439,6 +439,7 @@ function DiagramContent() {
         const parsed = Papa.parse<SheetRow>(csvText, {
           header: true,
           skipEmptyLines: true,
+          delimiter: '\t',
         });
         if (parsed.errors?.length) {
           throw new Error(parsed.errors[0].message);
