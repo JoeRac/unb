@@ -298,6 +298,12 @@ function DiagramContent() {
   };
 
   const buildFromRows = useCallback((rows: SheetRow[]) => {
+    const parseParentIds = (value?: string) =>
+      (value || '')
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+
     const normalizeHeader = (key: string) =>
       key.toLowerCase().replace(/[^a-z0-9]/g, '');
     const getNormalizedRow = (row: SheetRow) => {
@@ -374,14 +380,19 @@ function DiagramContent() {
     }));
 
     const edgesFromSheet: Edge[] = cleanRows
-      .filter((row) => row.parentId)
-      .map((row) => ({
-        id: `${row.parentId}->${row.id}`,
-        source: row.parentId as string,
-        target: row.id as string,
-      }));
+      .flatMap((row) => {
+        const parents = parseParentIds(row.parentId);
+        if (!parents.length) return [];
+        return parents.map((parentId) => ({
+          id: `${parentId}->${row.id}`,
+          source: parentId,
+          target: row.id as string,
+        }));
+      });
 
-    const roots = cleanRows.filter((row) => !row.parentId).map((row) => row.id as string);
+    const roots = cleanRows
+      .filter((row) => parseParentIds(row.parentId).length === 0)
+      .map((row) => row.id as string);
 
     return { nodesFromSheet, edgesFromSheet, roots };
   }, []);
