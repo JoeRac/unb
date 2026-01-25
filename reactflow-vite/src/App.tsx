@@ -80,6 +80,12 @@ type SheetRow = {
   category?: string;
   color?: string;
   wikiUrl?: string;
+  description?: string;
+  details?: string;
+  longDescription?: string;
+  externalLinks?: string;
+  images?: string;
+  video?: string;
   hidden_by_default?: string | boolean;
 };
 
@@ -275,6 +281,26 @@ function DiagramContent() {
     return value.toString().trim().toLowerCase() === 'true';
   };
 
+  const parseJsonArray = <T,>(value?: string): T[] | undefined => {
+    if (!value) return undefined;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const parseJsonObject = <T,>(value?: string): T | undefined => {
+    if (!value) return undefined;
+    try {
+      const parsed = JSON.parse(value);
+      return typeof parsed === 'object' && parsed !== null ? (parsed as T) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   const buildFromRows = useCallback((rows: SheetRow[]) => {
     const cleanRows = rows
       .map((row) => ({
@@ -284,6 +310,12 @@ function DiagramContent() {
         category: row.category?.toString().trim(),
         color: row.color?.toString().trim(),
         wikiUrl: row.wikiUrl?.toString().trim(),
+        description: row.description?.toString().trim(),
+        details: row.details?.toString().trim(),
+        longDescription: row.longDescription?.toString().trim(),
+        externalLinks: row.externalLinks?.toString().trim(),
+        images: row.images?.toString().trim(),
+        video: row.video?.toString().trim(),
         hidden_by_default: row.hidden_by_default,
       }))
       .filter((row) => row.id);
@@ -298,6 +330,12 @@ function DiagramContent() {
         category: row.category || '',
         color: row.color || '#1f2937',
         wikiUrl: row.wikiUrl || '',
+        description: row.description || '',
+        details: row.details || '',
+        longDescription: row.longDescription || '',
+        externalLinks: parseJsonArray<{ label: string; url: string }>(row.externalLinks),
+        images: parseJsonArray<{ src: string; alt?: string }>(row.images),
+        video: parseJsonObject<{ type: 'youtube' | 'vimeo' | 'html5'; url: string }>(row.video),
       },
     }));
 
