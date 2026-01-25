@@ -563,8 +563,8 @@ function DiagramContent() {
       eds.map((e) => ({
         ...e,
         style: {
-          stroke: '#9ca3af',
-          opacity: 0.9,
+          stroke: paleColor,
+          opacity: 0.25,
           strokeWidth: 1.5,
         },
       }))
