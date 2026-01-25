@@ -220,7 +220,6 @@ function DiagramContent() {
   const { fitView } = useReactFlow();
 
   const highlightColor = HIGHLIGHT_COLOR;
-  const paleColor = '#cbd5e1';
   const nodeBorder = NODE_BORDER;
   const nodeSurface = NODE_SURFACE;
   const nodeSurfaceMuted = NODE_SURFACE_MUTED;
