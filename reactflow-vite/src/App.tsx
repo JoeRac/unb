@@ -106,7 +106,11 @@ const PATHS_GVIZ_URL =
 function MethodNode(props: any) {
   const data = props.data as NodeData;
   const selected = props.selected as boolean;
-  const background = props.style?.background ?? NODE_SURFACE;
+  const styleBackground = props.style?.background;
+  const isHighlighted = props.style?.boxHighlight === true;
+  
+  // Use style background if provided (for highlighting), otherwise default
+  const background = styleBackground ?? NODE_SURFACE;
   const color = props.style?.color ?? '#1f2937';
   const opacity = props.style?.opacity ?? 1;
   const border = props.style?.border ?? `1.5px solid ${NODE_BORDER}`;
@@ -115,27 +119,27 @@ function MethodNode(props: any) {
     (selected
       ? GLASS_SHADOW_ACTIVE
       : GLASS_SHADOW);
-  const transition = props.style?.transition ?? 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
   return (
     <div
       style={{
-        padding: props.style?.boxHighlight ? 18 : 10,
-        fontSize: props.style?.boxHighlight ? 17 : 13,
+        padding: isHighlighted ? 18 : 10,
+        fontSize: isHighlighted ? 17 : 13,
         borderRadius: 18,
         background,
         color,
         opacity,
         border,
-        minWidth: props.style?.boxHighlight ? 210 : 170,
-        maxWidth: props.style?.boxHighlight ? 280 : 210,
+        minWidth: isHighlighted ? 210 : 170,
+        maxWidth: isHighlighted ? 280 : 210,
         boxShadow,
-        transition,
+        transition: 'background 0.15s ease, border 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease',
         cursor: 'pointer',
         position: 'relative',
+        willChange: 'transform',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.05)';
+        e.currentTarget.style.transform = 'scale(1.03)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'scale(1)';
@@ -181,15 +185,16 @@ function PersonalizedNode(props: any) {
         background,
         color,
         border,
-        width: 320,
+        width: 340,
         minHeight: 100,
         boxShadow,
-        transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'transform 0.1s ease',
         cursor: 'pointer',
         position: 'relative',
+        willChange: 'transform',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.03)';
+        e.currentTarget.style.transform = 'scale(1.02)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'scale(1)';
@@ -253,15 +258,15 @@ function DiagramContent() {
   const highlightColor = HIGHLIGHT_COLOR;
   const nodeBorder = NODE_BORDER;
   const guidedActiveStyle = {
-    background: 'linear-gradient(135deg, rgba(26, 115, 232, 0.15) 0%, rgba(66, 133, 244, 0.2) 100%)',
+    background: 'linear-gradient(135deg, rgba(26, 115, 232, 0.25) 0%, rgba(66, 133, 244, 0.3) 100%)',
     color: '#1a365d',
     opacity: 1,
-    border: `2px solid ${highlightColor}`,
+    border: `2.5px solid ${highlightColor}`,
     boxShadow: GLASS_SHADOW_ACTIVE,
     borderRadius: 20,
     overflow: 'hidden',
     boxHighlight: true,
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'all 0.15s ease',
   };
   const guidedInactiveStyle = {
     background: NODE_SURFACE_MUTED,
@@ -272,7 +277,7 @@ function DiagramContent() {
     borderRadius: 20,
     overflow: 'hidden',
     boxHighlight: false,
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'all 0.15s ease',
   };
 
   const layoutNodes = useCallback(
@@ -696,8 +701,8 @@ function DiagramContent() {
     const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
     const startX = maxX + 200; // Gap between original diagram and personalized section
     const startY = 100; // Vertical position for the horizontal row
-    const personalizedNodeWidth = 320; // Width of personalized nodes
-    const personalizedNodeSpacing = 30; // Reduced spacing between nodes
+    const personalizedNodeWidth = 340; // Width of personalized nodes
+    const personalizedNodeSpacing = 60; // Increased spacing between nodes
 
     // Get selected nodes data
     const selectedNodeIds = Array.from(manualHighlights);
