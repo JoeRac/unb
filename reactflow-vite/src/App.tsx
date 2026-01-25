@@ -7,7 +7,6 @@ const nodeWidth = 240;
 const nodeHeight = 80;
 
 const CANVAS_BG = 'linear-gradient(135deg, #e8f0fe 0%, #f1f3f9 50%, #e3e9f7 100%)';
-const NODE_SURFACE = 'rgba(255, 255, 255, 0.85)';
 const NODE_SURFACE_MUTED = 'rgba(241, 245, 255, 0.75)';
 const NODE_BORDER = 'rgba(26, 115, 232, 0.35)';
 const HIGHLIGHT_COLOR = '#1a73e8';
@@ -104,45 +103,33 @@ const PATHS_GVIZ_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=paths&tqx=out:json';
 
 function MethodNode(props: any) {
-  const data = props.data as NodeData;
-  const selected = props.selected as boolean;
-  const styleBackground = props.style?.background;
-  const isHighlighted = props.style?.boxHighlight === true;
+  const data = props.data as NodeData & { isHighlighted?: boolean };
+  const isHighlighted = data.isHighlighted === true;
   
-  // Use style background if provided (for highlighting), otherwise default
-  const background = styleBackground ?? NODE_SURFACE;
-  const color = props.style?.color ?? '#1f2937';
-  const opacity = props.style?.opacity ?? 1;
-  const border = props.style?.border ?? `1.5px solid ${NODE_BORDER}`;
-  const boxShadow =
-    props.style?.boxShadow ??
-    (selected
-      ? GLASS_SHADOW_ACTIVE
-      : GLASS_SHADOW);
+  // Blue gradient background when highlighted, otherwise default surface
+  const background = isHighlighted 
+    ? 'linear-gradient(135deg, rgba(26, 115, 232, 0.22) 0%, rgba(66, 133, 244, 0.28) 100%)'
+    : NODE_SURFACE_MUTED;
+  const color = isHighlighted ? '#1a365d' : '#475569';
+  const opacity = isHighlighted ? 1 : 0.92;
+  const border = isHighlighted ? `2.5px solid ${HIGHLIGHT_COLOR}` : `1.5px solid ${NODE_BORDER}`;
+  const boxShadow = isHighlighted ? GLASS_SHADOW_ACTIVE : GLASS_SHADOW;
 
   return (
     <div
       style={{
-        padding: isHighlighted ? 18 : 10,
-        fontSize: isHighlighted ? 17 : 13,
-        borderRadius: 18,
+        padding: isHighlighted ? 16 : 10,
+        fontSize: isHighlighted ? 15 : 13,
+        borderRadius: 16,
         background,
         color,
         opacity,
         border,
-        minWidth: isHighlighted ? 210 : 170,
-        maxWidth: isHighlighted ? 280 : 210,
+        minWidth: isHighlighted ? 200 : 170,
+        maxWidth: isHighlighted ? 260 : 210,
         boxShadow,
-        transition: 'background 0.15s ease, border 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease',
         cursor: 'pointer',
         position: 'relative',
-        willChange: 'transform',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.03)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
       }}
     >
       <Handle
@@ -256,29 +243,6 @@ function DiagramContent() {
   const { fitView } = useReactFlow();
 
   const highlightColor = HIGHLIGHT_COLOR;
-  const nodeBorder = NODE_BORDER;
-  const guidedActiveStyle = {
-    background: 'linear-gradient(135deg, rgba(26, 115, 232, 0.25) 0%, rgba(66, 133, 244, 0.3) 100%)',
-    color: '#1a365d',
-    opacity: 1,
-    border: `2.5px solid ${highlightColor}`,
-    boxShadow: GLASS_SHADOW_ACTIVE,
-    borderRadius: 20,
-    overflow: 'hidden',
-    boxHighlight: true,
-    transition: 'all 0.15s ease',
-  };
-  const guidedInactiveStyle = {
-    background: NODE_SURFACE_MUTED,
-    color: '#475569',
-    opacity: 0.9,
-    border: `1.5px solid ${nodeBorder}`,
-    boxShadow: GLASS_SHADOW,
-    borderRadius: 20,
-    overflow: 'hidden',
-    boxHighlight: false,
-    transition: 'all 0.15s ease',
-  };
 
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
@@ -599,19 +563,6 @@ function DiagramContent() {
     loadPaths();
   }, []);
 
-  
-
-  const baseNodeStyle = () => {
-    return {
-      boxShadow: GLASS_SHADOW,
-      transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-      boxHighlight: false,
-    };
-  };
-
-  const manualActiveStyle = guidedActiveStyle;
-  const manualInactiveStyle = guidedInactiveStyle;
-
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
       setSelectedNode(node);
@@ -630,9 +581,9 @@ function DiagramContent() {
             const isActive = next.has(n.id);
             return {
               ...n,
-              style: {
-                ...baseNodeStyle(),
-                ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
+              data: {
+                ...n.data,
+                isHighlighted: isActive,
               },
             };
           })
@@ -640,7 +591,7 @@ function DiagramContent() {
         return next;
       });
     },
-    [mode, setNodes, baseNodeStyle, manualActiveStyle, manualInactiveStyle]
+    [mode, setNodes, enforceRootHidden]
   );
 
   const enterManualMode = () => {
@@ -649,13 +600,13 @@ function DiagramContent() {
     setSelectedNode(null);
     setManualHighlights(new Set());
     setPersonalizedNodes([]);
-    // Clear any existing personalized nodes
+    // Clear any existing personalized nodes and reset highlights
     setNodes((nds) =>
       enforceRootHidden(nds.filter((n) => !n.id.startsWith('personalized-'))).map((n) => ({
         ...n,
-        style: {
-          ...baseNodeStyle(),
-          ...guidedInactiveStyle,
+        data: {
+          ...n.data,
+          isHighlighted: false,
         },
       }))
     );
@@ -765,14 +716,14 @@ function DiagramContent() {
     setPersonalizedNodes([]);
     // Clear the manual highlights that were personalized
     setManualHighlights(new Set());
-    // Reset all remaining nodes to inactive style
+    // Reset all remaining nodes
     setTimeout(() => {
       setNodes((nds) =>
         enforceRootHidden(nds).map((n) => ({
           ...n,
-          style: {
-            ...baseNodeStyle(),
-            ...guidedInactiveStyle,
+          data: {
+            ...n.data,
+            isHighlighted: false,
           },
         }))
       );
@@ -791,34 +742,20 @@ function DiagramContent() {
         const isActive = pathNodes.includes(n.id);
         return {
           ...n,
-          style: {
-            ...baseNodeStyle(),
-            ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
+          data: {
+            ...n.data,
+            isHighlighted: isActive,
           },
         };
       });
       return getLayoutedNodes(updated, edges);
     });
     setTimeout(() => {
-      setNodes((nds) =>
-        enforceRootHidden(nds).map((n) => {
-          const isActive = pathNodes.includes(n.id);
-          return {
-            ...n,
-            style: {
-              ...baseNodeStyle(),
-              ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
-            },
-          };
-        })
-      );
-      setTimeout(() => {
-        fitView({ 
-          duration: 600,
-          padding: 0.2,
-        });
-      }, 50);
-    }, 400);
+      fitView({ 
+        duration: 500,
+        padding: 0.2,
+      });
+    }, 100);
     // Also update edge styles
     setEdges((eds: Edge[]) =>
       eds.map((e: Edge) => {
@@ -828,8 +765,7 @@ function DiagramContent() {
           style: {
             stroke: isActive ? highlightColor : EDGE_COLOR,
             opacity: isActive ? 1 : 0.25,
-            strokeWidth: isActive ? 3 : 1.5,
-            transition: 'all 0.4s cubic-bezier(.4,2,.3,1)',
+            strokeWidth: isActive ? 2.5 : 1.5,
           },
         };
       })
@@ -842,32 +778,19 @@ function DiagramContent() {
     setNodes((nds) =>
       enforceRootHidden(nds).map((n) => ({
         ...n,
-        style: {
-          ...n.style,
-          opacity: 0,
-          transition: 'opacity 0.4s ease, transform 0.4s ease',
+        data: {
+          ...n.data,
+          isHighlighted: false,
         },
       }))
     );
 
     setTimeout(() => {
-      setNodes((nds) =>
-        enforceRootHidden(nds).map((n) => ({
-          ...n,
-          style: {
-            ...n.style,
-            opacity: 1,
-          },
-        }))
-      );
-      
-      setTimeout(() => {
-        fitView({ 
-          duration: 600,
-          padding: 0.2,
-        });
-      }, 50);
-    }, 400);
+      fitView({ 
+        duration: 500,
+        padding: 0.2,
+      });
+    }, 50);
   };
 
   const showAll = () => {
@@ -877,33 +800,18 @@ function DiagramContent() {
       enforceRootHidden(nds).map((n) => ({
         ...n,
         hidden: rootIds.includes(n.id),
-        style: {
-          ...n.style,
-          opacity: 0,
-          transition: 'opacity 0.5s ease, transform 0.5s ease',
+        data: {
+          ...n.data,
+          isHighlighted: false,
         },
       }))
     );
 
     setTimeout(() => {
-      setNodes((nds) =>
-        enforceRootHidden(nds).map((n, index) => ({
-          ...n,
-          hidden: rootIds.includes(n.id),
-          style: {
-            ...n.style,
-            opacity: 1,
-            transitionDelay: `${index * 0.02}s`,
-          },
-        }))
-      );
-      
-      setTimeout(() => {
-        fitView({ 
-          duration: 800,
-          padding: 0.1,
-        });
-      }, 100);
+      fitView({ 
+        duration: 600,
+        padding: 0.1,
+      });
     }, 50);
   };
 
