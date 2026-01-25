@@ -302,21 +302,42 @@ function DiagramContent() {
   };
 
   const buildFromRows = useCallback((rows: SheetRow[]) => {
+    const normalizeHeader = (key: string) =>
+      key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const getNormalizedRow = (row: SheetRow) => {
+      const normalized: Record<string, string | boolean | undefined> = {};
+      Object.entries(row).forEach(([key, value]) => {
+        normalized[normalizeHeader(key)] = value as string | boolean | undefined;
+      });
+      return normalized;
+    };
+
     const cleanRows = rows
       .map((row) => ({
-        id: row.id?.toString().trim(),
-        parentId: row.parentId?.toString().trim(),
-        label: row.label?.toString().trim(),
-        category: row.category?.toString().trim(),
-        color: row.color?.toString().trim(),
-        wikiUrl: row.wikiUrl?.toString().trim(),
-        description: row.description?.toString().trim(),
-        details: row.details?.toString().trim(),
-        longDescription: row.longDescription?.toString().trim(),
-        externalLinks: row.externalLinks?.toString().trim(),
-        images: row.images?.toString().trim(),
-        video: row.video?.toString().trim(),
-        hidden_by_default: row.hidden_by_default,
+        ...row,
+        _normalized: getNormalizedRow(row),
+      }))
+      .map((row) => ({
+        id: row._normalized?.id?.toString().trim(),
+        parentId: row._normalized?.parentid?.toString().trim(),
+        label: row._normalized?.label?.toString().trim(),
+        category: row._normalized?.category?.toString().trim(),
+        color: row._normalized?.color?.toString().trim(),
+        wikiUrl: row._normalized?.wikiurl?.toString().trim(),
+        description: row._normalized?.description?.toString().trim(),
+        details: row._normalized?.details?.toString().trim(),
+        longDescription: row._normalized?.longdescription?.toString().trim(),
+        externalLinks:
+          row._normalized?.externallinksjsonarray?.toString().trim() ||
+          row._normalized?.externallinks?.toString().trim(),
+        images:
+          row._normalized?.imagesjsonarray?.toString().trim() ||
+          row._normalized?.images?.toString().trim(),
+        video:
+          row._normalized?.videojsonobject?.toString().trim() ||
+          row._normalized?.video?.toString().trim(),
+        hidden_by_default:
+          row._normalized?.hiddenbydefault ?? row._normalized?.hidden,
       }))
       .filter((row) => row.id);
 
