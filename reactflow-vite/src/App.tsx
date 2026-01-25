@@ -34,7 +34,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import {
   ReactFlow,
-  MiniMap,
   Controls,
   Handle,
   Position,
