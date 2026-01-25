@@ -6,14 +6,16 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
-const CANVAS_BG = '#f6f7fb';
-const NODE_SURFACE = '#f5f7ff';
-const NODE_SURFACE_MUTED = '#eef2ff';
-const NODE_BORDER = '#1f2937';
+const CANVAS_BG = 'linear-gradient(135deg, #e8f0fe 0%, #f1f3f9 50%, #e3e9f7 100%)';
+const NODE_SURFACE = 'rgba(255, 255, 255, 0.85)';
+const NODE_SURFACE_MUTED = 'rgba(241, 245, 255, 0.75)';
+const NODE_BORDER = 'rgba(26, 115, 232, 0.35)';
 const HIGHLIGHT_COLOR = '#1a73e8';
-const ACCENT_GLOW = 'rgba(26,115,232,0.25)';
-const INACTIVE_GLOW = 'rgba(31,41,55,0.10)';
-const EDGE_COLOR = '#9aa5b1';
+const ACCENT_GLOW = 'rgba(26, 115, 232, 0.4)';
+const INACTIVE_GLOW = 'rgba(66, 133, 244, 0.08)';
+const EDGE_COLOR = '#90a4c8';
+const GLASS_SHADOW = '0 8px 32px rgba(31, 38, 135, 0.15), 0 4px 16px rgba(26, 115, 232, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6)';
+const GLASS_SHADOW_ACTIVE = '0 12px 40px rgba(26, 115, 232, 0.35), 0 6px 20px rgba(66, 133, 244, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8)';
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -107,15 +109,15 @@ function MethodNode(props: any) {
   const data = props.data as NodeData;
   const selected = props.selected as boolean;
   const background = props.style?.background ?? NODE_SURFACE;
-  const color = props.style?.color ?? '#0f172a';
+  const color = props.style?.color ?? '#1f2937';
   const opacity = props.style?.opacity ?? 1;
-  const border = props.style?.border ?? `1px solid ${NODE_BORDER}`;
+  const border = props.style?.border ?? `1.5px solid ${NODE_BORDER}`;
   const boxShadow =
     props.style?.boxShadow ??
     (selected
-      ? `0 0 0 3px ${HIGHLIGHT_COLOR}, 0 14px 30px ${ACCENT_GLOW}`
-      : '0 8px 22px rgba(15,23,42,0.12)');
-  const transition = props.style?.transition ?? 'all 0.3s ease';
+      ? GLASS_SHADOW_ACTIVE
+      : GLASS_SHADOW);
+  const transition = props.style?.transition ?? 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
   return (
     <div
@@ -208,26 +210,26 @@ function DiagramContent() {
   const nodeSurface = NODE_SURFACE;
   const nodeSurfaceMuted = NODE_SURFACE_MUTED;
   const guidedActiveStyle = {
-    background: nodeSurface,
-    color: '#0f172a',
+    background: 'rgba(255, 255, 255, 0.95)',
+    color: '#1a365d',
     opacity: 1,
     border: `2px solid ${highlightColor}`,
-    boxShadow: `0 0 0 1px ${highlightColor}, 0 12px 28px ${ACCENT_GLOW}`,
-    borderRadius: 18,
+    boxShadow: GLASS_SHADOW_ACTIVE,
+    borderRadius: 20,
     overflow: 'hidden',
     boxHighlight: true,
-    transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
   };
   const guidedInactiveStyle = {
-    background: nodeSurfaceMuted,
-    color: '#334155',
-    opacity: 0.8,
-    border: `1px solid ${nodeBorder}`,
-    boxShadow: `0 8px 18px ${INACTIVE_GLOW}`,
-    borderRadius: 18,
+    background: NODE_SURFACE_MUTED,
+    color: '#475569',
+    opacity: 0.9,
+    border: `1.5px solid ${nodeBorder}`,
+    boxShadow: GLASS_SHADOW,
+    borderRadius: 20,
     overflow: 'hidden',
     boxHighlight: false,
-    transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
   };
 
   const layoutNodes = useCallback(
@@ -237,11 +239,13 @@ function DiagramContent() {
   );
 
   const enforceRootHidden = useCallback(
-    (nds: Node[]) =>
-      nds.map((n) => ({
+    (nds: Node[], explicitRoots?: string[]) => {
+      const roots = explicitRoots || rootIds;
+      return nds.map((n) => ({
         ...n,
-        hidden: rootIds.includes(n.id) ? true : n.hidden,
-      })),
+        hidden: roots.includes(n.id) ? true : n.hidden,
+      }));
+    },
     [rootIds]
   );
   void enforceRootHidden;
@@ -469,11 +473,12 @@ function DiagramContent() {
         if (!nodesFromSheet.length) {
           throw new Error('No nodes found in sheet');
         }
+        const effectiveRoots = roots.length ? roots : nodesFromSheet.slice(0, 1).map((n) => n.id);
         setBaseNodes(nodesFromSheet);
         setBaseEdges(edgesFromSheet);
-        setRootIds(roots.length ? roots : nodesFromSheet.slice(0, 1).map((n) => n.id));
+        setRootIds(effectiveRoots);
         setEdges(edgesFromSheet);
-        setNodes(enforceRootHidden(layoutNodes(nodesFromSheet, edgesFromSheet)));
+        setNodes(enforceRootHidden(layoutNodes(nodesFromSheet, edgesFromSheet), effectiveRoots));
         setTimeout(() => {
           fitView({
             duration: 600,
@@ -550,8 +555,8 @@ function DiagramContent() {
 
   const baseNodeStyle = () => {
     return {
-      boxShadow: '0 2px 12px 0 rgba(30,30,40,0.10)',
-      transition: 'background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease',
+      boxShadow: GLASS_SHADOW,
+      transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
       boxHighlight: false,
     };
   };
@@ -577,7 +582,6 @@ function DiagramContent() {
             const isActive = next.has(n.id);
             return {
               ...n,
-              hidden: false,
               style: {
                 ...baseNodeStyle(),
                 ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
@@ -599,7 +603,6 @@ function DiagramContent() {
     setNodes((nds) =>
       enforceRootHidden(nds).map((n) => ({
         ...n,
-        hidden: false,
         style: {
           ...baseNodeStyle(),
           ...guidedInactiveStyle,
@@ -630,7 +633,7 @@ function DiagramContent() {
     setSelectedNode(null);
     setManualHighlights(new Set());
     setEdges(baseEdges);
-    setNodes(layoutNodes(baseNodes, baseEdges));
+    setNodes(enforceRootHidden(layoutNodes(baseNodes, baseEdges)));
     setTimeout(() => {
       fitView({
         duration: 600,
@@ -664,7 +667,6 @@ function DiagramContent() {
           const isActive = pathNodes.includes(n.id);
           return {
             ...n,
-            hidden: false,
             style: {
               ...baseNodeStyle(),
               ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
@@ -714,7 +716,6 @@ function DiagramContent() {
       setNodes((nds) =>
         enforceRootHidden(nds).map((n) => ({
           ...n,
-          hidden: rootIds.length ? !rootIds.includes(n.id) : false,
           style: {
             ...n.style,
             opacity: 1,
@@ -737,7 +738,7 @@ function DiagramContent() {
     setNodes((nds) =>
       enforceRootHidden(nds).map((n) => ({
         ...n,
-        hidden: false,
+        hidden: rootIds.includes(n.id),
         style: {
           ...n.style,
           opacity: 0,
@@ -750,6 +751,7 @@ function DiagramContent() {
       setNodes((nds) =>
         enforceRootHidden(nds).map((n, index) => ({
           ...n,
+          hidden: rootIds.includes(n.id),
           style: {
             ...n.style,
             opacity: 1,
