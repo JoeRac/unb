@@ -646,76 +646,69 @@ function DiagramContent() {
     if (manualHighlights.size === 0) return;
 
     // Get the rightmost position of current visible nodes
-    const visibleNodes = nodes.filter((n) => !n.hidden);
+    const visibleNodes = nodes.filter((n) => !n.hidden && !n.id.startsWith('personalized-'));
     const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
-    const startX = maxX + 200; // Gap between original diagram and personalized section
+    const startX = maxX + 250; // Gap between original diagram and personalized section
+    const startY = 150; // Vertical position for the horizontal row
 
     // Get selected nodes data
     const selectedNodeIds = Array.from(manualHighlights);
     const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
 
-    // Create duplicated nodes with unique IDs, starting at original positions
+    // Build a map of target positions by personalized node ID
+    const targetPositions: Record<string, { x: number; y: number }> = {};
+    selectedNodesData.forEach((n, index) => {
+      const personalizedId = `personalized-${n.id}`;
+      targetPositions[personalizedId] = {
+        x: startX + (index * (nodeWidth + 50)),
+        y: startY,
+      };
+    });
+
+    // Create duplicated nodes with unique IDs, positioned directly at target (will animate via CSS)
     const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => ({
       ...n,
       id: `personalized-${n.id}`,
-      position: { ...n.position }, // Start at original position
+      position: {
+        x: startX + (index * (nodeWidth + 50)),
+        y: startY,
+      },
       data: { ...n.data as NodeData },
       style: {
         ...n.style,
         background: 'rgba(255, 255, 255, 0.95)',
         border: `2px solid #10b981`,
         boxShadow: '0 8px 32px rgba(16, 185, 129, 0.25), 0 4px 16px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+        borderRadius: 20,
         opacity: 0,
-        transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        transform: 'scale(0.8) translateY(20px)',
+        transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
       draggable: true,
       selectable: true,
-      // Store target position for animation
-      __targetX: startX + (index * (nodeWidth + 40)),
-      __targetY: 100,
-    } as Node & { __targetX: number; __targetY: number }));
+    }));
 
-    // Add the duplicated nodes to the canvas (at original positions, invisible)
+    // Add the duplicated nodes to the canvas
     setNodes((nds) => [...nds, ...duplicatedNodes]);
     setPersonalizedNodes((prev) => [...prev, ...duplicatedNodes]);
 
-    // Animate: first fade in at original position
+    // Animate: fade in and scale up with staggered delay
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id.startsWith('personalized-')) {
+            // Find the index of this personalized node for stagger
+            const personalizedIndex = duplicatedNodes.findIndex((dn) => dn.id === n.id);
+            const delay = personalizedIndex >= 0 ? personalizedIndex * 0.08 : 0;
             return {
               ...n,
               style: {
                 ...n.style,
                 opacity: 1,
+                transform: 'scale(1) translateY(0)',
+                transitionDelay: `${delay}s`,
               },
             };
-          }
-          return n;
-        })
-      );
-    }, 50);
-
-    // Animate: then move to final horizontal position
-    setTimeout(() => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id.startsWith('personalized-')) {
-            const targetNode = duplicatedNodes.find((dn) => dn.id === n.id) as (Node & { __targetX: number; __targetY: number }) | undefined;
-            if (targetNode) {
-              return {
-                ...n,
-                position: {
-                  x: targetNode.__targetX,
-                  y: targetNode.__targetY,
-                },
-                style: {
-                  ...n.style,
-                  transform: 'scale(1.02)',
-                },
-              };
-            }
           }
           return n;
         })
@@ -725,12 +718,12 @@ function DiagramContent() {
       setTimeout(() => {
         fitView({
           duration: 800,
-          padding: 0.15,
+          padding: 0.12,
         });
-      }, 300);
-    }, 400);
+      }, 200);
+    }, 50);
 
-    // Reset scale after animation
+    // Clean up transition delay after animation
     setTimeout(() => {
       setNodes((nds) =>
         nds.map((n) => {
