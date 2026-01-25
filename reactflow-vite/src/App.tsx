@@ -94,9 +94,10 @@ const SHEET_CSV_URL =
 function MethodNode(props: any) {
   const data = props.data as NodeData;
   const selected = props.selected as boolean;
-  const background = props.style?.background ?? data.color ?? '#1f2937';
-  const color = props.style?.color ?? '#fff';
+  const background = props.style?.background ?? '#f8fafc';
+  const color = props.style?.color ?? '#0f172a';
   const opacity = props.style?.opacity ?? 1;
+  const border = props.style?.border ?? '1px solid #1f2937';
   const boxShadow =
     props.style?.boxShadow ??
     (selected
@@ -113,6 +114,7 @@ function MethodNode(props: any) {
         background,
         color,
         opacity,
+        border,
         minWidth: props.style?.boxHighlight ? 200 : 160,
         maxWidth: props.style?.boxHighlight ? 260 : 200,
         boxShadow,
@@ -194,23 +196,28 @@ function DiagramContent() {
   const [dataError, setDataError] = useState<string | null>(null);
   const { fitView } = useReactFlow();
 
-  const highlightColor = '#1976d2';
-  const paleColor = '#e5e7eb';
+  const highlightColor = '#2563eb';
+  const paleColor = '#cbd5e1';
+  const nodeBorder = '#0f172a';
+  const nodeSurface = '#f8fafc';
+  const nodeSurfaceMuted = '#eef2f6';
   const guidedActiveStyle = {
-    background: highlightColor,
-    color: '#fff',
+    background: nodeSurface,
+    color: '#0f172a',
     opacity: 1,
-    boxShadow: `0 0 0 4px ${highlightColor}, 0 8px 24px rgba(0,0,0,0.25)`,
+    border: `2px solid ${highlightColor}`,
+    boxShadow: `0 0 0 2px ${highlightColor}, 0 8px 24px rgba(15,23,42,0.18)`,
     borderRadius: 18,
     overflow: 'hidden',
     boxHighlight: true,
     transition: 'background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease',
   };
   const guidedInactiveStyle = {
-    background: paleColor,
-    color: '#666',
-    opacity: 0.35,
-    boxShadow: 'none',
+    background: nodeSurfaceMuted,
+    color: '#334155',
+    opacity: 0.55,
+    border: `1px solid ${nodeBorder}`,
+    boxShadow: '0 1px 6px rgba(15,23,42,0.08)',
     borderRadius: 18,
     overflow: 'hidden',
     boxHighlight: false,
