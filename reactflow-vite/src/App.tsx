@@ -655,38 +655,43 @@ function DiagramContent() {
     const selectedNodeIds = Array.from(manualHighlights);
     const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
 
-    // Build a map of target positions by personalized node ID
-    const targetPositions: Record<string, { x: number; y: number }> = {};
-    selectedNodesData.forEach((n, index) => {
-      const personalizedId = `personalized-${n.id}`;
-      targetPositions[personalizedId] = {
-        x: startX + (index * (nodeWidth + 50)),
-        y: startY,
+    // Create duplicated nodes with unique IDs - create fresh nodes, don't spread original
+    const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => {
+      const nodeData = n.data as NodeData;
+      const xPos = startX + (index * (nodeWidth + 50));
+      const yPos = startY;
+      
+      return {
+        id: `personalized-${n.id}`,
+        type: n.type,
+        position: { x: xPos, y: yPos },
+        data: {
+          label: nodeData.label,
+          color: nodeData.color,
+          category: nodeData.category,
+          description: nodeData.description,
+          details: nodeData.details,
+          longDescription: nodeData.longDescription,
+          wikiUrl: nodeData.wikiUrl,
+          externalLinks: nodeData.externalLinks,
+          images: nodeData.images,
+          video: nodeData.video,
+        },
+        style: {
+          background: 'rgba(255, 255, 255, 0.95)',
+          border: '2px solid #10b981',
+          boxShadow: '0 8px 32px rgba(16, 185, 129, 0.25), 0 4px 16px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+          borderRadius: 20,
+          opacity: 0,
+          transform: 'scale(0.8) translateY(20px)',
+          transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        },
+        draggable: true,
+        selectable: true,
       };
     });
 
-    // Create duplicated nodes with unique IDs, positioned directly at target (will animate via CSS)
-    const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => ({
-      ...n,
-      id: `personalized-${n.id}`,
-      position: {
-        x: startX + (index * (nodeWidth + 50)),
-        y: startY,
-      },
-      data: { ...n.data as NodeData },
-      style: {
-        ...n.style,
-        background: 'rgba(255, 255, 255, 0.95)',
-        border: `2px solid #10b981`,
-        boxShadow: '0 8px 32px rgba(16, 185, 129, 0.25), 0 4px 16px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-        borderRadius: 20,
-        opacity: 0,
-        transform: 'scale(0.8) translateY(20px)',
-        transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
-      },
-      draggable: true,
-      selectable: true,
-    }));
+    console.log('Creating personalized nodes:', duplicatedNodes.map(n => ({ id: n.id, position: n.position })));
 
     // Add the duplicated nodes to the canvas
     setNodes((nds) => [...nds, ...duplicatedNodes]);
