@@ -523,7 +523,7 @@ function DiagramContent() {
               ...n,
               hidden: false,
               style: {
-                ...baseNodeStyle(n),
+                ...baseNodeStyle(),
                 ...(isActive ? manualActiveStyle : manualInactiveStyle),
               },
             };
@@ -545,7 +545,7 @@ function DiagramContent() {
         ...n,
         hidden: false,
         style: {
-          ...baseNodeStyle(n),
+          ...baseNodeStyle(),
           ...manualInactiveStyle,
         },
       }))
@@ -592,7 +592,7 @@ function DiagramContent() {
         return {
           ...n,
           style: {
-            ...baseNodeStyle(n),
+            ...baseNodeStyle(),
             ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
           },
         };
@@ -607,7 +607,7 @@ function DiagramContent() {
             ...n,
             hidden: false,
             style: {
-              ...baseNodeStyle(n),
+              ...baseNodeStyle(),
               ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
             },
           };
