@@ -120,14 +120,24 @@ function MethodNode(props: any) {
         e.currentTarget.style.transform = 'scale(1)';
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#555' }} isConnectable={false} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: '#555', opacity: 0, width: 0, height: 0 }}
+        isConnectable={false}
+      />
       <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{data.label}</div>
       {data.category && (
         <div style={{ fontSize: 10, opacity: 0.8, fontStyle: 'italic' }}>
           {data.category}
         </div>
       )}
-      <Handle type="source" position={Position.Bottom} style={{ background: '#555' }} isConnectable={false} />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: '#555', opacity: 0, width: 0, height: 0 }}
+        isConnectable={false}
+      />
     </div>
   );
 }
@@ -524,7 +534,7 @@ function DiagramContent() {
               hidden: false,
               style: {
                 ...baseNodeStyle(),
-                ...(isActive ? manualActiveStyle : manualInactiveStyle),
+                ...(isActive ? guidedActiveStyle : guidedInactiveStyle),
               },
             };
           })
@@ -546,7 +556,7 @@ function DiagramContent() {
         hidden: false,
         style: {
           ...baseNodeStyle(),
-          ...manualInactiveStyle,
+          ...guidedInactiveStyle,
         },
       }))
     );
@@ -724,7 +734,6 @@ function DiagramContent() {
         snapToGrid={true}
         snapGrid={[30, 30]}
       >
-        <MiniMap nodeColor={(n) => ((n.data as NodeData).color) || '#fff'} />
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
 
