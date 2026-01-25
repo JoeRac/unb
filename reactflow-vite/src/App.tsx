@@ -298,11 +298,23 @@ function DiagramContent() {
   };
 
   const buildFromRows = useCallback((rows: SheetRow[]) => {
-    const parseParentIds = (value?: string) =>
-      (value || '')
-        .split(/,|-/)
-        .map((v) => v.trim())
-        .filter(Boolean);
+    const parseParentIds = (value?: string) => {
+      const raw = (value || '').trim();
+      if (!raw) return [];
+      if (raw.includes(',') || raw.includes('|') || raw.includes(';')) {
+        return raw
+          .split(/,|\||;/)
+          .map((v) => v.trim())
+          .filter(Boolean);
+      }
+      if (raw.includes('-') && /^[0-9\s-]+$/.test(raw)) {
+        return raw
+          .split('-')
+          .map((v) => v.trim())
+          .filter(Boolean);
+      }
+      return [raw];
+    };
 
     const normalizeHeader = (key: string) =>
       key.toLowerCase().replace(/[^a-z0-9]/g, '');
