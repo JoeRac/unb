@@ -500,9 +500,9 @@ function DiagramContent() {
           return;
         }
         const parsedJson = JSON.parse(jsonText);
-        const rows = parsedJson?.table?.rows || [];
-        const values = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v]);
-        const isHeaderRow = (row: any[]) => {
+        const rows: any[] = parsedJson?.table?.rows || [];
+        const values: Array<[string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v]);
+        const isHeaderRow = (row: Array<string | null | undefined>) => {
           const first = (row?.[0] || '').toString().toLowerCase();
           const second = (row?.[1] || '').toString().toLowerCase();
           return (
@@ -510,15 +510,15 @@ function DiagramContent() {
             (second.includes('id') || second.includes('node'))
           );
         };
-        const filtered = values.filter((row) => row && row.length >= 2 && row[0]);
+        const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 2 && row[0]);
         const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
         const list: PathRow[] = effectiveRows
-          .map((row) => {
+          .map((row: Array<string | null | undefined>) => {
             const name = (row[0] || '').toString().trim();
             const nodeIds = (row[1] || '')
               .toString()
               .split(',')
-              .map((v) => v.trim())
+              .map((v: string) => v.trim())
               .filter(Boolean);
             return { name, nodeIds };
           })
