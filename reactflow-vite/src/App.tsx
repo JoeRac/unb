@@ -94,6 +94,15 @@ const SHEET_CSV_URL =
 function MethodNode(props: any) {
   const data = props.data as NodeData;
   const selected = props.selected as boolean;
+  const background = props.style?.background ?? data.color ?? '#1f2937';
+  const color = props.style?.color ?? '#fff';
+  const opacity = props.style?.opacity ?? 1;
+  const boxShadow =
+    props.style?.boxShadow ??
+    (selected
+      ? '0 0 0 4px #1976d2, 0 8px 24px 0 rgba(0,0,0,0.18)'
+      : '0 2px 12px 0 rgba(30,30,40,0.10)');
+  const transition = props.style?.transition ?? 'all 0.3s ease';
 
   return (
     <div
@@ -101,14 +110,13 @@ function MethodNode(props: any) {
         padding: props.style?.boxHighlight ? 20 : 12,
         fontSize: props.style?.boxHighlight ? 18 : 13,
         borderRadius: 18,
-        background: props.style?.background,
-        color: props.style?.color,
+        background,
+        color,
+        opacity,
         minWidth: props.style?.boxHighlight ? 200 : 160,
         maxWidth: props.style?.boxHighlight ? 260 : 200,
-        boxShadow: selected
-          ? '0 0 0 4px #1976d2, 0 8px 24px 0 rgba(0,0,0,0.18)'
-          : '0 2px 12px 0 rgba(30,30,40,0.10)',
-        transition: 'all 0.3s ease',
+        boxShadow,
+        transition,
         cursor: 'pointer',
         // Remove border to avoid square outline
       }}
@@ -143,97 +151,9 @@ function MethodNode(props: any) {
 
 const nodeTypes = { method: MethodNode };
 
-const initialNodes: Node[] = [
-  {
-  id: 'title',
-  type: 'method',
-  position: { x: 600, y: 0 },
-  data: {
-    label: 'CIPHER METHOD',
-    color: '#1a1a2e',
-    category: 'Framework',
+const initialNodes: Node[] = [];
 
-    description: 'High-precision unburdening framework',
-
-    longDescription:
-      'The Cipher Method is a structured system for decoding internal resistance patterns and producing permanent somatic resolution.',
-
-    wikiUrl: 'https://example.com/cipher',
-
-    externalLinks: [
-      { label: 'Scientific Basis', url: 'https://example.com/research' },
-      { label: 'Full Course', url: 'https://example.com/course' }
-    ],
-
-    images: [
-      { src: '/images/cipher-overview.png', alt: 'Cipher Overview' },
-      { src: '/images/somatic-grid.png', alt: 'Somatic Grid' }
-    ],
-
-    video: {
-      type: 'youtube',
-      url: 'https://www.youtube.com/embed/VIDEO_ID'
-    }
-  }
-},
-  { id: 'framework', type: 'method', hidden: true, position: { x: 600, y: 100 }, data: { label: 'Somatic Intelligence Model', color: '#16213e', category: 'Core Theory' } },
-  { id: 'bs-signal', type: 'method', hidden: true, position: { x: 400, y: 200 }, data: { label: 'BS (Burden Signal)', color: '#e74c3c', category: 'Signal Type', wikiUrl: 'https://example.com/bs' } },
-  { id: 'us-signal', type: 'method', hidden: true, position: { x: 800, y: 200 }, data: { label: 'US (Unburden Signal)', color: '#27ae60', category: 'Signal Type' } },
-  { id: 'si-grid', type: 'method', hidden: true, position: { x: 600, y: 300 }, data: { label: 'Somatic Intelligence Grid', color: '#8e44ad', category: 'Assessment' } },
-  { id: 'phantom-threat', type: 'method', hidden: true, position: { x: 350, y: 400 }, data: { label: 'Phantom Threat', color: '#e67e22', category: 'Quadrant' } },
-  { id: 'clear-threat', type: 'method', hidden: true, position: { x: 550, y: 400 }, data: { label: 'Clear Threat', color: '#c0392b', category: 'Quadrant' } },
-  { id: 'assumed-safety', type: 'method', hidden: true, position: { x: 750, y: 400 }, data: { label: 'Assumed Safety', color: '#f39c12', category: 'Quadrant' } },
-  { id: 'grounded-safety', type: 'method', hidden: true, position: { x: 950, y: 400 }, data: { label: 'Grounded Safety', color: '#27ae60', category: 'Quadrant' } },
-  { id: 'step1', type: 'method', hidden: true, position: { x: 150, y: 550 }, data: { label: 'STEP 1: Immerse', color: '#3498db', category: 'Process', wikiUrl: 'https://example.com/step1' } },
-  { id: 'step2', type: 'method', hidden: true, position: { x: 450, y: 550 }, data: { label: 'STEP 2: Read Signal', color: '#9b59b6', category: 'Process' } },
-  { id: 'step3', type: 'method', hidden: true, position: { x: 750, y: 550 }, data: { label: 'STEP 3: Design Key', color: '#e67e22', category: 'Process' } },
-  { id: 'step4', type: 'method', hidden: true, position: { x: 1050, y: 550 }, data: { label: 'STEP 4: Implement', color: '#27ae60', category: 'Process' } },
-  { id: 'step1-thought', type: 'method', hidden: true, position: { x: 0, y: 650 }, data: { label: 'Thought', color: '#5dade2', category: 'Experience Type' } },
-  { id: 'step1-situation', type: 'method', hidden: true, position: { x: 180, y: 650 }, data: { label: 'Real Situation', color: '#5dade2', category: 'Experience Type' } },
-  { id: 'step1-sensation', type: 'method', hidden: true, position: { x: 0, y: 750 }, data: { label: 'Sensation', color: '#5dade2', category: 'Experience Type' } },
-  { id: 'step1-memory', type: 'method', hidden: true, position: { x: 180, y: 750 }, data: { label: 'Memory', color: '#5dade2', category: 'Experience Type' } },
-  { id: 'step2-journal', type: 'method', hidden: true, position: { x: 360, y: 650 }, data: { label: 'Journal', color: '#af7ac5', category: 'Reading Method' } },
-  { id: 'step2-walk', type: 'method', hidden: true, position: { x: 540, y: 650 }, data: { label: 'Go for Walk', color: '#af7ac5', category: 'Reading Method' } },
-  { id: 'step2-therapy', type: 'method', hidden: true, position: { x: 360, y: 750 }, data: { label: 'Talk Therapy', color: '#af7ac5', category: 'Reading Method' } },
-  { id: 'somatic-lock', type: 'method', hidden: true, position: { x: 450, y: 850 }, data: { label: 'Somatic Lock', color: '#e74c3c', category: 'Discovery' } },
-  { id: 'step3-mental', type: 'method', hidden: true, position: { x: 700, y: 650 }, data: { label: 'Pure Mental Key', color: '#f39c12', category: 'Key Type' } },
-  { id: 'step3-experimental', type: 'method', hidden: true, position: { x: 900, y: 650 }, data: { label: 'Pure Experimental', color: '#f39c12', category: 'Key Type' } },
-  { id: 'step3-mixed', type: 'method', hidden: true, position: { x: 800, y: 750 }, data: { label: 'Mixed Key', color: '#f39c12', category: 'Key Type' } },
-  { id: 'step4-thought', type: 'method', hidden: true, position: { x: 1000, y: 650 }, data: { label: 'Repeated Thought', color: '#52be80', category: 'Implementation' } },
-  { id: 'step4-action', type: 'method', hidden: true, position: { x: 1180, y: 650 }, data: { label: 'Real-World Action', color: '#52be80', category: 'Implementation' } },
-  { id: 'result-instant', type: 'method', hidden: true, position: { x: 1050, y: 850 }, data: { label: 'Instant Relief', color: '#1abc9c', category: 'Result' } },
-  { id: 'result-unburdened', type: 'method', hidden: true, position: { x: 1050, y: 950 }, data: { label: 'Living Unburdened', color: '#0e6655', category: 'Outcome' } },
-];
-
-const initialEdges: Edge[] = [
-  { id: 'e1', source: 'title', target: 'framework', animated: true },
-  { id: 'e2', source: 'framework', target: 'bs-signal' },
-  { id: 'e3', source: 'framework', target: 'us-signal' },
-  { id: 'e4', source: 'framework', target: 'si-grid' },
-  { id: 'e5', source: 'si-grid', target: 'phantom-threat' },
-  { id: 'e6', source: 'si-grid', target: 'clear-threat' },
-  { id: 'e7', source: 'si-grid', target: 'assumed-safety' },
-  { id: 'e8', source: 'si-grid', target: 'grounded-safety' },
-  { id: 'e9', source: 'si-grid', target: 'step1', animated: true },
-  { id: 'e10', source: 'step1', target: 'step2', animated: true },
-  { id: 'e11', source: 'step2', target: 'step3', animated: true },
-  { id: 'e12', source: 'step3', target: 'step4', animated: true },
-  { id: 'e13', source: 'step1', target: 'step1-thought' },
-  { id: 'e14', source: 'step1', target: 'step1-situation' },
-  { id: 'e15', source: 'step1', target: 'step1-sensation' },
-  { id: 'e16', source: 'step1', target: 'step1-memory' },
-  { id: 'e17', source: 'step2', target: 'step2-journal' },
-  { id: 'e18', source: 'step2', target: 'step2-walk' },
-  { id: 'e19', source: 'step2', target: 'step2-therapy' },
-  { id: 'e20', source: 'step2', target: 'somatic-lock' },
-  { id: 'e21', source: 'step3', target: 'step3-mental' },
-  { id: 'e22', source: 'step3', target: 'step3-experimental' },
-  { id: 'e23', source: 'step3', target: 'step3-mixed' },
-  { id: 'e24', source: 'step4', target: 'step4-thought' },
-  { id: 'e25', source: 'step4', target: 'step4-action' },
-  { id: 'e26', source: 'step4', target: 'result-instant' },
-  { id: 'e27', source: 'result-instant', target: 'result-unburdened' },
-];
+const initialEdges: Edge[] = [];
 
 const paths = {
   'Complete Overview': ['title', 'framework', 'bs-signal', 'us-signal', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
@@ -259,21 +179,21 @@ function DiagramContent() {
     []
   );
   const [layoutIndex, setLayoutIndex] = useState(0);
-  const [nodes, setNodes, onNodesChange] = useNodesState(getLayoutedNodes(initialNodes, initialEdges, layoutDirections[0].value as 'TB'));
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
     // Toggle layout direction
     const toggleLayout = () => {
       const nextIndex = (layoutIndex + 1) % layoutDirections.length;
       setLayoutIndex(nextIndex);
       setNodes((nds) => getLayoutedNodes(nds, edges, layoutDirections[nextIndex].value as 'TB'));
     };
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [mode, setMode] = useState<'guided' | 'manual'>('guided');
   const [manualHighlights, setManualHighlights] = useState<Set<string>>(new Set());
-  const [baseNodes, setBaseNodes] = useState<Node[]>(initialNodes);
-  const [baseEdges, setBaseEdges] = useState<Edge[]>(initialEdges);
-  const [rootIds, setRootIds] = useState<string[]>(['title']);
+  const [baseNodes, setBaseNodes] = useState<Node[]>([]);
+  const [baseEdges, setBaseEdges] = useState<Edge[]>([]);
+  const [rootIds, setRootIds] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const { fitView } = useReactFlow();
