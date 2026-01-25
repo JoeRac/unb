@@ -405,6 +405,12 @@ function DiagramContent() {
         setRootIds(roots.length ? roots : nodesFromSheet.slice(0, 1).map((n) => n.id));
         setEdges(edgesFromSheet);
         setNodes(layoutNodes(nodesFromSheet, edgesFromSheet));
+        setTimeout(() => {
+          fitView({
+            duration: 600,
+            padding: 0.2,
+          });
+        }, 50);
       } catch (error: any) {
         setDataError(error?.message || 'Failed to load sheet');
       } finally {
