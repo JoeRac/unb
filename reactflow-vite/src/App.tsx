@@ -12,8 +12,8 @@ const NODE_SURFACE_MUTED = 'rgba(241, 245, 255, 0.75)';
 const NODE_BORDER = 'rgba(26, 115, 232, 0.35)';
 const HIGHLIGHT_COLOR = '#1a73e8';
 const EDGE_COLOR = '#90a4c8';
-const GLASS_SHADOW = '0 8px 32px rgba(31, 38, 135, 0.15), 0 4px 16px rgba(26, 115, 232, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6)';
-const GLASS_SHADOW_ACTIVE = '0 12px 40px rgba(26, 115, 232, 0.35), 0 6px 20px rgba(66, 133, 244, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8)';
+const GLASS_SHADOW = '0 4px 12px rgba(31, 38, 135, 0.08), 0 2px 6px rgba(26, 115, 232, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6)';
+const GLASS_SHADOW_ACTIVE = '0 6px 18px rgba(26, 115, 232, 0.2), 0 3px 8px rgba(66, 133, 244, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8)';
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -164,7 +164,53 @@ function MethodNode(props: any) {
   );
 }
 
-const nodeTypes = { method: MethodNode };
+// Personalized node - larger, no handles
+function PersonalizedNode(props: any) {
+  const data = props.data as NodeData;
+  const background = props.style?.background ?? 'rgba(255, 255, 255, 0.95)';
+  const color = props.style?.color ?? '#1f2937';
+  const border = props.style?.border ?? '2px solid #10b981';
+  const boxShadow = props.style?.boxShadow ?? '0 4px 14px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)';
+
+  return (
+    <div
+      style={{
+        padding: 20,
+        fontSize: 16,
+        borderRadius: 22,
+        background,
+        color,
+        border,
+        width: 320,
+        minHeight: 100,
+        boxShadow,
+        transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: 'pointer',
+        position: 'relative',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'scale(1.03)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'scale(1)';
+      }}
+    >
+      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>{data.label}</div>
+      {data.category && (
+        <div style={{ fontSize: 12, opacity: 0.8, fontStyle: 'italic', marginBottom: 6 }}>
+          {data.category}
+        </div>
+      )}
+      {data.description && (
+        <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.4 }}>
+          {data.description}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const nodeTypes = { method: MethodNode, personalizedNode: PersonalizedNode };
 
 type PathRow = {
   name: string;
@@ -207,7 +253,7 @@ function DiagramContent() {
   const highlightColor = HIGHLIGHT_COLOR;
   const nodeBorder = NODE_BORDER;
   const guidedActiveStyle = {
-    background: 'rgba(255, 255, 255, 0.95)',
+    background: 'linear-gradient(135deg, rgba(26, 115, 232, 0.15) 0%, rgba(66, 133, 244, 0.2) 100%)',
     color: '#1a365d',
     opacity: 1,
     border: `2px solid ${highlightColor}`,
@@ -648,8 +694,10 @@ function DiagramContent() {
     // Get the rightmost position of current visible nodes
     const visibleNodes = nodes.filter((n) => !n.hidden && !n.id.startsWith('personalized-'));
     const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
-    const startX = maxX + 300; // Gap between original diagram and personalized section
-    const startY = 150; // Vertical position for the horizontal row
+    const startX = maxX + 200; // Gap between original diagram and personalized section
+    const startY = 100; // Vertical position for the horizontal row
+    const personalizedNodeWidth = 320; // Width of personalized nodes
+    const personalizedNodeSpacing = 30; // Reduced spacing between nodes
 
     // Get selected nodes data
     const selectedNodeIds = Array.from(manualHighlights);
@@ -658,12 +706,12 @@ function DiagramContent() {
     // Create duplicated nodes with unique IDs - create fresh nodes with correct positions
     const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => {
       const nodeData = n.data as NodeData;
-      const xPos = startX + (index * (nodeWidth + 60));
+      const xPos = startX + (index * (personalizedNodeWidth + personalizedNodeSpacing));
       const yPos = startY;
       
       return {
         id: `personalized-${n.id}`,
-        type: 'methodNode',
+        type: 'personalizedNode',
         position: { x: xPos, y: yPos },
         data: {
           label: nodeData.label,
@@ -678,10 +726,9 @@ function DiagramContent() {
           video: nodeData.video,
         },
         style: {
-          background: 'rgba(255, 255, 255, 0.95)',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 253, 244, 0.95) 100%)',
           border: '2px solid #10b981',
-          boxShadow: '0 8px 32px rgba(16, 185, 129, 0.25), 0 4px 16px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-          borderRadius: 20,
+          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
         },
         draggable: true,
         selectable: true,
