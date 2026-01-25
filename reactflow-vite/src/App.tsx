@@ -300,7 +300,7 @@ function DiagramContent() {
   const buildFromRows = useCallback((rows: SheetRow[]) => {
     const parseParentIds = (value?: string) =>
       (value || '')
-        .split(',')
+        .split(/,|-/)
         .map((v) => v.trim())
         .filter(Boolean);
 
@@ -660,7 +660,7 @@ function DiagramContent() {
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#f7f7fa' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#eff6ff' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
