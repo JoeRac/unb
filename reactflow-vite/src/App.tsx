@@ -100,8 +100,8 @@ type SheetRow = {
 
 const SHEET_TSV_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
-const PATHS_TSV_URL =
-  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?tqx=out:tsv&sheet=paths';
+const PATHS_GVIZ_URL =
+  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=paths&tqx=out:json';
 
 function MethodNode(props: any) {
   const data = props.data as NodeData;
@@ -485,33 +485,38 @@ function DiagramContent() {
   useEffect(() => {
     const loadPaths = async () => {
       try {
-        const response = await fetch(PATHS_TSV_URL);
+        const response = await fetch(PATHS_GVIZ_URL);
         if (!response.ok) {
           setPathsList([]);
           setPathsMap({});
           return;
         }
-        const tsvText = await response.text();
-        const parsed = Papa.parse<string[]>(tsvText, {
-          header: false,
-          skipEmptyLines: true,
-          delimiter: '\t',
-        });
-        const rows = (parsed.data || []) as string[][];
-        const isHeaderRow = (row: string[]) => {
-          const first = (row?.[0] || '').toLowerCase();
-          const second = (row?.[1] || '').toLowerCase();
+        const rawText = await response.text();
+        const jsonMatch = rawText.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
+        const jsonText = jsonMatch?.[1];
+        if (!jsonText) {
+          setPathsList([]);
+          setPathsMap({});
+          return;
+        }
+        const parsedJson = JSON.parse(jsonText);
+        const rows = parsedJson?.table?.rows || [];
+        const values = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v]);
+        const isHeaderRow = (row: any[]) => {
+          const first = (row?.[0] || '').toString().toLowerCase();
+          const second = (row?.[1] || '').toString().toLowerCase();
           return (
             (first.includes('name') || first.includes('button') || first.includes('label')) &&
             (second.includes('id') || second.includes('node'))
           );
         };
-        const filtered = rows.filter((row) => row && row.length >= 2 && row[0]?.trim());
+        const filtered = values.filter((row) => row && row.length >= 2 && row[0]);
         const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
         const list: PathRow[] = effectiveRows
           .map((row) => {
-            const name = (row[0] || '').trim();
+            const name = (row[0] || '').toString().trim();
             const nodeIds = (row[1] || '')
+              .toString()
               .split(',')
               .map((v) => v.trim())
               .filter(Boolean);
