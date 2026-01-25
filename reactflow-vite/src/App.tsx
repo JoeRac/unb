@@ -11,8 +11,6 @@ const NODE_SURFACE = 'rgba(255, 255, 255, 0.85)';
 const NODE_SURFACE_MUTED = 'rgba(241, 245, 255, 0.75)';
 const NODE_BORDER = 'rgba(26, 115, 232, 0.35)';
 const HIGHLIGHT_COLOR = '#1a73e8';
-const ACCENT_GLOW = 'rgba(26, 115, 232, 0.4)';
-const INACTIVE_GLOW = 'rgba(66, 133, 244, 0.08)';
 const EDGE_COLOR = '#90a4c8';
 const GLASS_SHADOW = '0 8px 32px rgba(31, 38, 135, 0.15), 0 4px 16px rgba(26, 115, 232, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6)';
 const GLASS_SHADOW_ACTIVE = '0 12px 40px rgba(26, 115, 232, 0.35), 0 6px 20px rgba(66, 133, 244, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8)';
@@ -207,8 +205,6 @@ function DiagramContent() {
 
   const highlightColor = HIGHLIGHT_COLOR;
   const nodeBorder = NODE_BORDER;
-  const nodeSurface = NODE_SURFACE;
-  const nodeSurfaceMuted = NODE_SURFACE_MUTED;
   const guidedActiveStyle = {
     background: 'rgba(255, 255, 255, 0.95)',
     color: '#1a365d',
