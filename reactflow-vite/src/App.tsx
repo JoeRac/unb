@@ -7,9 +7,9 @@ const nodeWidth = 240;
 const nodeHeight = 80;
 
 const CANVAS_BG = '#f6f7fb';
-const NODE_SURFACE = 'linear-gradient(180deg, #ffffff 0%, #f5f7ff 100%)';
-const NODE_SURFACE_MUTED = 'linear-gradient(180deg, #f8f9ff 0%, #eef2ff 100%)';
-const NODE_BORDER = '#1f2937';
+const NODE_SURFACE = '#ffffff';
+const NODE_SURFACE_MUTED = '#f5f7fb';
+const NODE_BORDER = '#1a73e8';
 const HIGHLIGHT_COLOR = '#1a73e8';
 const ACCENT_GLOW = 'rgba(26,115,232,0.25)';
 const INACTIVE_GLOW = 'rgba(31,41,55,0.10)';
@@ -131,6 +131,8 @@ function MethodNode(props: any) {
         transition,
         cursor: 'pointer',
         position: 'relative',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'scale(1.05)';
@@ -145,19 +147,7 @@ function MethodNode(props: any) {
         style={{ background: '#555', opacity: 0, width: 0, height: 0 }}
         isConnectable={false}
       />
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 6,
-          borderTopLeftRadius: 18,
-          borderTopRightRadius: 18,
-          background: 'linear-gradient(90deg, #1a73e8 0%, #4f8ef7 55%, #34a853 100%)',
-          opacity: props.style?.boxHighlight ? 1 : 0.75,
-        }}
-      />
+      <div />
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{data.label}</div>
       {data.category && (
         <div style={{ fontSize: 10, opacity: 0.8, fontStyle: 'italic' }}>
@@ -228,7 +218,7 @@ function DiagramContent() {
     color: '#0f172a',
     opacity: 1,
     border: `2px solid ${highlightColor}`,
-    boxShadow: `0 0 0 2px ${highlightColor}, 0 16px 34px ${ACCENT_GLOW}`,
+    boxShadow: `0 0 0 1px ${highlightColor}, 0 12px 28px ${ACCENT_GLOW}`,
     borderRadius: 18,
     overflow: 'hidden',
     boxHighlight: true,
@@ -237,9 +227,9 @@ function DiagramContent() {
   const guidedInactiveStyle = {
     background: nodeSurfaceMuted,
     color: '#334155',
-    opacity: 0.7,
+    opacity: 0.8,
     border: `1px solid ${nodeBorder}`,
-    boxShadow: `0 10px 24px ${INACTIVE_GLOW}`,
+    boxShadow: `0 8px 18px ${INACTIVE_GLOW}`,
     borderRadius: 18,
     overflow: 'hidden',
     boxHighlight: false,
