@@ -75,6 +75,7 @@ type NodeData = {
 type SheetRow = {
   id?: string;
   parentId?: string;
+  parentIds?: string;
   label?: string;
   category?: string;
   color?: string;
@@ -298,7 +299,10 @@ function DiagramContent() {
   };
 
   const buildFromRows = useCallback((rows: SheetRow[]) => {
-    const parseParentIds = (value?: string) => {
+    const parseParentIds = (value?: string, list?: string[]) => {
+      if (list?.length) {
+        return list.map((v) => v.trim()).filter(Boolean);
+      }
       const raw = (value || '').trim();
       if (!raw) return [];
       if (raw.includes(',') || raw.includes('|') || raw.includes(';')) {
@@ -340,6 +344,9 @@ function DiagramContent() {
       .map((row) => ({
         id: row._normalized?.id?.toString().trim(),
         parentId: row._normalized?.parentid?.toString().trim(),
+        parentIds:
+          row._normalized?.parentidsjsonarray?.toString().trim() ||
+          row._normalized?.parentids?.toString().trim(),
         label: row._normalized?.label?.toString().trim(),
         category: row._normalized?.category?.toString().trim(),
         color: row._normalized?.color?.toString().trim(),
@@ -399,7 +406,8 @@ function DiagramContent() {
 
     const edgesFromSheet: Edge[] = cleanRows
       .flatMap((row) => {
-        const parents = parseParentIds(row.parentId);
+        const parentIdsList = parseJsonArray<string>(row.parentIds);
+        const parents = parseParentIds(row.parentId, parentIdsList);
         if (!parents.length) return [];
         return parents.map((parentId) => ({
           id: `${parentId}->${row.id}`,
@@ -409,7 +417,10 @@ function DiagramContent() {
       });
 
     const roots = cleanRows
-      .filter((row) => parseParentIds(row.parentId).length === 0)
+      .filter((row) => {
+        const parentIdsList = parseJsonArray<string>(row.parentIds);
+        return parseParentIds(row.parentId, parentIdsList).length === 0;
+      })
       .map((row) => row.id as string);
 
     return { nodesFromSheet, edgesFromSheet, roots };
