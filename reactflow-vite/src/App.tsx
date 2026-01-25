@@ -6,6 +6,12 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
+const CANVAS_BG = '#f3f4f6';
+const NODE_SURFACE = '#e7f0ff';
+const NODE_SURFACE_MUTED = '#d9e6ff';
+const NODE_BORDER = '#0f172a';
+const HIGHLIGHT_COLOR = '#1d4ed8';
+
 function getLayoutedNodes(
   nodes: FlowNode[],
   edges: FlowEdge[],
@@ -95,14 +101,14 @@ const SHEET_CSV_URL =
 function MethodNode(props: any) {
   const data = props.data as NodeData;
   const selected = props.selected as boolean;
-  const background = props.style?.background ?? '#f8fafc';
+  const background = props.style?.background ?? NODE_SURFACE;
   const color = props.style?.color ?? '#0f172a';
   const opacity = props.style?.opacity ?? 1;
-  const border = props.style?.border ?? '1px solid #1f2937';
+  const border = props.style?.border ?? `1px solid ${NODE_BORDER}`;
   const boxShadow =
     props.style?.boxShadow ??
     (selected
-      ? '0 0 0 4px #1976d2, 0 8px 24px 0 rgba(0,0,0,0.18)'
+      ? `0 0 0 3px ${HIGHLIGHT_COLOR}, 0 8px 24px 0 rgba(0,0,0,0.18)`
       : '0 2px 12px 0 rgba(30,30,40,0.10)');
   const transition = props.style?.transition ?? 'all 0.3s ease';
 
@@ -197,11 +203,11 @@ function DiagramContent() {
   const [dataError, setDataError] = useState<string | null>(null);
   const { fitView } = useReactFlow();
 
-  const highlightColor = '#2563eb';
+  const highlightColor = HIGHLIGHT_COLOR;
   const paleColor = '#cbd5e1';
-  const nodeBorder = '#0f172a';
-  const nodeSurface = '#e7f0ff';
-  const nodeSurfaceMuted = '#d9e6ff';
+  const nodeBorder = NODE_BORDER;
+  const nodeSurface = NODE_SURFACE;
+  const nodeSurfaceMuted = NODE_SURFACE_MUTED;
   const guidedActiveStyle = {
     background: nodeSurface,
     color: '#0f172a',
@@ -696,7 +702,7 @@ function DiagramContent() {
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#f3f4f6' }}>
+    <div style={{ width: '100vw', height: '100vh', background: CANVAS_BG }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -706,8 +712,7 @@ function DiagramContent() {
         onNodeClick={onNodeClick}
         nodesDraggable={true}
         fitView
-        snapToGrid={true}
-        snapGrid={[30, 30]}
+        snapToGrid={false}
       >
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
