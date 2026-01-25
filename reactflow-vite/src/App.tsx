@@ -98,8 +98,10 @@ type SheetRow = {
   hidden_by_default?: string | boolean;
 };
 
-const SHEET_CSV_URL =
+const SHEET_TSV_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
+const PATHS_TSV_URL =
+  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?tqx=out:tsv&sheet=paths';
 
 function MethodNode(props: any) {
   const data = props.data as NodeData;
@@ -166,17 +168,9 @@ function MethodNode(props: any) {
 
 const nodeTypes = { method: MethodNode };
 
-const paths = {
-  'Complete Overview': ['title', 'framework', 'bs-signal', 'us-signal', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
-  'Full Process Flow': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step4', 'result-instant', 'result-unburdened'],
-  'Step 1: Immerse Options': ['title', 'framework', 'si-grid', 'step1', 'step1-thought', 'step1-situation', 'step1-sensation', 'step1-memory'],
-  'Step 2: Reading Methods': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step2-journal', 'step2-walk', 'step2-therapy', 'somatic-lock'],
-  'Step 3: Key Design': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step3-mental', 'step3-experimental', 'step3-mixed'],
-  'Step 4: Implementation': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step4', 'step4-thought', 'step4-action'],
-  'Burden Signal Path': ['title', 'framework', 'bs-signal', 'si-grid', 'phantom-threat', 'clear-threat'],
-  'Unburden Signal Path': ['title', 'framework', 'us-signal', 'si-grid', 'assumed-safety', 'grounded-safety'],
-  'Full Journey to Relief': ['title', 'framework', 'si-grid', 'step1', 'step1-thought', 'step2', 'step2-journal', 'somatic-lock', 'step3', 'step3-mental', 'step4', 'step4-thought', 'result-instant', 'result-unburdened'],
-  'Quadrant Deep Dive': ['title', 'framework', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
+type PathRow = {
+  name: string;
+  nodeIds: string[];
 };
 
 function DiagramContent() {
@@ -205,6 +199,8 @@ function DiagramContent() {
   const [baseNodes, setBaseNodes] = useState<Node[]>([]);
   const [baseEdges, setBaseEdges] = useState<Edge[]>([]);
   const [rootIds, setRootIds] = useState<string[]>([]);
+  const [pathsList, setPathsList] = useState<PathRow[]>([]);
+  const [pathsMap, setPathsMap] = useState<Record<string, string[]>>({});
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const { fitView } = useReactFlow();
@@ -448,7 +444,7 @@ function DiagramContent() {
       setDataLoading(true);
       setDataError(null);
       try {
-        const response = await fetch(SHEET_CSV_URL);
+        const response = await fetch(SHEET_TSV_URL);
         if (!response.ok) {
           throw new Error(`Sheet load failed: ${response.status}`);
         }
@@ -485,6 +481,57 @@ function DiagramContent() {
 
     loadSheet();
   }, [buildFromRows, layoutNodes, setEdges, setNodes]);
+
+  useEffect(() => {
+    const loadPaths = async () => {
+      try {
+        const response = await fetch(PATHS_TSV_URL);
+        if (!response.ok) {
+          setPathsList([]);
+          setPathsMap({});
+          return;
+        }
+        const tsvText = await response.text();
+        const parsed = Papa.parse<string[]>(tsvText, {
+          header: false,
+          skipEmptyLines: true,
+          delimiter: '\t',
+        });
+        const rows = (parsed.data || []) as string[][];
+        const isHeaderRow = (row: string[]) => {
+          const first = (row?.[0] || '').toLowerCase();
+          const second = (row?.[1] || '').toLowerCase();
+          return (
+            (first.includes('name') || first.includes('button') || first.includes('label')) &&
+            (second.includes('id') || second.includes('node'))
+          );
+        };
+        const filtered = rows.filter((row) => row && row.length >= 2 && row[0]?.trim());
+        const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
+        const list: PathRow[] = effectiveRows
+          .map((row) => {
+            const name = (row[0] || '').trim();
+            const nodeIds = (row[1] || '')
+              .split(',')
+              .map((v) => v.trim())
+              .filter(Boolean);
+            return { name, nodeIds };
+          })
+          .filter((row) => row.name && row.nodeIds.length);
+        const map: Record<string, string[]> = {};
+        list.forEach((row) => {
+          map[row.name] = row.nodeIds;
+        });
+        setPathsList(list);
+        setPathsMap(map);
+      } catch {
+        setPathsList([]);
+        setPathsMap({});
+      }
+    };
+
+    loadPaths();
+  }, []);
 
   
 
@@ -580,7 +627,10 @@ function DiagramContent() {
   };
 
   const showPath = (pathName: string) => {
-    const pathNodes = paths[pathName as keyof typeof paths];
+    const pathNodes = pathsMap[pathName];
+    if (!pathNodes?.length) {
+      return;
+    }
     setActivePath(pathName);
     setNodes((nds) => {
       const updated = nds.map((n) => {
@@ -807,7 +857,9 @@ function DiagramContent() {
             </div>
           ) : (
             <>
-              <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
+              {pathsList.length > 0 && (
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
+              )}
               
               <button
                 onClick={resetView}
@@ -847,39 +899,39 @@ function DiagramContent() {
                 🌐 Show All
               </button>
 
-              {Object.keys(paths).map((pathName) => (
+              {pathsList.map((path) => (
                 <button
-                  key={pathName}
-                  onClick={() => showPath(pathName)}
+                  key={path.name}
+                  onClick={() => showPath(path.name)}
                   style={{
                     width: '100%',
                     padding: '10px',
                     marginBottom: '6px',
-                    background: activePath === pathName ? '#3498db' : 'white',
-                    color: activePath === pathName ? 'white' : '#333',
-                    border: activePath === pathName ? 'none' : '1px solid #ddd',
+                    background: activePath === path.name ? '#3498db' : 'white',
+                    color: activePath === path.name ? 'white' : '#333',
+                    border: activePath === path.name ? 'none' : '1px solid #ddd',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '11px',
                     textAlign: 'left',
                     transition: 'all 0.3s ease',
-                    fontWeight: activePath === pathName ? 'bold' : 'normal',
-                    transform: activePath === pathName ? 'translateX(4px)' : 'translateX(0)'
+                    fontWeight: activePath === path.name ? 'bold' : 'normal',
+                    transform: activePath === path.name ? 'translateX(4px)' : 'translateX(0)'
                   }}
                   onMouseEnter={(e) => {
-                    if (activePath !== pathName) {
+                    if (activePath !== path.name) {
                       e.currentTarget.style.background = '#e8f4f8';
                       e.currentTarget.style.transform = 'translateX(4px)';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (activePath !== pathName) {
+                    if (activePath !== path.name) {
                       e.currentTarget.style.background = 'white';
                       e.currentTarget.style.transform = 'translateX(0)';
                     }
                   }}
                 >
-                  {pathName}
+                  {path.name}
                 </button>
               ))}
             </>
