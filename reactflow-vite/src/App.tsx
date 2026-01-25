@@ -151,10 +151,6 @@ function MethodNode(props: any) {
 
 const nodeTypes = { method: MethodNode };
 
-const initialNodes: Node[] = [];
-
-const initialEdges: Edge[] = [];
-
 const paths = {
   'Complete Overview': ['title', 'framework', 'bs-signal', 'us-signal', 'si-grid', 'phantom-threat', 'clear-threat', 'assumed-safety', 'grounded-safety'],
   'Full Process Flow': ['title', 'framework', 'si-grid', 'step1', 'step2', 'step3', 'step4', 'result-instant', 'result-unburdened'],
@@ -179,14 +175,14 @@ function DiagramContent() {
     []
   );
   const [layoutIndex, setLayoutIndex] = useState(0);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     // Toggle layout direction
     const toggleLayout = () => {
       const nextIndex = (layoutIndex + 1) % layoutDirections.length;
       setLayoutIndex(nextIndex);
       setNodes((nds) => getLayoutedNodes(nds, edges, layoutDirections[nextIndex].value as 'TB'));
     };
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [mode, setMode] = useState<'guided' | 'manual'>('guided');
