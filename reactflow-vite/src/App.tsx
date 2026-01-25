@@ -249,6 +249,7 @@ function DiagramContent() {
       })),
     [rootIds]
   );
+  void enforceRootHidden;
 
   const parseHidden = (value?: string | boolean) => {
     if (typeof value === 'boolean') return value;
@@ -477,7 +478,7 @@ function DiagramContent() {
         setBaseEdges(edgesFromSheet);
         setRootIds(roots.length ? roots : nodesFromSheet.slice(0, 1).map((n) => n.id));
         setEdges(edgesFromSheet);
-        setNodes(layoutNodes(nodesFromSheet, edgesFromSheet));
+        setNodes(enforceRootHidden(layoutNodes(nodesFromSheet, edgesFromSheet)));
         setTimeout(() => {
           fitView({
             duration: 600,
@@ -577,7 +578,7 @@ function DiagramContent() {
           next.add(node.id);
         }
         setNodes((nds) =>
-          nds.map((n) => {
+          enforceRootHidden(nds).map((n) => {
             const isActive = next.has(n.id);
             return {
               ...n,
@@ -601,7 +602,7 @@ function DiagramContent() {
     setSelectedNode(null);
     setManualHighlights(new Set());
     setNodes((nds) =>
-      nds.map((n) => ({
+      enforceRootHidden(nds).map((n) => ({
         ...n,
         hidden: false,
         style: {
@@ -650,7 +651,7 @@ function DiagramContent() {
     }
     setActivePath(pathName);
     setNodes((nds) => {
-      const updated = nds.map((n) => {
+      const updated = enforceRootHidden(nds).map((n) => {
         const isActive = pathNodes.includes(n.id);
         return {
           ...n,
@@ -664,7 +665,7 @@ function DiagramContent() {
     });
     setTimeout(() => {
       setNodes((nds) =>
-        nds.map((n) => {
+        enforceRootHidden(nds).map((n) => {
           const isActive = pathNodes.includes(n.id);
           return {
             ...n,
@@ -704,7 +705,7 @@ function DiagramContent() {
     setActivePath(null);
     
     setNodes((nds) =>
-      nds.map((n) => ({
+      enforceRootHidden(nds).map((n) => ({
         ...n,
         style: {
           ...n.style,
@@ -716,7 +717,7 @@ function DiagramContent() {
 
     setTimeout(() => {
       setNodes((nds) =>
-        nds.map((n) => ({
+        enforceRootHidden(nds).map((n) => ({
           ...n,
           hidden: rootIds.length ? !rootIds.includes(n.id) : false,
           style: {
@@ -739,7 +740,7 @@ function DiagramContent() {
     setActivePath('All Nodes');
     
     setNodes((nds) =>
-      nds.map((n) => ({
+      enforceRootHidden(nds).map((n) => ({
         ...n,
         hidden: false,
         style: {
@@ -752,7 +753,7 @@ function DiagramContent() {
 
     setTimeout(() => {
       setNodes((nds) =>
-        nds.map((n, index) => ({
+        enforceRootHidden(nds).map((n, index) => ({
           ...n,
           style: {
             ...n.style,
