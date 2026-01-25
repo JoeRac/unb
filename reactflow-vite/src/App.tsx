@@ -194,6 +194,7 @@ function DiagramContent() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [mode, setMode] = useState<'guided' | 'manual'>('guided');
   const [manualHighlights, setManualHighlights] = useState<Set<string>>(new Set());
+  const [personalizedNodes, setPersonalizedNodes] = useState<Node[]>([]);
   const [baseNodes, setBaseNodes] = useState<Node[]>([]);
   const [baseEdges, setBaseEdges] = useState<Edge[]>([]);
   const [rootIds, setRootIds] = useState<string[]>([]);
@@ -596,8 +597,10 @@ function DiagramContent() {
     setActivePath(null);
     setSelectedNode(null);
     setManualHighlights(new Set());
+    setPersonalizedNodes([]);
+    // Clear any existing personalized nodes
     setNodes((nds) =>
-      enforceRootHidden(nds).map((n) => ({
+      enforceRootHidden(nds.filter((n) => !n.id.startsWith('personalized-'))).map((n) => ({
         ...n,
         style: {
           ...baseNodeStyle(),
@@ -628,6 +631,7 @@ function DiagramContent() {
     setActivePath(null);
     setSelectedNode(null);
     setManualHighlights(new Set());
+    setPersonalizedNodes([]);
     setEdges(baseEdges);
     setNodes(enforceRootHidden(layoutNodes(baseNodes, baseEdges)));
     setTimeout(() => {
@@ -636,6 +640,118 @@ function DiagramContent() {
         padding: 0.2,
       });
     }, 50);
+  };
+
+  const personalizeSelection = () => {
+    if (manualHighlights.size === 0) return;
+
+    // Get the rightmost position of current visible nodes
+    const visibleNodes = nodes.filter((n) => !n.hidden);
+    const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
+    const startX = maxX + 200; // Gap between original diagram and personalized section
+
+    // Get selected nodes data
+    const selectedNodeIds = Array.from(manualHighlights);
+    const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
+
+    // Create duplicated nodes with unique IDs, starting at original positions
+    const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => ({
+      ...n,
+      id: `personalized-${n.id}`,
+      position: { ...n.position }, // Start at original position
+      data: { ...n.data as NodeData },
+      style: {
+        ...n.style,
+        background: 'rgba(255, 255, 255, 0.95)',
+        border: `2px solid #10b981`,
+        boxShadow: '0 8px 32px rgba(16, 185, 129, 0.25), 0 4px 16px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+        opacity: 0,
+        transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+      },
+      draggable: true,
+      selectable: true,
+      // Store target position for animation
+      __targetX: startX + (index * (nodeWidth + 40)),
+      __targetY: 100,
+    } as Node & { __targetX: number; __targetY: number }));
+
+    // Add the duplicated nodes to the canvas (at original positions, invisible)
+    setNodes((nds) => [...nds, ...duplicatedNodes]);
+    setPersonalizedNodes((prev) => [...prev, ...duplicatedNodes]);
+
+    // Animate: first fade in at original position
+    setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id.startsWith('personalized-')) {
+            return {
+              ...n,
+              style: {
+                ...n.style,
+                opacity: 1,
+              },
+            };
+          }
+          return n;
+        })
+      );
+    }, 50);
+
+    // Animate: then move to final horizontal position
+    setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id.startsWith('personalized-')) {
+            const targetNode = duplicatedNodes.find((dn) => dn.id === n.id) as (Node & { __targetX: number; __targetY: number }) | undefined;
+            if (targetNode) {
+              return {
+                ...n,
+                position: {
+                  x: targetNode.__targetX,
+                  y: targetNode.__targetY,
+                },
+                style: {
+                  ...n.style,
+                  transform: 'scale(1.02)',
+                },
+              };
+            }
+          }
+          return n;
+        })
+      );
+
+      // Fit view to show both original and personalized
+      setTimeout(() => {
+        fitView({
+          duration: 800,
+          padding: 0.15,
+        });
+      }, 300);
+    }, 400);
+
+    // Reset scale after animation
+    setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id.startsWith('personalized-')) {
+            return {
+              ...n,
+              style: {
+                ...n.style,
+                transform: 'scale(1)',
+              },
+            };
+          }
+          return n;
+        })
+      );
+    }, 1000);
+  };
+
+  const clearPersonalized = () => {
+    setNodes((nds) => nds.filter((n) => !n.id.startsWith('personalized-')));
+    setPersonalizedNodes([]);
   };
 
   const showPath = (pathName: string) => {
@@ -865,6 +981,50 @@ function DiagramContent() {
               <div style={{ marginTop: 8, fontSize: '11px', opacity: 0.75 }}>
                 Highlighted: {manualHighlights.size}
               </div>
+              <button
+                onClick={personalizeSelection}
+                disabled={manualHighlights.size === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginTop: '12px',
+                  background: manualHighlights.size > 0 
+                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
+                    : '#e5e7eb',
+                  color: manualHighlights.size > 0 ? 'white' : '#9ca3af',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  transition: 'all 0.3s ease',
+                  boxShadow: manualHighlights.size > 0 
+                    ? '0 4px 14px rgba(16, 185, 129, 0.35)' 
+                    : 'none',
+                }}
+              >
+                ✨ Personalize ({manualHighlights.size})
+              </button>
+              {personalizedNodes.length > 0 && (
+                <button
+                  onClick={clearPersonalized}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    marginTop: '8px',
+                    background: '#fee2e2',
+                    color: '#991b1b',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  🗑️ Clear Personalized ({personalizedNodes.length})
+                </button>
+              )}
             </div>
           ) : (
             <>
