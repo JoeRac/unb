@@ -902,6 +902,18 @@ function DiagramContent() {
           border: '1px solid rgba(226,232,240,0.8)',
           backdropFilter: 'blur(12px)',
         }}>
+          {/* App Title */}
+          <h1 style={{ 
+            margin: '0 0 16px 0', 
+            fontSize: '18px', 
+            fontWeight: '300', 
+            color: '#1e293b',
+            letterSpacing: '0.05em',
+            textAlign: 'center',
+          }}>
+            Unburdened
+          </h1>
+
           {(dataLoading || dataError) && (
             <div
               style={{
@@ -917,56 +929,10 @@ function DiagramContent() {
             </div>
           )}
 
-          <button
-            onClick={exportToPDF}
-            style={{
-              width: '100%',
-              padding: '10px',
-              marginBottom: '12px',
-              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-              color: '#475569',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: '600',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            }}
-          >
-            ↓ Export PDF
-          </button>
-
           {/* Selection count - subtle */}
           <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px', textAlign: 'center' }}>
             {manualHighlights.size} selected
           </div>
-
-          {/* Personalize button - refined */}
-          <button
-            onClick={personalizeSelection}
-            disabled={manualHighlights.size === 0}
-            style={{
-              width: '100%',
-              padding: '10px',
-              marginBottom: '12px',
-              background: manualHighlights.size > 0 
-                ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
-                : '#f8fafc',
-              color: manualHighlights.size > 0 ? '#047857' : '#94a3b8',
-              border: manualHighlights.size > 0 
-                ? '1px solid rgba(16, 185, 129, 0.3)' 
-                : '1px solid #e2e8f0',
-              borderRadius: '10px',
-              cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
-              fontSize: '11px',
-              fontWeight: '600',
-              boxShadow: manualHighlights.size > 0 
-                ? '0 2px 8px rgba(16, 185, 129, 0.08)' 
-                : 'none',
-            }}
-          >
-            ✦ Personalize ({manualHighlights.size})
-          </button>
 
           {personalizedNodes.length > 0 && (
             <button
@@ -984,7 +950,7 @@ function DiagramContent() {
                 fontWeight: '600',
               }}
             >
-              ✕ Clear Personalized ({personalizedNodes.length})
+              ✕ Clear Built ({personalizedNodes.length})
             </button>
           )}
 
@@ -1044,6 +1010,73 @@ function DiagramContent() {
               ))}
             </>
           )}
+
+          {/* Bottom section with Build, Export, and IDs */}
+          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '14px' }}>
+            {/* Build button */}
+            <button
+              onClick={personalizeSelection}
+              disabled={manualHighlights.size === 0}
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginBottom: '8px',
+                background: manualHighlights.size > 0 
+                  ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
+                  : '#f8fafc',
+                color: manualHighlights.size > 0 ? '#047857' : '#94a3b8',
+                border: manualHighlights.size > 0 
+                  ? '1px solid rgba(16, 185, 129, 0.3)' 
+                  : '1px solid #e2e8f0',
+                borderRadius: '10px',
+                cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
+                fontSize: '11px',
+                fontWeight: '600',
+                boxShadow: manualHighlights.size > 0 
+                  ? '0 2px 8px rgba(16, 185, 129, 0.08)' 
+                  : 'none',
+              }}
+            >
+              ✦ Build ({manualHighlights.size})
+            </button>
+
+            {/* Export PDF button */}
+            <button
+              onClick={exportToPDF}
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginBottom: '12px',
+                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                color: '#475569',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: '600',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}
+            >
+              ↓ Export PDF
+            </button>
+
+            {/* Selected node IDs for copy-paste */}
+            {manualHighlights.size > 0 && (
+              <div style={{ 
+                fontSize: '9px', 
+                color: '#94a3b8', 
+                fontFamily: 'monospace',
+                wordBreak: 'break-all',
+                lineHeight: 1.4,
+                padding: '8px',
+                background: 'rgba(248, 250, 252, 0.8)',
+                borderRadius: '6px',
+                border: '1px solid #f1f5f9',
+              }}>
+                {Array.from(manualHighlights).join(', ')}
+              </div>
+            )}
+          </div>
         </Panel>
 
         {selectedNode && selectedNodeData && (
