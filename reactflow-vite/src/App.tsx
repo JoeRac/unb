@@ -329,6 +329,7 @@ function DiagramContent() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [pathName, setPathName] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [sidebarNodeContent, setSidebarNodeContent] = useState<Record<string, string>>({});
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
@@ -340,7 +341,7 @@ function DiagramContent() {
   }, [activePathId]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj4w4nVvCcK3bk6JowxaAucUuLICJtd-airKLPaVZX18xQiZZ2vSXoXVoOZ-fryYR9_w/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRb2uF8lZdyOMfffHOwpeqcjl1DAa6SgM6WLADNW1Ky7tBSlW9M4wOtkMBTmAk2OZXgw/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -519,6 +520,8 @@ function DiagramContent() {
 
       setSaveStatus('success');
       setActivePath(null);
+      setActivePathId(null);
+      setSidebarNodeContent({});
       setManualHighlights(new Set());
       
       // Clear highlighting
@@ -1075,6 +1078,7 @@ function DiagramContent() {
     }
     setActivePath(pathName);
     setActivePathId(pathRow.id);
+    setSidebarNodeContent({}); // Reset content when switching paths
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
     setNodes((nds) => {
@@ -1116,6 +1120,7 @@ function DiagramContent() {
     setActivePath(null);
     setActivePathId(null);
     setManualHighlights(new Set());
+    setSidebarNodeContent({});
     
     setNodes((nds) =>
       enforceRootHidden(nds).map((n) => ({
@@ -1191,7 +1196,7 @@ function DiagramContent() {
             letterSpacing: '0.05em',
             textAlign: 'center',
           }}>
-            Unburdened
+            UNBURDENED
           </h1>
 
           {(dataLoading || dataError) && (
@@ -1310,6 +1315,82 @@ function DiagramContent() {
                 </button>
               )}
             </>
+          )}
+
+          {/* Node Content Editor - shows when a path is loaded */}
+          {activePath && activePathId && manualHighlights.size > 0 && (
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '14px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '10px' }}>
+                📝 Node Notes
+              </div>
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {Array.from(manualHighlights).map((nodeId) => {
+                  const node = nodes.find(n => n.id === nodeId);
+                  const nodeData = node?.data as NodeData | undefined;
+                  const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+                  
+                  return (
+                    <div key={nodeId} style={{ marginBottom: '12px' }}>
+                      <div style={{ 
+                        fontSize: '10px', 
+                        fontWeight: '600', 
+                        color: nodeData?.color || '#64748b',
+                        marginBottom: '4px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
+                        {nodeData?.label || nodeId}
+                      </div>
+                      <textarea
+                        placeholder="Add notes..."
+                        value={content}
+                        onChange={(e) => {
+                          const newContent = e.target.value;
+                          setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
+                          
+                          // Debounced auto-save
+                          if (debounceTimerRef.current[nodeId]) {
+                            clearTimeout(debounceTimerRef.current[nodeId]);
+                          }
+                          debounceTimerRef.current[nodeId] = setTimeout(async () => {
+                            try {
+                              await fetch(GOOGLE_SCRIPT_URL, {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  action: 'saveNodeContent',
+                                  pathId: activePathId,
+                                  nodeId: nodeId,
+                                  content: newContent,
+                                }),
+                              });
+                            } catch (error) {
+                              console.error('Error saving node content:', error);
+                            }
+                          }, 1000);
+                        }}
+                        style={{
+                          width: '100%',
+                          minHeight: '60px',
+                          padding: '8px 10px',
+                          fontSize: '11px',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          background: 'white',
+                          color: '#334155',
+                          resize: 'vertical',
+                          fontFamily: 'inherit',
+                          lineHeight: 1.4,
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* Bottom section with Build, Export, and IDs */}
