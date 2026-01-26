@@ -8,7 +8,7 @@ const nodeHeight = 80;
 
 // Premium glass theme - clean whites and subtle accents
 const CANVAS_BG = 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)';
-const NODE_SURFACE = 'rgba(255, 255, 255, 0.95)';
+const NODE_SURFACE = 'rgba(248, 250, 252, 0.97)';
 const NODE_BORDER = 'rgba(203, 213, 225, 0.5)';
 const HIGHLIGHT_COLOR = '#3b82f6';
 const EDGE_COLOR = '#cbd5e1';
@@ -1268,11 +1268,6 @@ function DiagramContent() {
             </div>
           )}
 
-          {/* Selection count - subtle */}
-          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px', textAlign: 'center' }}>
-            {manualHighlights.size} selected
-          </div>
-
           {personalizedNodes.length > 0 && (
             <button
               onClick={clearPersonalized}
@@ -1319,7 +1314,7 @@ function DiagramContent() {
                   fontWeight: '600',
                 }}
               >
-                ↺ Reset View
+                Clear View
               </button>
 
               {pathsList.map((path) => (
@@ -1347,27 +1342,6 @@ function DiagramContent() {
                   {path.name}
                 </button>
               ))}
-              
-              {/* Delete Path button - only visible when a path is selected */}
-              {activePath && (
-                <button
-                  onClick={deletePath}
-                  style={{
-                    width: '100%',
-                    padding: '9px 10px',
-                    marginTop: '8px',
-                    background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                    color: '#dc2626',
-                    border: '1px solid rgba(220, 38, 38, 0.3)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                  }}
-                >
-                  🗑 Delete Path
-                </button>
-              )}
             </>
           )}
 
@@ -1483,7 +1457,7 @@ function DiagramContent() {
                     : 'none',
                 }}
               >
-                ✦ Build ({manualHighlights.size})
+                Create ({manualHighlights.size})
               </button>
             )}
 
@@ -1506,6 +1480,27 @@ function DiagramContent() {
             >
               ↓ Export PDF
             </button>
+
+            {/* Delete Path button - only visible when a path is loaded */}
+            {activePath && (
+              <button
+                onClick={deletePath}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginBottom: '8px',
+                  background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                  color: '#dc2626',
+                  border: '1px solid rgba(220, 38, 38, 0.3)',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                }}
+              >
+                🗑 Delete Path
+              </button>
+            )}
 
             {/* Save section - path name input and save button */}
             {manualHighlights.size > 0 && (
