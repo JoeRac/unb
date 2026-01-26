@@ -8,7 +8,7 @@ const nodeHeight = 80;
 
 // Premium glass theme - clean whites and subtle accents
 const CANVAS_BG = 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)';
-const NODE_SURFACE = 'rgba(248, 250, 252, 0.97)';
+const NODE_SURFACE = 'rgba(186, 190, 191, 0.97)';
 const NODE_BORDER = 'rgba(203, 213, 225, 0.5)';
 const HIGHLIGHT_COLOR = '#3b82f6';
 const EDGE_COLOR = '#cbd5e1';
