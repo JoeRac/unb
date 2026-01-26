@@ -458,6 +458,7 @@ function DiagramContent() {
     setSaveStatus('saving');
 
     try {
+      // Save the path
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors', // Google Apps Script requires no-cors
@@ -471,6 +472,60 @@ function DiagramContent() {
           nodeIds: nodeIds,
         }),
       });
+
+      // If we have an active path with node content, copy that content to the new path
+      // This handles the "copy path" scenario when user modifies the name
+      if (activePathId && nodePathMap[activePathId]) {
+        const sourceContent = nodePathMap[activePathId];
+        // Copy each node's content to the new path
+        for (const [nodeId, content] of Object.entries(sourceContent)) {
+          if (content && manualHighlights.has(nodeId)) {
+            await fetch(GOOGLE_SCRIPT_URL, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'saveNodeContent',
+                pathId: pathId,
+                nodeId: nodeId,
+                content: content,
+              }),
+            });
+          }
+        }
+        
+        // Also copy content from sidebarNodeContent (in case user edited content before saving)
+        for (const [nodeId, content] of Object.entries(sidebarNodeContent)) {
+          if (content && manualHighlights.has(nodeId)) {
+            await fetch(GOOGLE_SCRIPT_URL, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'saveNodeContent',
+                pathId: pathId,
+                nodeId: nodeId,
+                content: content,
+              }),
+            });
+          }
+        }
+        
+        // Update local nodePathMap with copied content
+        const copiedContent: Record<string, string> = {};
+        for (const nodeId of manualHighlights) {
+          const content = sidebarNodeContent[nodeId] ?? sourceContent[nodeId];
+          if (content) {
+            copiedContent[nodeId] = content;
+          }
+        }
+        if (Object.keys(copiedContent).length > 0) {
+          setNodePathMap(prev => ({
+            ...prev,
+            [pathId]: copiedContent,
+          }));
+        }
+      }
 
       // With no-cors, we can't read the response, so we assume success
       setSaveStatus('success');
@@ -488,7 +543,9 @@ function DiagramContent() {
         [pathName.trim()]: nodeIdsArray,
       }));
       
-      setPathName('');
+      // Update the active path to the newly saved one
+      setActivePath(pathName.trim());
+      setActivePathId(pathId);
       
       // Reset status after 3 seconds
       setTimeout(() => setSaveStatus('idle'), 3000);
@@ -1087,6 +1144,7 @@ function DiagramContent() {
     // Use id if available, otherwise fallback to name as identifier
     setActivePathId(pathRow.id || pathRow.name);
     setSidebarNodeContent({}); // Reset content when switching paths
+    setPathName(pathName); // Populate path name input with loaded path name
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
     setNodes((nds) => {
@@ -1129,6 +1187,7 @@ function DiagramContent() {
     setActivePathId(null);
     setManualHighlights(new Set());
     setSidebarNodeContent({});
+    setPathName(''); // Clear path name input
     
     setNodes((nds) =>
       enforceRootHidden(nds).map((n) => ({
@@ -1410,34 +1469,36 @@ function DiagramContent() {
             </div>
           )}
 
-          {/* Bottom section with Build, Export, and IDs */}
+          {/* Bottom section with Build, Export, and Save */}
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '14px' }}>
-            {/* Build button */}
-            <button
-              onClick={personalizeSelection}
-              disabled={manualHighlights.size === 0}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginBottom: '8px',
-                background: manualHighlights.size > 0 
-                  ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
-                  : '#f8fafc',
-                color: manualHighlights.size > 0 ? '#047857' : '#94a3b8',
-                border: manualHighlights.size > 0 
-                  ? '1px solid rgba(16, 185, 129, 0.3)' 
-                  : '1px solid #e2e8f0',
-                borderRadius: '10px',
-                cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
-                fontSize: '11px',
-                fontWeight: '600',
-                boxShadow: manualHighlights.size > 0 
-                  ? '0 2px 8px rgba(16, 185, 129, 0.08)' 
-                  : 'none',
-              }}
-            >
-              ✦ Build ({manualHighlights.size})
-            </button>
+            {/* Build button - only for manual selections, not loaded paths */}
+            {!activePath && (
+              <button
+                onClick={personalizeSelection}
+                disabled={manualHighlights.size === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginBottom: '8px',
+                  background: manualHighlights.size > 0 
+                    ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
+                    : '#f8fafc',
+                  color: manualHighlights.size > 0 ? '#047857' : '#94a3b8',
+                  border: manualHighlights.size > 0 
+                    ? '1px solid rgba(16, 185, 129, 0.3)' 
+                    : '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  boxShadow: manualHighlights.size > 0 
+                    ? '0 2px 8px rgba(16, 185, 129, 0.08)' 
+                    : 'none',
+                }}
+              >
+                ✦ Build ({manualHighlights.size})
+              </button>
+            )}
 
             {/* Export PDF button */}
             <button
@@ -1479,57 +1540,53 @@ function DiagramContent() {
                     boxSizing: 'border-box',
                   }}
                 />
-                <button
-                  onClick={savePath}
-                  disabled={saveStatus === 'saving' || !pathName.trim()}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    background: saveStatus === 'success' 
-                      ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
-                      : saveStatus === 'error'
-                      ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
-                      : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                    color: saveStatus === 'success' 
-                      ? '#047857'
-                      : saveStatus === 'error'
-                      ? '#b91c1c'
-                      : '#1d4ed8',
-                    border: saveStatus === 'success'
-                      ? '1px solid rgba(16, 185, 129, 0.3)'
-                      : saveStatus === 'error'
-                      ? '1px solid rgba(239, 68, 68, 0.3)'
-                      : '1px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '10px',
-                    cursor: saveStatus === 'saving' || !pathName.trim() ? 'not-allowed' : 'pointer',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)',
-                    opacity: !pathName.trim() ? 0.6 : 1,
-                  }}
-                >
-                  {saveStatus === 'saving' ? '⏳ Saving...' 
-                    : saveStatus === 'success' ? '✓ Saved!' 
-                    : saveStatus === 'error' ? '✕ Error' 
-                    : '💾 Save Path'}
-                </button>
-              </div>
-            )}
-
-            {/* Selected node IDs for copy-paste */}
-            {manualHighlights.size > 0 && (
-              <div style={{ 
-                fontSize: '9px', 
-                color: '#94a3b8', 
-                fontFamily: 'monospace',
-                wordBreak: 'break-all',
-                lineHeight: 1.4,
-                padding: '8px',
-                background: 'rgba(248, 250, 252, 0.8)',
-                borderRadius: '6px',
-                border: '1px solid #f1f5f9',
-              }}>
-                {Array.from(manualHighlights).join(', ')}
+                {(() => {
+                  const pathExists = pathsList.some(p => p.name === pathName.trim());
+                  const isDisabled = saveStatus === 'saving' || !pathName.trim() || pathExists;
+                  return (
+                    <button
+                      onClick={savePath}
+                      disabled={isDisabled}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        background: saveStatus === 'success' 
+                          ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
+                          : saveStatus === 'error'
+                          ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
+                          : pathExists
+                          ? '#f1f5f9'
+                          : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                        color: saveStatus === 'success' 
+                          ? '#047857'
+                          : saveStatus === 'error'
+                          ? '#b91c1c'
+                          : pathExists
+                          ? '#94a3b8'
+                          : '#1d4ed8',
+                        border: saveStatus === 'success'
+                          ? '1px solid rgba(16, 185, 129, 0.3)'
+                          : saveStatus === 'error'
+                          ? '1px solid rgba(239, 68, 68, 0.3)'
+                          : pathExists
+                          ? '1px solid #e2e8f0'
+                          : '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '10px',
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        boxShadow: pathExists ? 'none' : '0 2px 8px rgba(59, 130, 246, 0.08)',
+                        opacity: !pathName.trim() ? 0.6 : 1,
+                      }}
+                    >
+                      {saveStatus === 'saving' ? '⏳ Saving...' 
+                        : saveStatus === 'success' ? '✓ Saved!' 
+                        : saveStatus === 'error' ? '✕ Error' 
+                        : pathExists ? '✓ Path exists'
+                        : '💾 Save Path'}
+                    </button>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1661,6 +1718,72 @@ function DiagramContent() {
         Open Documentation
       </a>
     )}
+
+    {/* Node-path content editor - only when a path is loaded */}
+    {activePathId && selectedNode && (() => {
+      const nodeId = selectedNode.id.replace('personalized-', '');
+      const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+      return (
+        <div style={{ marginTop: 20, borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
+          <div style={{ fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
+            📝 Your Notes for this Node
+          </div>
+          <textarea
+            placeholder="Add your notes for this node..."
+            value={content}
+            onChange={(e) => {
+              const newContent = e.target.value;
+              setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
+              
+              // Also update nodePathMap so changes persist when switching paths
+              setNodePathMap(prev => ({
+                ...prev,
+                [activePathId]: {
+                  ...(prev[activePathId] || {}),
+                  [nodeId]: newContent,
+                },
+              }));
+              
+              // Debounced auto-save
+              if (debounceTimerRef.current[nodeId]) {
+                clearTimeout(debounceTimerRef.current[nodeId]);
+              }
+              debounceTimerRef.current[nodeId] = setTimeout(async () => {
+                try {
+                  await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'saveNodeContent',
+                      pathId: activePathId,
+                      nodeId: nodeId,
+                      content: newContent,
+                    }),
+                  });
+                } catch (error) {
+                  console.error('Error saving node content:', error);
+                }
+              }, 1000);
+            }}
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '10px 12px',
+              fontSize: '13px',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              background: 'white',
+              color: '#334155',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              lineHeight: 1.5,
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+      );
+    })()}
   </Panel>
 )}
       </ReactFlow>
