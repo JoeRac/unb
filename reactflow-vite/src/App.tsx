@@ -622,7 +622,8 @@ function DiagramContent() {
     };
 
     loadSheet();
-  }, [buildFromRows, layoutNodes, setEdges, setNodes, enforceRootHidden, handleInfoClick]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   useEffect(() => {
     const loadPaths = async () => {
@@ -682,6 +683,9 @@ function DiagramContent() {
 
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
+      // Close any open popup when clicking a node
+      setSelectedNode(null);
+      
       // Only toggle selection, don't show popup (popup is triggered by info button)
       // Skip personalized nodes from toggling
       if (node.id.startsWith('personalized-')) return;
@@ -865,6 +869,11 @@ function DiagramContent() {
 
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
+  // Close popup when clicking on empty background
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null);
+  }, []);
+
   return (
     <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: CANVAS_BG }}>
       <ReactFlow
@@ -874,6 +883,7 @@ function DiagramContent() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
         nodesDraggable={true}
         fitView
         snapToGrid={false}
