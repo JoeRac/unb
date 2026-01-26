@@ -111,22 +111,20 @@ function MethodNode(props: any) {
     ? 'linear-gradient(135deg, rgba(26, 115, 232, 0.22) 0%, rgba(66, 133, 244, 0.28) 100%)'
     : NODE_SURFACE_MUTED;
   const color = isHighlighted ? '#1a365d' : '#475569';
-  const opacity = isHighlighted ? 1 : 0.92;
   const border = isHighlighted ? `2.5px solid ${HIGHLIGHT_COLOR}` : `1.5px solid ${NODE_BORDER}`;
   const boxShadow = isHighlighted ? GLASS_SHADOW_ACTIVE : GLASS_SHADOW;
 
   return (
     <div
       style={{
-        padding: isHighlighted ? 16 : 10,
-        fontSize: isHighlighted ? 15 : 13,
+        padding: 10,
+        fontSize: 13,
         borderRadius: 16,
         background,
         color,
-        opacity,
         border,
-        minWidth: isHighlighted ? 200 : 170,
-        maxWidth: isHighlighted ? 260 : 210,
+        minWidth: 170,
+        maxWidth: 210,
         boxShadow,
         cursor: 'pointer',
         position: 'relative',
@@ -158,10 +156,6 @@ function MethodNode(props: any) {
 // Personalized node - larger, no handles
 function PersonalizedNode(props: any) {
   const data = props.data as NodeData;
-  const background = props.style?.background ?? 'rgba(255, 255, 255, 0.95)';
-  const color = props.style?.color ?? '#1f2937';
-  const border = props.style?.border ?? '2px solid #10b981';
-  const boxShadow = props.style?.boxShadow ?? '0 4px 14px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)';
 
   return (
     <div
@@ -169,13 +163,12 @@ function PersonalizedNode(props: any) {
         padding: 20,
         fontSize: 16,
         borderRadius: 22,
-        background,
-        color,
-        border,
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 253, 244, 0.95) 100%)',
+        color: '#1f2937',
+        border: '2px solid #10b981',
         width: 340,
         minHeight: 100,
-        boxShadow,
-        transition: 'transform 0.1s ease',
+        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
         cursor: 'pointer',
         position: 'relative',
         willChange: 'transform',
@@ -230,11 +223,10 @@ function DiagramContent() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
-  const [mode, setMode] = useState<'guided' | 'manual'>('guided');
   const [manualHighlights, setManualHighlights] = useState<Set<string>>(new Set());
   const [personalizedNodes, setPersonalizedNodes] = useState<Node[]>([]);
-  const [baseNodes, setBaseNodes] = useState<Node[]>([]);
-  const [baseEdges, setBaseEdges] = useState<Edge[]>([]);
+  const [, setBaseNodes] = useState<Node[]>([]);
+  const [, setBaseEdges] = useState<Edge[]>([]);
   const [rootIds, setRootIds] = useState<string[]>([]);
   const [pathsList, setPathsList] = useState<PathRow[]>([]);
   const [pathsMap, setPathsMap] = useState<Record<string, string[]>>({});
@@ -566,9 +558,9 @@ function DiagramContent() {
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
       setSelectedNode(node);
-      if (mode !== 'manual') {
-        return;
-      }
+      // Skip personalized nodes from toggling
+      if (node.id.startsWith('personalized-')) return;
+      
       setManualHighlights((prev) => {
         const next = new Set(prev);
         if (next.has(node.id)) {
@@ -578,6 +570,7 @@ function DiagramContent() {
         }
         setNodes((nds) =>
           enforceRootHidden(nds).map((n) => {
+            if (n.id.startsWith('personalized-')) return n;
             const isActive = next.has(n.id);
             return {
               ...n,
@@ -591,18 +584,13 @@ function DiagramContent() {
         return next;
       });
     },
-    [mode, setNodes, enforceRootHidden]
+    [setNodes, enforceRootHidden]
   );
 
-  const enterManualMode = () => {
-    setMode('manual');
-    setActivePath(null);
-    setSelectedNode(null);
+  const clearSelections = () => {
     setManualHighlights(new Set());
-    setPersonalizedNodes([]);
-    // Clear any existing personalized nodes and reset highlights
     setNodes((nds) =>
-      enforceRootHidden(nds.filter((n) => !n.id.startsWith('personalized-'))).map((n) => ({
+      enforceRootHidden(nds).map((n) => ({
         ...n,
         data: {
           ...n.data,
@@ -610,38 +598,6 @@ function DiagramContent() {
         },
       }))
     );
-    setEdges((eds) =>
-      eds.map((e) => ({
-        ...e,
-        style: {
-          stroke: EDGE_COLOR,
-          opacity: 0.25,
-          strokeWidth: 1.5,
-        },
-      }))
-    );
-    setTimeout(() => {
-      fitView({
-        duration: 600,
-        padding: 0.1,
-      });
-    }, 50);
-  };
-
-  const enterGuidedMode = () => {
-    setMode('guided');
-    setActivePath(null);
-    setSelectedNode(null);
-    setManualHighlights(new Set());
-    setPersonalizedNodes([]);
-    setEdges(baseEdges);
-    setNodes(enforceRootHidden(layoutNodes(baseNodes, baseEdges)));
-    setTimeout(() => {
-      fitView({
-        duration: 600,
-        padding: 0.2,
-      });
-    }, 50);
   };
 
   const personalizeSelection = () => {
@@ -857,40 +813,7 @@ function DiagramContent() {
               {dataError ? `Sheet error: ${dataError}` : 'Loading sheet data…'}
             </div>
           )}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <button
-              onClick={enterGuidedMode}
-              style={{
-                flex: 1,
-                padding: '8px',
-                background: mode === 'guided' ? '#3498db' : '#ecf0f1',
-                color: mode === 'guided' ? 'white' : '#333',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: 'bold',
-              }}
-            >
-              Guided
-            </button>
-            <button
-              onClick={enterManualMode}
-              style={{
-                flex: 1,
-                padding: '8px',
-                background: mode === 'manual' ? '#f59e0b' : '#ecf0f1',
-                color: mode === 'manual' ? '#111827' : '#333',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: 'bold',
-              }}
-            >
-              Manual
-            </button>
-          </div>
+          
           <button
             onClick={toggleLayout}
             style={{
@@ -904,82 +827,97 @@ function DiagramContent() {
               cursor: 'pointer',
               fontSize: '12px',
               fontWeight: 'bold',
-              transition: 'all 0.2s ease',
             }}
           >
             🔄 Switch Layout ({layoutDirections[layoutIndex].label})
           </button>
-          {mode === 'manual' ? (
-            <div style={{ fontSize: '12px', color: '#555', lineHeight: 1.4 }}>
-              Click any shape to toggle its highlight.
-              <div style={{ marginTop: 8, fontSize: '11px', opacity: 0.75 }}>
-                Highlighted: {manualHighlights.size}
-              </div>
+
+          {/* Selection info */}
+          <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+            Click nodes to select • Selected: {manualHighlights.size}
+            {manualHighlights.size > 0 && (
               <button
-                onClick={personalizeSelection}
-                disabled={manualHighlights.size === 0}
+                onClick={clearSelections}
                 style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '12px',
-                  background: manualHighlights.size > 0 
-                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
-                    : '#e5e7eb',
-                  color: manualHighlights.size > 0 ? 'white' : '#9ca3af',
+                  marginLeft: '8px',
+                  padding: '2px 6px',
+                  fontSize: '10px',
+                  background: '#e5e7eb',
                   border: 'none',
-                  borderRadius: '8px',
-                  cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  transition: 'all 0.3s ease',
-                  boxShadow: manualHighlights.size > 0 
-                    ? '0 4px 14px rgba(16, 185, 129, 0.35)' 
-                    : 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
                 }}
               >
-                ✨ Personalize ({manualHighlights.size})
+                Clear
               </button>
-              {personalizedNodes.length > 0 && (
-                <button
-                  onClick={clearPersonalized}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    marginTop: '8px',
-                    background: '#fee2e2',
-                    color: '#991b1b',
-                    border: '1px solid #fca5a5',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  🗑️ Clear Personalized ({personalizedNodes.length})
-                </button>
-              )}
-            </div>
-          ) : (
+            )}
+          </div>
+
+          {/* Personalize button */}
+          <button
+            onClick={personalizeSelection}
+            disabled={manualHighlights.size === 0}
+            style={{
+              width: '100%',
+              padding: '10px',
+              marginBottom: '12px',
+              background: manualHighlights.size > 0 
+                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
+                : '#e5e7eb',
+              color: manualHighlights.size > 0 ? 'white' : '#9ca3af',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              boxShadow: manualHighlights.size > 0 
+                ? '0 4px 14px rgba(16, 185, 129, 0.35)' 
+                : 'none',
+            }}
+          >
+            ✨ Personalize ({manualHighlights.size})
+          </button>
+
+          {personalizedNodes.length > 0 && (
+            <button
+              onClick={clearPersonalized}
+              style={{
+                width: '100%',
+                padding: '8px',
+                marginBottom: '12px',
+                background: '#fee2e2',
+                color: '#991b1b',
+                border: '1px solid #fca5a5',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: '500',
+              }}
+            >
+              🗑️ Clear Personalized ({personalizedNodes.length})
+            </button>
+          )}
+
+          {/* Paths section */}
+          {pathsList.length > 0 && (
             <>
-              {pathsList.length > 0 && (
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#333' }}>📊 Explore Paths</h3>
-              )}
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '4px' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#333' }}>📊 Explore Paths</h3>
+              </div>
               
               <button
                 onClick={resetView}
                 style={{
                   width: '100%',
                   padding: '8px',
-                  marginBottom: '8px',
+                  marginBottom: '6px',
                   background: activePath === null ? '#3498db' : '#ecf0f1',
                   color: activePath === null ? 'white' : '#333',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 'bold',
-                  transition: 'all 0.2s ease'
                 }}
               >
                 🔄 Reset View
@@ -990,15 +928,14 @@ function DiagramContent() {
                 style={{
                   width: '100%',
                   padding: '8px',
-                  marginBottom: '12px',
+                  marginBottom: '10px',
                   background: activePath === 'All Nodes' ? '#3498db' : '#ecf0f1',
                   color: activePath === 'All Nodes' ? 'white' : '#333',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 'bold',
-                  transition: 'all 0.2s ease'
                 }}
               >
                 🌐 Show All
@@ -1010,8 +947,8 @@ function DiagramContent() {
                   onClick={() => showPath(path.name)}
                   style={{
                     width: '100%',
-                    padding: '10px',
-                    marginBottom: '6px',
+                    padding: '8px',
+                    marginBottom: '4px',
                     background: activePath === path.name ? '#3498db' : 'white',
                     color: activePath === path.name ? 'white' : '#333',
                     border: activePath === path.name ? 'none' : '1px solid #ddd',
@@ -1019,84 +956,12 @@ function DiagramContent() {
                     cursor: 'pointer',
                     fontSize: '11px',
                     textAlign: 'left',
-                    transition: 'all 0.3s ease',
                     fontWeight: activePath === path.name ? 'bold' : 'normal',
-                    transform: activePath === path.name ? 'translateX(4px)' : 'translateX(0)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (activePath !== path.name) {
-                      e.currentTarget.style.background = '#e8f4f8';
-                      e.currentTarget.style.transform = 'translateX(4px)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (activePath !== path.name) {
-                      e.currentTarget.style.background = 'white';
-                      e.currentTarget.style.transform = 'translateX(0)';
-                    }
                   }}
                 >
                   {path.name}
                 </button>
               ))}
-
-              {/* Personalize section for Guided mode */}
-              {activePath && activePath !== 'All Nodes' && pathsMap[activePath]?.length > 0 && (
-                <>
-                  <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
-                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
-                      Path has {pathsMap[activePath]?.length || 0} nodes
-                    </div>
-                    <button
-                      onClick={() => {
-                        // Set manualHighlights to the current path nodes, then personalize
-                        const pathNodeIds = pathsMap[activePath] || [];
-                        setManualHighlights(new Set(pathNodeIds));
-                        // Small delay to ensure state is set
-                        setTimeout(() => {
-                          personalizeSelection();
-                        }, 50);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        transition: 'all 0.3s ease',
-                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                      }}
-                    >
-                      ✨ Personalize Path
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {personalizedNodes.length > 0 && (
-                <button
-                  onClick={clearPersonalized}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    marginTop: '12px',
-                    background: '#fee2e2',
-                    color: '#991b1b',
-                    border: '1px solid #fca5a5',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  🗑️ Clear Personalized ({personalizedNodes.length})
-                </button>
-              )}
             </>
           )}
         </Panel>
