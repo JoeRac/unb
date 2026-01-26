@@ -568,15 +568,15 @@ function DiagramContent() {
         } else {
           next.add(node.id);
         }
+        // Update visual state to match manualHighlights
         setNodes((nds) =>
           enforceRootHidden(nds).map((n) => {
             if (n.id.startsWith('personalized-')) return n;
-            const isActive = next.has(n.id);
             return {
               ...n,
               data: {
                 ...n.data,
-                isHighlighted: isActive,
+                isHighlighted: next.has(n.id),
               },
             };
           })
@@ -637,13 +637,8 @@ function DiagramContent() {
           images: nodeData.images,
           video: nodeData.video,
         },
-        style: {
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 253, 244, 0.95) 100%)',
-          border: '2px solid #10b981',
-          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-        },
         draggable: true,
-        selectable: true,
+        selectable: false,
         hidden: false,
       };
     });
@@ -693,6 +688,12 @@ function DiagramContent() {
       return;
     }
     setActivePath(pathName);
+    // Update manualHighlights to include the path nodes
+    setManualHighlights((prev) => {
+      const next = new Set(prev);
+      pathNodes.forEach((id) => next.add(id));
+      return next;
+    });
     setNodes((nds) => {
       const updated = enforceRootHidden(nds).map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -700,7 +701,7 @@ function DiagramContent() {
           ...n,
           data: {
             ...n.data,
-            isHighlighted: isActive,
+            isHighlighted: isActive || (n.data as NodeData & { isHighlighted?: boolean }).isHighlighted,
           },
         };
       });
@@ -730,6 +731,7 @@ function DiagramContent() {
 
   const resetView = () => {
     setActivePath(null);
+    setManualHighlights(new Set());
     
     setNodes((nds) =>
       enforceRootHidden(nds).map((n) => ({
@@ -737,6 +739,18 @@ function DiagramContent() {
         data: {
           ...n.data,
           isHighlighted: false,
+        },
+      }))
+    );
+
+    // Reset edge styles
+    setEdges((eds: Edge[]) =>
+      eds.map((e: Edge) => ({
+        ...e,
+        style: {
+          stroke: EDGE_COLOR,
+          opacity: 0.5,
+          strokeWidth: 1.5,
         },
       }))
     );
