@@ -328,7 +328,7 @@ function DiagramContent() {
   const flowRef = useRef<HTMLDivElement>(null);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyC5AEmHa19UNOQi0w1BD_IDwSqQZUrlD2P3mwyhqQ97fNYh_ONWOtldaYt77Su0iIgQQ/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
