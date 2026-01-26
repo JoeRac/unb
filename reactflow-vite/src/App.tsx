@@ -322,8 +322,13 @@ function DiagramContent() {
   const [pathsMap, setPathsMap] = useState<Record<string, string[]>>({});
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
+  const [pathName, setPathName] = useState('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
+
+  // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
+  const GOOGLE_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -379,6 +384,49 @@ function DiagramContent() {
       })
     );
   }, [setNodes]);
+
+  // Save path to Google Sheets via Google Apps Script
+  const savePath = async () => {
+    if (!pathName.trim()) {
+      alert('Please enter a path name');
+      return;
+    }
+    if (manualHighlights.size === 0) {
+      alert('No nodes selected');
+      return;
+    }
+
+    const nodeIds = Array.from(manualHighlights).join(', ');
+    setSaveStatus('saving');
+
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors', // Google Apps Script requires no-cors
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pathName: pathName.trim(),
+          nodeIds: nodeIds,
+        }),
+      });
+
+      // With no-cors, we can't read the response, so we assume success
+      setSaveStatus('success');
+      setPathName('');
+      
+      // Reset status after 3 seconds
+      setTimeout(() => setSaveStatus('idle'), 3000);
+      
+      // Optionally reload paths - but this would need the page to refresh to see the new path
+      // For now, just show success
+    } catch (error) {
+      console.error('Error saving path:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
 
   const exportToPDF = async () => {
     if (!flowRef.current) return;
@@ -1126,26 +1174,61 @@ function DiagramContent() {
               ↓ Export PDF
             </button>
 
-            {/* Save button */}
-            {personalizedNodes.length > 0 && (
-              <button
-                onClick={() => { /* Save function to be implemented */ }}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginBottom: '12px',
-                  background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                  color: '#1d4ed8',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)',
-                }}
-              >
-                💾 Save
-              </button>
+            {/* Save section - path name input and save button */}
+            {manualHighlights.size > 0 && (
+              <div style={{ marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="Enter path name..."
+                  value={pathName}
+                  onChange={(e) => setPathName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    marginBottom: '6px',
+                    fontSize: '11px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    background: 'white',
+                    color: '#334155',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  onClick={savePath}
+                  disabled={saveStatus === 'saving' || !pathName.trim()}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: saveStatus === 'success' 
+                      ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
+                      : saveStatus === 'error'
+                      ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
+                      : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                    color: saveStatus === 'success' 
+                      ? '#047857'
+                      : saveStatus === 'error'
+                      ? '#b91c1c'
+                      : '#1d4ed8',
+                    border: saveStatus === 'success'
+                      ? '1px solid rgba(16, 185, 129, 0.3)'
+                      : saveStatus === 'error'
+                      ? '1px solid rgba(239, 68, 68, 0.3)'
+                      : '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '10px',
+                    cursor: saveStatus === 'saving' || !pathName.trim() ? 'not-allowed' : 'pointer',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)',
+                    opacity: !pathName.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {saveStatus === 'saving' ? '⏳ Saving...' 
+                    : saveStatus === 'success' ? '✓ Saved!' 
+                    : saveStatus === 'error' ? '✕ Error' 
+                    : '💾 Save Path'}
+                </button>
+              </div>
             )}
 
             {/* Selected node IDs for copy-paste */}
