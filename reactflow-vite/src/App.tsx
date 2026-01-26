@@ -8,7 +8,7 @@ const nodeHeight = 80;
 
 // Premium glass theme - clean whites and subtle accents
 const CANVAS_BG = 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)';
-const NODE_SURFACE = 'rgba(245, 250, 251, 0.97)';
+const NODE_SURFACE = 'rgba(247, 250, 252, 0.97)';
 const NODE_BORDER = 'rgba(203, 213, 225, 0.5)';
 const HIGHLIGHT_COLOR = '#3b82f6';
 const EDGE_COLOR = '#cbd5e1';
@@ -309,7 +309,37 @@ type PathRow = {
   id: string;
   name: string;
   nodeIds: string[];
+  category?: string;
+  subcategory?: string;
+  subsubcategory?: string;
 };
+
+// Helper to get unique categories from paths
+function getUniqueCategories(paths: PathRow[]): string[] {
+  const cats = new Set<string>();
+  paths.forEach(p => {
+    if (p.category) cats.add(p.category);
+  });
+  return Array.from(cats).sort();
+}
+
+function getSubcategories(paths: PathRow[], category: string): string[] {
+  const subs = new Set<string>();
+  paths.forEach(p => {
+    if (p.category === category && p.subcategory) subs.add(p.subcategory);
+  });
+  return Array.from(subs).sort();
+}
+
+function getSubsubcategories(paths: PathRow[], category: string, subcategory: string): string[] {
+  const subsubs = new Set<string>();
+  paths.forEach(p => {
+    if (p.category === category && p.subcategory === subcategory && p.subsubcategory) {
+      subsubs.add(p.subsubcategory);
+    }
+  });
+  return Array.from(subsubs).sort();
+}
 
 function DiagramContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -330,6 +360,16 @@ function DiagramContent() {
   const [pathName, setPathName] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [sidebarNodeContent, setSidebarNodeContent] = useState<Record<string, string>>({});
+  
+  // Category filter state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const [selectedSubsubcategory, setSelectedSubsubcategory] = useState<string | null>(null);
+  const [saveCategory, setSaveCategory] = useState('');
+  const [saveSubcategory, setSaveSubcategory] = useState('');
+  const [saveSubsubcategory, setSaveSubsubcategory] = useState('');
+  const [draggedPath, setDraggedPath] = useState<string | null>(null);
+  
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
@@ -341,7 +381,7 @@ function DiagramContent() {
   }, [activePathId]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxB-ZqUET5wE2NSvq47fisCRYE3r8SpaMHbPJ1zEBdTiUX71QhnM75A2yDY-vBCNHaZ/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyrTrA1Q-eJwZmdGau29eQezheeIXdgOfVcj2JPPGyU-P5GoWX90--SGOr5HPc9Rzgleg/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -458,7 +498,7 @@ function DiagramContent() {
     setSaveStatus('saving');
 
     try {
-      // Save the path
+      // Save the path with category info
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors', // Google Apps Script requires no-cors
@@ -470,6 +510,9 @@ function DiagramContent() {
           pathId: pathId,
           pathName: pathName.trim(),
           nodeIds: nodeIds,
+          category: saveCategory.trim() || '',
+          subcategory: saveSubcategory.trim() || '',
+          subsubcategory: saveSubsubcategory.trim() || '',
         }),
       });
 
@@ -523,6 +566,9 @@ function DiagramContent() {
         id: pathId,
         name: pathName.trim(),
         nodeIds: nodeIdsArray,
+        category: saveCategory.trim() || undefined,
+        subcategory: saveSubcategory.trim() || undefined,
+        subsubcategory: saveSubsubcategory.trim() || undefined,
       };
       setPathsList(prev => [...prev, newPathRow]);
       setPathsMap(prev => ({
@@ -604,6 +650,37 @@ function DiagramContent() {
       console.error('Error deleting path:', error);
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  // Update path category (for drag and drop)
+  const updatePathCategory = async (pathName: string, newCategory: string, newSubcategory?: string) => {
+    const pathRow = pathsList.find(p => p.name === pathName);
+    if (!pathRow) return;
+
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'updatePathCategory',
+          pathId: pathRow.id,
+          pathName: pathName,
+          category: newCategory,
+          subcategory: newSubcategory || '',
+          subsubcategory: '',
+        }),
+      });
+
+      // Update local state
+      setPathsList(prev => prev.map(p => 
+        p.name === pathName 
+          ? { ...p, category: newCategory || undefined, subcategory: newSubcategory || undefined, subsubcategory: undefined }
+          : p
+      ));
+    } catch (error) {
+      console.error('Error updating path category:', error);
     }
   };
 
@@ -940,7 +1017,10 @@ function DiagramContent() {
               .split(',')
               .map((v: string) => v.trim())
               .filter(Boolean);
-            return { id, name, nodeIds };
+            const category = (row['category'] || row['Category'] || '').toString().trim() || undefined;
+            const subcategory = (row['subcategory'] || row['Subcategory'] || row['subCategory'] || '').toString().trim() || undefined;
+            const subsubcategory = (row['subsubcategory'] || row['Subsubcategory'] || row['subSubcategory'] || '').toString().trim() || undefined;
+            return { id, name, nodeIds, category, subcategory, subsubcategory };
           })
           .filter((row) => row.name && row.nodeIds.length); // Only require name and nodeIds, id can be empty for legacy rows
         
@@ -1295,6 +1375,245 @@ function DiagramContent() {
                 <h3 style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#475569', fontWeight: '600', letterSpacing: '0.02em' }}>Explore Paths</h3>
               </div>
               
+              {/* Category breadcrumb navigation */}
+              {(selectedCategory || selectedSubcategory || selectedSubsubcategory) && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px', 
+                  marginBottom: '10px',
+                  fontSize: '10px',
+                  color: '#64748b',
+                  flexWrap: 'wrap',
+                }}>
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setSelectedSubcategory(null);
+                      setSelectedSubsubcategory(null);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#3b82f6',
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      fontSize: '10px',
+                      fontWeight: '500',
+                    }}
+                  >
+                    All
+                  </button>
+                  {selectedCategory && (
+                    <>
+                      <span style={{ color: '#94a3b8' }}>›</span>
+                      <button
+                        onClick={() => {
+                          setSelectedSubcategory(null);
+                          setSelectedSubsubcategory(null);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: selectedSubcategory ? '#3b82f6' : '#475569',
+                          cursor: selectedSubcategory ? 'pointer' : 'default',
+                          padding: '2px 4px',
+                          fontSize: '10px',
+                          fontWeight: selectedSubcategory ? '500' : '600',
+                        }}
+                      >
+                        {selectedCategory}
+                      </button>
+                    </>
+                  )}
+                  {selectedSubcategory && (
+                    <>
+                      <span style={{ color: '#94a3b8' }}>›</span>
+                      <button
+                        onClick={() => setSelectedSubsubcategory(null)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: selectedSubsubcategory ? '#3b82f6' : '#475569',
+                          cursor: selectedSubsubcategory ? 'pointer' : 'default',
+                          padding: '2px 4px',
+                          fontSize: '10px',
+                          fontWeight: selectedSubsubcategory ? '500' : '600',
+                        }}
+                      >
+                        {selectedSubcategory}
+                      </button>
+                    </>
+                  )}
+                  {selectedSubsubcategory && (
+                    <>
+                      <span style={{ color: '#94a3b8' }}>›</span>
+                      <span style={{ fontWeight: '600', color: '#475569', padding: '2px 4px' }}>
+                        {selectedSubsubcategory}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+              
+              {/* Category chips */}
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '6px', 
+                marginBottom: '10px',
+              }}>
+                {/* Show top-level categories or subcategories based on selection */}
+                {!selectedCategory ? (
+                  // Show top-level categories + "All" chip
+                  <>
+                    <button
+                      onClick={() => {
+                        setSelectedCategory(null);
+                        setSelectedSubcategory(null);
+                        setSelectedSubsubcategory(null);
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedPath) {
+                          updatePathCategory(draggedPath, '', '');
+                          setDraggedPath(null);
+                        }
+                      }}
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '10px',
+                        fontWeight: '600',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        background: 'rgba(255,255,255,0.8)',
+                        color: '#64748b',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      All
+                    </button>
+                    {getUniqueCategories(pathsList).map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setSelectedCategory(cat);
+                          setSelectedSubcategory(null);
+                          setSelectedSubsubcategory(null);
+                          // Pre-populate save category
+                          setSaveCategory(cat);
+                          setSaveSubcategory('');
+                          setSaveSubsubcategory('');
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedPath) {
+                            updatePathCategory(draggedPath, cat, '');
+                            setDraggedPath(null);
+                          }
+                        }}
+                        style={{
+                          padding: '5px 10px',
+                          fontSize: '10px',
+                          fontWeight: '500',
+                          borderRadius: '12px',
+                          border: '1px solid rgba(59, 130, 246, 0.2)',
+                          background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                          color: '#1d4ed8',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                    {/* Show uncategorized count if any */}
+                    {pathsList.some(p => !p.category) && (
+                      <button
+                        onClick={() => {
+                          setSelectedCategory('__uncategorized__');
+                          setSelectedSubcategory(null);
+                          setSelectedSubsubcategory(null);
+                        }}
+                        style={{
+                          padding: '5px 10px',
+                          fontSize: '10px',
+                          fontWeight: '500',
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          background: '#f8fafc',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Uncategorized ({pathsList.filter(p => !p.category).length})
+                      </button>
+                    )}
+                  </>
+                ) : selectedCategory && !selectedSubcategory ? (
+                  // Show subcategories of selected category
+                  <>
+                    {getSubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory).map(sub => (
+                      <button
+                        key={sub}
+                        onClick={() => {
+                          setSelectedSubcategory(sub);
+                          setSelectedSubsubcategory(null);
+                          setSaveSubcategory(sub);
+                          setSaveSubsubcategory('');
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedPath) {
+                            updatePathCategory(draggedPath, selectedCategory === '__uncategorized__' ? '' : selectedCategory, sub);
+                            setDraggedPath(null);
+                          }
+                        }}
+                        style={{
+                          padding: '5px 10px',
+                          fontSize: '10px',
+                          fontWeight: '500',
+                          borderRadius: '12px',
+                          border: '1px solid rgba(16, 185, 129, 0.2)',
+                          background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                          color: '#047857',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {sub}
+                      </button>
+                    ))}
+                  </>
+                ) : selectedSubcategory && !selectedSubsubcategory ? (
+                  // Show sub-subcategories
+                  <>
+                    {getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory, selectedSubcategory).map(subsub => (
+                      <button
+                        key={subsub}
+                        onClick={() => {
+                          setSelectedSubsubcategory(subsub);
+                          setSaveSubsubcategory(subsub);
+                        }}
+                        style={{
+                          padding: '5px 10px',
+                          fontSize: '10px',
+                          fontWeight: '500',
+                          borderRadius: '12px',
+                          border: '1px solid rgba(168, 85, 247, 0.2)',
+                          background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+                          color: '#7c3aed',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {subsub}
+                      </button>
+                    ))}
+                  </>
+                ) : null}
+              </div>
+              
               <button
                 onClick={resetView}
                 style={{
@@ -1317,9 +1636,32 @@ function DiagramContent() {
                 Clear View
               </button>
 
-              {pathsList.map((path) => (
+              {/* Filtered paths list */}
+              {pathsList
+                .filter(path => {
+                  // Filter by selected category hierarchy
+                  if (selectedCategory === '__uncategorized__') {
+                    return !path.category;
+                  }
+                  if (selectedSubsubcategory) {
+                    return path.category === selectedCategory && 
+                           path.subcategory === selectedSubcategory && 
+                           path.subsubcategory === selectedSubsubcategory;
+                  }
+                  if (selectedSubcategory) {
+                    return path.category === selectedCategory && path.subcategory === selectedSubcategory;
+                  }
+                  if (selectedCategory) {
+                    return path.category === selectedCategory;
+                  }
+                  return true; // Show all when no filter
+                })
+                .map((path) => (
                 <button
                   key={path.name}
+                  draggable
+                  onDragStart={() => setDraggedPath(path.name)}
+                  onDragEnd={() => setDraggedPath(null)}
                   onClick={() => showPath(path.name)}
                   style={{
                     width: '100%',
@@ -1333,13 +1675,23 @@ function DiagramContent() {
                       ? '1px solid rgba(59, 130, 246, 0.3)' 
                       : '1px solid #e2e8f0',
                     borderRadius: '8px',
-                    cursor: 'pointer',
+                    cursor: 'grab',
                     fontSize: '11px',
                     textAlign: 'left',
                     fontWeight: activePath === path.name ? '600' : '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
                   }}
                 >
-                  {path.name}
+                  {/* Drag handle */}
+                  <span style={{ 
+                    color: '#94a3b8', 
+                    fontSize: '10px',
+                    lineHeight: 1,
+                    cursor: 'grab',
+                  }}>⋮⋮</span>
+                  <span style={{ flex: 1 }}>{path.name}</span>
                 </button>
               ))}
             </>
@@ -1505,6 +1857,93 @@ function DiagramContent() {
             {/* Save section - path name input and save button */}
             {manualHighlights.size > 0 && (
               <div style={{ marginBottom: '12px' }}>
+                {/* Category selection */}
+                <div style={{ marginBottom: '8px' }}>
+                  <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}>Category (optional)</div>
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                    <input
+                      type="text"
+                      list="category-list"
+                      placeholder="Category..."
+                      value={saveCategory}
+                      onChange={(e) => {
+                        setSaveCategory(e.target.value);
+                        setSaveSubcategory('');
+                        setSaveSubsubcategory('');
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        fontSize: '10px',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        background: 'white',
+                        color: '#334155',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <datalist id="category-list">
+                      {getUniqueCategories(pathsList).map(cat => (
+                        <option key={cat} value={cat} />
+                      ))}
+                    </datalist>
+                    {saveCategory && (
+                      <>
+                        <input
+                          type="text"
+                          list="subcategory-list"
+                          placeholder="Sub..."
+                          value={saveSubcategory}
+                          onChange={(e) => {
+                            setSaveSubcategory(e.target.value);
+                            setSaveSubsubcategory('');
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '6px 8px',
+                            fontSize: '10px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            background: 'white',
+                            color: '#334155',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <datalist id="subcategory-list">
+                          {getSubcategories(pathsList, saveCategory).map(sub => (
+                            <option key={sub} value={sub} />
+                          ))}
+                        </datalist>
+                      </>
+                    )}
+                    {saveSubcategory && (
+                      <>
+                        <input
+                          type="text"
+                          list="subsubcategory-list"
+                          placeholder="Sub-sub..."
+                          value={saveSubsubcategory}
+                          onChange={(e) => setSaveSubsubcategory(e.target.value)}
+                          style={{
+                            flex: 1,
+                            padding: '6px 8px',
+                            fontSize: '10px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            background: 'white',
+                            color: '#334155',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <datalist id="subsubcategory-list">
+                          {getSubsubcategories(pathsList, saveCategory, saveSubcategory).map(subsub => (
+                            <option key={subsub} value={subsub} />
+                          ))}
+                        </datalist>
+                      </>
+                    )}
+                  </div>
+                </div>
                 <input
                   type="text"
                   placeholder="Enter path name..."
