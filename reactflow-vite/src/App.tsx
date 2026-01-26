@@ -369,6 +369,11 @@ function DiagramContent() {
   const [saveSubcategory, setSaveSubcategory] = useState('');
   const [saveSubsubcategory, setSaveSubsubcategory] = useState('');
   const [draggedPath, setDraggedPath] = useState<string | null>(null);
+  const [draggedCategory, setDraggedCategory] = useState<{name: string; level: 'category' | 'subcategory'} | null>(null);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [showAddSubcategory, setShowAddSubcategory] = useState(false);
+  const [showAddSubsubcategory, setShowAddSubsubcategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
@@ -1425,6 +1430,9 @@ function DiagramContent() {
                   <button
                     type="button"
                     key={cat}
+                    draggable
+                    onDragStart={() => setDraggedCategory({ name: cat, level: 'category' })}
+                    onDragEnd={() => setDraggedCategory(null)}
                     onClick={() => {
                       setSelectedCategory(cat);
                       setSelectedSubcategory(null);
@@ -1433,12 +1441,28 @@ function DiagramContent() {
                       setSaveSubcategory('');
                       setSaveSubsubcategory('');
                     }}
-                    onDragOver={(e) => e.preventDefault()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
                     onDrop={(e) => {
                       e.preventDefault();
+                      e.currentTarget.style.transform = 'scale(1)';
                       if (draggedPath) {
                         updatePathCategory(draggedPath, cat, '');
                         setDraggedPath(null);
+                      }
+                      // Handle dropping a category onto another category to nest it
+                      if (draggedCategory && draggedCategory.name !== cat) {
+                        // Move all paths from dragged category to be subcategories of target
+                        const pathsToMove = pathsList.filter(p => p.category === draggedCategory.name);
+                        pathsToMove.forEach(p => {
+                          updatePathCategory(p.name, cat, draggedCategory.name);
+                        });
+                        setDraggedCategory(null);
                       }
                     }}
                     style={{
@@ -1453,15 +1477,16 @@ function DiagramContent() {
                         ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
                         : 'rgba(239, 246, 255, 0.5)',
                       color: selectedCategory === cat ? '#1d4ed8' : '#3b82f6',
-                      cursor: 'pointer',
+                      cursor: 'grab',
                       boxShadow: selectedCategory === cat ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
+                      transition: 'transform 0.15s ease',
                     }}
                   >
                     {cat} ({pathsList.filter(p => p.category === cat).length})
                   </button>
                 ))}
                 
-                {/* Uncategorized chip */}
+                {/* Uncategorized chip - same style as other categories */}
                 {pathsList.some(p => !p.category) && (
                   <button
                     type="button"
@@ -1476,24 +1501,122 @@ function DiagramContent() {
                       fontWeight: selectedCategory === '__uncategorized__' ? '600' : '500',
                       borderRadius: '12px',
                       border: selectedCategory === '__uncategorized__' 
-                        ? '1px solid rgba(148, 163, 184, 0.5)' 
-                        : '1px solid #e2e8f0',
+                        ? '1px solid rgba(59, 130, 246, 0.5)' 
+                        : '1px solid rgba(59, 130, 246, 0.2)',
                       background: selectedCategory === '__uncategorized__' 
-                        ? '#f1f5f9' 
-                        : '#f8fafc',
-                      color: selectedCategory === '__uncategorized__' ? '#475569' : '#94a3b8',
+                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                        : 'rgba(239, 246, 255, 0.5)',
+                      color: selectedCategory === '__uncategorized__' ? '#1d4ed8' : '#3b82f6',
                       cursor: 'pointer',
                       fontStyle: 'italic',
-                      boxShadow: selectedCategory === '__uncategorized__' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                      boxShadow: selectedCategory === '__uncategorized__' ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
                     }}
                   >
                     Uncategorized ({pathsList.filter(p => !p.category).length})
                   </button>
                 )}
+                
+                {/* Add category button or input */}
+                {!showAddCategory ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCategory(true)}
+                    style={{
+                      padding: '5px 10px',
+                      fontSize: '10px',
+                      fontWeight: '500',
+                      borderRadius: '12px',
+                      border: '1px dashed rgba(59, 130, 246, 0.4)',
+                      background: 'transparent',
+                      color: '#3b82f6',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      placeholder="New category..."
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newCategoryName.trim()) {
+                          // Add a placeholder path with this category to make it appear
+                          // The category will be available for selection
+                          setSaveCategory(newCategoryName.trim());
+                          setSelectedCategory(newCategoryName.trim());
+                          setSelectedSubcategory(null);
+                          setSelectedSubsubcategory(null);
+                          setNewCategoryName('');
+                          setShowAddCategory(false);
+                        }
+                        if (e.key === 'Escape') {
+                          setNewCategoryName('');
+                          setShowAddCategory(false);
+                        }
+                      }}
+                      autoFocus
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '10px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        background: 'white',
+                        color: '#334155',
+                        width: '100px',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newCategoryName.trim()) {
+                          setSaveCategory(newCategoryName.trim());
+                          setSelectedCategory(newCategoryName.trim());
+                          setSelectedSubcategory(null);
+                          setSelectedSubsubcategory(null);
+                          setNewCategoryName('');
+                          setShowAddCategory(false);
+                        }
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '10px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: '#3b82f6',
+                        color: 'white',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewCategoryName('');
+                        setShowAddCategory(false);
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '10px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: '#f1f5f9',
+                        color: '#64748b',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
               
               {/* Subcategory chips - show when category selected */}
-              {selectedCategory && selectedCategory !== '__uncategorized__' && getSubcategories(pathsList, selectedCategory).length > 0 && (
+              {selectedCategory && selectedCategory !== '__uncategorized__' && (
                 <div style={{ 
                   display: 'flex', 
                   flexWrap: 'wrap', 
@@ -1507,6 +1630,9 @@ function DiagramContent() {
                       <button
                         type="button"
                         key={sub}
+                        draggable
+                        onDragStart={() => setDraggedCategory({ name: sub, level: 'subcategory' })}
+                        onDragEnd={() => setDraggedCategory(null)}
                         onClick={() => {
                           setSelectedSubcategory(sub);
                           setSelectedSubsubcategory(null);
@@ -1533,7 +1659,7 @@ function DiagramContent() {
                             ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
                             : 'rgba(236, 253, 245, 0.5)',
                           color: selectedSubcategory === sub ? '#047857' : '#10b981',
-                          cursor: 'pointer',
+                          cursor: 'grab',
                           boxShadow: selectedSubcategory === sub ? '0 1px 3px rgba(16, 185, 129, 0.15)' : 'none',
                         }}
                       >
@@ -1541,11 +1667,105 @@ function DiagramContent() {
                       </button>
                     );
                   })}
+                  
+                  {/* Add subcategory button or input */}
+                  {!showAddSubcategory ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddSubcategory(true)}
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '10px',
+                        fontWeight: '500',
+                        borderRadius: '12px',
+                        border: '1px dashed rgba(16, 185, 129, 0.4)',
+                        background: 'transparent',
+                        color: '#10b981',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder="New subcategory..."
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newCategoryName.trim()) {
+                            setSaveSubcategory(newCategoryName.trim());
+                            setSelectedSubcategory(newCategoryName.trim());
+                            setSelectedSubsubcategory(null);
+                            setNewCategoryName('');
+                            setShowAddSubcategory(false);
+                          }
+                          if (e.key === 'Escape') {
+                            setNewCategoryName('');
+                            setShowAddSubcategory(false);
+                          }
+                        }}
+                        autoFocus
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          background: 'white',
+                          color: '#334155',
+                          width: '100px',
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newCategoryName.trim()) {
+                            setSaveSubcategory(newCategoryName.trim());
+                            setSelectedSubcategory(newCategoryName.trim());
+                            setSelectedSubsubcategory(null);
+                            setNewCategoryName('');
+                            setShowAddSubcategory(false);
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: '#10b981',
+                          color: 'white',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewCategoryName('');
+                          setShowAddSubcategory(false);
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               
               {/* Sub-subcategory chips - show when subcategory selected */}
-              {selectedSubcategory && getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory!, selectedSubcategory).length > 0 && (
+              {selectedSubcategory && (
                 <div style={{ 
                   display: 'flex', 
                   flexWrap: 'wrap', 
@@ -1587,6 +1807,98 @@ function DiagramContent() {
                       </button>
                     );
                   })}
+                  
+                  {/* Add sub-subcategory button or input */}
+                  {!showAddSubsubcategory ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddSubsubcategory(true)}
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '10px',
+                        fontWeight: '500',
+                        borderRadius: '12px',
+                        border: '1px dashed rgba(168, 85, 247, 0.4)',
+                        background: 'transparent',
+                        color: '#a855f7',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder="New sub-sub..."
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newCategoryName.trim()) {
+                            setSaveSubsubcategory(newCategoryName.trim());
+                            setSelectedSubsubcategory(newCategoryName.trim());
+                            setNewCategoryName('');
+                            setShowAddSubsubcategory(false);
+                          }
+                          if (e.key === 'Escape') {
+                            setNewCategoryName('');
+                            setShowAddSubsubcategory(false);
+                          }
+                        }}
+                        autoFocus
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(168, 85, 247, 0.3)',
+                          background: 'white',
+                          color: '#334155',
+                          width: '90px',
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newCategoryName.trim()) {
+                            setSaveSubsubcategory(newCategoryName.trim());
+                            setSelectedSubsubcategory(newCategoryName.trim());
+                            setNewCategoryName('');
+                            setShowAddSubsubcategory(false);
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: '#a855f7',
+                          color: 'white',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewCategoryName('');
+                          setShowAddSubsubcategory(false);
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               
