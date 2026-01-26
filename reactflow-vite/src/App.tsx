@@ -104,6 +104,8 @@ const SHEET_TSV_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
 const PATHS_GVIZ_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=paths&tqx=out:json';
+const NODE_PATH_GVIZ_URL =
+  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=node-path&tqx=out:json';
 
 function MethodNode(props: any) {
   const data = props.data as NodeData & { isHighlighted?: boolean; onInfoClick?: (nodeId: string) => void };
@@ -304,6 +306,7 @@ function PersonalizedNode(props: any) {
 const nodeTypes = { method: MethodNode, personalizedNode: PersonalizedNode };
 
 type PathRow = {
+  id: string;
   name: string;
   nodeIds: string[];
 };
@@ -313,6 +316,7 @@ function DiagramContent() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [activePathId, setActivePathId] = useState<string | null>(null);
   const [manualHighlights, setManualHighlights] = useState<Set<string>>(new Set());
   const [personalizedNodes, setPersonalizedNodes] = useState<Node[]>([]);
   const [, setBaseNodes] = useState<Node[]>([]);
@@ -320,12 +324,20 @@ function DiagramContent() {
   const [rootIds, setRootIds] = useState<string[]>([]);
   const [pathsList, setPathsList] = useState<PathRow[]>([]);
   const [pathsMap, setPathsMap] = useState<Record<string, string[]>>({});
+  const [nodePathMap, setNodePathMap] = useState<Record<string, Record<string, string>>>({});
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [pathName, setPathName] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
+  const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const activePathIdRef = useRef<string | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    activePathIdRef.current = activePathId;
+  }, [activePathId]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
   const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyC5AEmHa19UNOQi0w1BD_IDwSqQZUrlD2P3mwyhqQ97fNYh_ONWOtldaYt77Su0iIgQQ/exec';
@@ -352,7 +364,7 @@ function DiagramContent() {
     }
   }, []); // Empty deps - uses ref instead
 
-  // Handler for notes change in personalized nodes
+  // Handler for notes change in personalized nodes with debounced auto-save
   const handleNotesChange = useCallback((nodeId: string, notes: string) => {
     setNodes((nds) =>
       nds.map((n) => {
@@ -383,7 +395,51 @@ function DiagramContent() {
         return n;
       })
     );
-  }, [setNodes]);
+
+    // Auto-save with debounce (only if a path is loaded)
+    const currentPathId = activePathIdRef.current;
+    if (currentPathId) {
+      // Clear existing timer for this node
+      if (debounceTimerRef.current[nodeId]) {
+        clearTimeout(debounceTimerRef.current[nodeId]);
+      }
+      
+      // Set new debounced save
+      debounceTimerRef.current[nodeId] = setTimeout(async () => {
+        // Extract the original node ID (remove personalized- prefix)
+        const originalNodeId = nodeId.replace('personalized-', '');
+        try {
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'saveNodeContent',
+              pathId: currentPathId,
+              nodeId: originalNodeId,
+              content: notes,
+            }),
+          });
+        } catch (error) {
+          console.error('Error saving node content:', error);
+        }
+      }, 1000); // 1 second debounce
+    }
+  }, [setNodes, GOOGLE_SCRIPT_URL]);
+
+  // Generate unique path ID: name-YYYYMMDDHHmmss
+  const generatePathId = (name: string) => {
+    const now = new Date();
+    const timestamp = now.getFullYear().toString() +
+      (now.getMonth() + 1).toString().padStart(2, '0') +
+      now.getDate().toString().padStart(2, '0') +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0');
+    return `${name.replace(/\s+/g, '-')}-${timestamp}`;
+  };
 
   // Save path to Google Sheets via Google Apps Script
   const savePath = async () => {
@@ -396,6 +452,7 @@ function DiagramContent() {
       return;
     }
 
+    const pathId = generatePathId(pathName.trim());
     const nodeIds = Array.from(manualHighlights).join(', ');
     setSaveStatus('saving');
 
@@ -407,6 +464,8 @@ function DiagramContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'savePath',
+          pathId: pathId,
           pathName: pathName.trim(),
           nodeIds: nodeIds,
         }),
@@ -423,6 +482,56 @@ function DiagramContent() {
       // For now, just show success
     } catch (error) {
       console.error('Error saving path:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  // Delete path from Google Sheets
+  const deletePath = async () => {
+    if (!activePath) return;
+    
+    // Find the path ID for the active path
+    const pathRow = pathsList.find(p => p.name === activePath);
+    if (!pathRow) {
+      alert('Path not found');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete the path "${activePath}"?`)) {
+      return;
+    }
+
+    setSaveStatus('saving');
+
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'deletePath',
+          pathId: pathRow.id,
+        }),
+      });
+
+      setSaveStatus('success');
+      setActivePath(null);
+      setManualHighlights(new Set());
+      
+      // Clear highlighting
+      setNodes((nds) =>
+        enforceRootHidden(nds).map((n) => ({
+          ...n,
+          data: { ...n.data, isHighlighted: false },
+        }))
+      );
+      
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (error) {
+      console.error('Error deleting path:', error);
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
@@ -757,28 +866,30 @@ function DiagramContent() {
         }
         const parsedJson = JSON.parse(jsonText);
         const rows: any[] = parsedJson?.table?.rows || [];
-        const values: Array<[string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v]);
+        // Now expecting 3 columns: id, name, nodeIds
+        const values: Array<[string | null | undefined, string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v, row.c?.[2]?.v]);
         const isHeaderRow = (row: Array<string | null | undefined>) => {
           const first = (row?.[0] || '').toString().toLowerCase();
           const second = (row?.[1] || '').toString().toLowerCase();
           return (
-            (first.includes('name') || first.includes('button') || first.includes('label')) &&
-            (second.includes('id') || second.includes('node'))
+            first.includes('id') &&
+            (second.includes('name') || second.includes('button') || second.includes('label'))
           );
         };
-        const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 2 && row[0]);
+        const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 3 && row[0]);
         const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
         const list: PathRow[] = effectiveRows
           .map((row: Array<string | null | undefined>) => {
-            const name = (row[0] || '').toString().trim();
-            const nodeIds = (row[1] || '')
+            const id = (row[0] || '').toString().trim();
+            const name = (row[1] || '').toString().trim();
+            const nodeIds = (row[2] || '')
               .toString()
               .split(',')
               .map((v: string) => v.trim())
               .filter(Boolean);
-            return { name, nodeIds };
+            return { id, name, nodeIds };
           })
-          .filter((row) => row.name && row.nodeIds.length);
+          .filter((row) => row.id && row.name && row.nodeIds.length);
         const map: Record<string, string[]> = {};
         list.forEach((row) => {
           map[row.name] = row.nodeIds;
@@ -791,7 +902,50 @@ function DiagramContent() {
       }
     };
 
+    const loadNodePaths = async () => {
+      try {
+        const response = await fetch(NODE_PATH_GVIZ_URL);
+        if (!response.ok) {
+          setNodePathMap({});
+          return;
+        }
+        const rawText = await response.text();
+        const jsonMatch = rawText.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
+        const jsonText = jsonMatch?.[1];
+        if (!jsonText) {
+          setNodePathMap({});
+          return;
+        }
+        const parsedJson = JSON.parse(jsonText);
+        const rows: any[] = parsedJson?.table?.rows || [];
+        // Columns: pathId, nodeId, content
+        const values: Array<[string | null | undefined, string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v, row.c?.[2]?.v]);
+        const isHeaderRow = (row: Array<string | null | undefined>) => {
+          const first = (row?.[0] || '').toString().toLowerCase();
+          return first.includes('pathid') || first.includes('path');
+        };
+        const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 2 && row[0]);
+        const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
+        
+        // Build nested map: { pathId: { nodeId: content } }
+        const map: Record<string, Record<string, string>> = {};
+        effectiveRows.forEach((row) => {
+          const pathId = (row[0] || '').toString().trim();
+          const nodeId = (row[1] || '').toString().trim();
+          const content = (row[2] || '').toString();
+          if (pathId && nodeId) {
+            if (!map[pathId]) map[pathId] = {};
+            map[pathId][nodeId] = content;
+          }
+        });
+        setNodePathMap(map);
+      } catch {
+        setNodePathMap({});
+      }
+    };
+
     loadPaths();
+    loadNodePaths();
   }, []);
 
   const onNodeClick = useCallback(
@@ -802,6 +956,9 @@ function DiagramContent() {
       // Only toggle selection, don't show popup (popup is triggered by info button)
       // Skip personalized nodes from toggling
       if (node.id.startsWith('personalized-')) return;
+      
+      // Block manual selection when a path is loaded - must use Reset View first
+      if (activePath) return;
       
       setManualHighlights((prev) => {
         const next = new Set(prev);
@@ -826,7 +983,7 @@ function DiagramContent() {
         return next;
       });
     },
-    [setNodes, enforceRootHidden]
+    [setNodes, enforceRootHidden, activePath]
   );
 
   const personalizeSelection = () => {
@@ -843,11 +1000,17 @@ function DiagramContent() {
     const selectedNodeIds = Array.from(manualHighlights);
     const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
 
+    // Get content from node-path if a path is active
+    const pathContent = activePathId ? nodePathMap[activePathId] || {} : {};
+
     // Create duplicated nodes with unique IDs - straight vertical line
     const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => {
       const nodeData = n.data as NodeData;
       const xPos = startX; // Same X for all (vertical line)
       const yPos = startY + (index * verticalSpacing); // Stacked vertically
+      
+      // Load content from node-path sheet if available
+      const savedContent = pathContent[n.id] || '';
       
       return {
         id: `personalized-${n.id}`,
@@ -865,7 +1028,7 @@ function DiagramContent() {
           images: nodeData.images,
           video: nodeData.video,
           onInfoClick: handleInfoClick,
-          userNotes: '',
+          userNotes: savedContent,
           onNotesChange: handleNotesChange,
         },
         draggable: true,
@@ -905,11 +1068,13 @@ function DiagramContent() {
   };
 
   const showPath = (pathName: string) => {
+    const pathRow = pathsList.find(p => p.name === pathName);
     const pathNodes = pathsMap[pathName];
-    if (!pathNodes?.length) {
+    if (!pathNodes?.length || !pathRow) {
       return;
     }
     setActivePath(pathName);
+    setActivePathId(pathRow.id);
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
     setNodes((nds) => {
@@ -949,6 +1114,7 @@ function DiagramContent() {
 
   const resetView = () => {
     setActivePath(null);
+    setActivePathId(null);
     setManualHighlights(new Set());
     
     setNodes((nds) =>
@@ -1020,7 +1186,7 @@ function DiagramContent() {
           <h1 style={{ 
             margin: '0 0 16px 0', 
             fontSize: '18px', 
-            fontWeight: '300', 
+            fontWeight: '700', 
             color: '#1e293b',
             letterSpacing: '0.05em',
             textAlign: 'center',
@@ -1122,6 +1288,27 @@ function DiagramContent() {
                   {path.name}
                 </button>
               ))}
+              
+              {/* Delete Path button - only visible when a path is selected */}
+              {activePath && (
+                <button
+                  onClick={deletePath}
+                  style={{
+                    width: '100%',
+                    padding: '9px 10px',
+                    marginTop: '8px',
+                    background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                    color: '#dc2626',
+                    border: '1px solid rgba(220, 38, 38, 0.3)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                  }}
+                >
+                  🗑 Delete Path
+                </button>
+              )}
             </>
           )}
 
