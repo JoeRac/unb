@@ -474,13 +474,24 @@ function DiagramContent() {
 
       // With no-cors, we can't read the response, so we assume success
       setSaveStatus('success');
+      
+      // Add the new path to local state immediately so it appears in the list
+      const nodeIdsArray = Array.from(manualHighlights);
+      const newPathRow: PathRow = {
+        id: pathId,
+        name: pathName.trim(),
+        nodeIds: nodeIdsArray,
+      };
+      setPathsList(prev => [...prev, newPathRow]);
+      setPathsMap(prev => ({
+        ...prev,
+        [pathName.trim()]: nodeIdsArray,
+      }));
+      
       setPathName('');
       
       // Reset status after 3 seconds
       setTimeout(() => setSaveStatus('idle'), 3000);
-      
-      // Optionally reload paths - but this would need the page to refresh to see the new path
-      // For now, just show success
     } catch (error) {
       console.error('Error saving path:', error);
       setSaveStatus('error');
@@ -872,11 +883,12 @@ function DiagramContent() {
         // Now expecting 3 columns: id, name, nodeIds
         const values: Array<[string | null | undefined, string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v, row.c?.[2]?.v]);
         const isHeaderRow = (row: Array<string | null | undefined>) => {
-          const first = (row?.[0] || '').toString().toLowerCase();
-          const second = (row?.[1] || '').toString().toLowerCase();
+          const first = (row?.[0] || '').toString().toLowerCase().trim();
+          const second = (row?.[1] || '').toString().toLowerCase().trim();
+          // Check if it's exactly 'id' or 'pathid' (header row), not a data row with ID containing 'id'
           return (
-            first.includes('id') &&
-            (second.includes('name') || second.includes('button') || second.includes('label'))
+            (first === 'id' || first === 'pathid') &&
+            (second === 'name' || second === 'button' || second === 'label' || second.includes('name'))
           );
         };
         const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 3 && row[0]);
@@ -1348,6 +1360,15 @@ function DiagramContent() {
                         onChange={(e) => {
                           const newContent = e.target.value;
                           setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
+                          
+                          // Also update nodePathMap so changes persist when switching paths
+                          setNodePathMap(prev => ({
+                            ...prev,
+                            [activePathId]: {
+                              ...(prev[activePathId] || {}),
+                              [nodeId]: newContent,
+                            },
+                          }));
                           
                           // Debounced auto-save
                           if (debounceTimerRef.current[nodeId]) {
