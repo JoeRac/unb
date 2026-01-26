@@ -196,9 +196,9 @@ function MethodNode(props: any) {
   );
 }
 
-// Personalized node - larger, premium styling with info button
+// Personalized node - larger, premium styling with info button and text input
 function PersonalizedNode(props: any) {
-  const data = props.data as NodeData & { onInfoClick?: (nodeId: string) => void };
+  const data = props.data as NodeData & { onInfoClick?: (nodeId: string) => void; userNotes?: string; onNotesChange?: (nodeId: string, notes: string) => void };
 
   const handleInfoClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -207,64 +207,96 @@ function PersonalizedNode(props: any) {
     }
   };
 
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
+    if (data.onNotesChange) {
+      data.onNotesChange(props.id, e.target.value);
+    }
+  };
+
   return (
-    <div
-      style={{
-        padding: '20px 22px',
-        fontSize: 16,
-        borderRadius: 18,
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 253, 244, 0.96) 100%)',
-        color: '#1f2937',
-        border: '1.5px solid rgba(16, 185, 129, 0.35)',
-        width: 320,
-        minHeight: 90,
-        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
-        cursor: 'pointer',
-        position: 'relative',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      {/* Info button */}
-      <button
-        onClick={handleInfoClick}
+    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+      {/* Main node card */}
+      <div
         style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          width: 22,
-          height: 22,
-          borderRadius: '50%',
-          border: 'none',
-          background: 'rgba(16, 185, 129, 0.08)',
-          color: '#10b981',
-          fontSize: 11,
-          fontWeight: 600,
+          padding: '20px 22px',
+          fontSize: 16,
+          borderRadius: 18,
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 253, 244, 0.96) 100%)',
+          color: '#1f2937',
+          border: '1.5px solid rgba(16, 185, 129, 0.35)',
+          width: 280,
+          minHeight: 90,
+          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
           cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 0,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
+          position: 'relative',
+          backdropFilter: 'blur(8px)',
         }}
       >
-        i
-      </button>
-      <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6, textAlign: 'center', paddingRight: 20 }}>{data.label}</div>
-      {data.category && (
-        <div style={{ fontSize: 11, opacity: 0.6, fontStyle: 'italic', marginBottom: 6, textAlign: 'center' }}>
-          {data.category}
-        </div>
-      )}
-      {data.description && (
-        <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.5, textAlign: 'center' }}>
-          {data.description}
-        </div>
-      )}
+        {/* Info button */}
+        <button
+          onClick={handleInfoClick}
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            border: 'none',
+            background: 'rgba(16, 185, 129, 0.08)',
+            color: '#10b981',
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
+          }}
+        >
+          i
+        </button>
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6, textAlign: 'center', paddingRight: 20 }}>{data.label}</div>
+        {data.category && (
+          <div style={{ fontSize: 11, opacity: 0.6, fontStyle: 'italic', marginBottom: 6, textAlign: 'center' }}>
+            {data.category}
+          </div>
+        )}
+        {data.description && (
+          <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.5, textAlign: 'center' }}>
+            {data.description}
+          </div>
+        )}
+      </div>
+
+      {/* Text input beside the node */}
+      <textarea
+        placeholder="Add your notes..."
+        value={data.userNotes || ''}
+        onChange={handleNotesChange}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 240,
+          minHeight: 90,
+          padding: '12px 14px',
+          fontSize: 13,
+          borderRadius: 12,
+          border: '1px solid #e2e8f0',
+          background: 'rgba(255, 255, 255, 0.95)',
+          color: '#334155',
+          resize: 'vertical',
+          fontFamily: 'inherit',
+          lineHeight: 1.5,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
+        }}
+      />
     </div>
   );
 }
@@ -314,6 +346,39 @@ function DiagramContent() {
       }
     }
   }, []); // Empty deps - uses ref instead
+
+  // Handler for notes change in personalized nodes
+  const handleNotesChange = useCallback((nodeId: string, notes: string) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              userNotes: notes,
+            },
+          };
+        }
+        return n;
+      })
+    );
+    // Also update personalizedNodes state
+    setPersonalizedNodes((prev) =>
+      prev.map((n) => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              userNotes: notes,
+            },
+          };
+        }
+        return n;
+      })
+    );
+  }, [setNodes]);
 
   const exportToPDF = async () => {
     if (!flowRef.current) return;
@@ -723,19 +788,18 @@ function DiagramContent() {
     const visibleNodes = nodes.filter((n) => !n.hidden && !n.id.startsWith('personalized-'));
     const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
     const startX = maxX + 200; // Gap between original diagram and personalized section
-    const startY = 50; // Starting vertical position (higher up)
-    const horizontalStep = 180; // Horizontal step for diagonal
-    const verticalStep = 140; // Vertical step for descending staircase
+    const startY = 50; // Starting vertical position
+    const verticalSpacing = 160; // Vertical spacing between nodes
 
     // Get selected nodes data
     const selectedNodeIds = Array.from(manualHighlights);
     const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
 
-    // Create duplicated nodes with unique IDs - descending diagonal staircase
+    // Create duplicated nodes with unique IDs - straight vertical line
     const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => {
       const nodeData = n.data as NodeData;
-      const xPos = startX + (index * horizontalStep);
-      const yPos = startY + (index * verticalStep); // Descending: each node lower than previous
+      const xPos = startX; // Same X for all (vertical line)
+      const yPos = startY + (index * verticalSpacing); // Stacked vertically
       
       return {
         id: `personalized-${n.id}`,
@@ -753,6 +817,8 @@ function DiagramContent() {
           images: nodeData.images,
           video: nodeData.video,
           onInfoClick: handleInfoClick,
+          userNotes: '',
+          onNotesChange: handleNotesChange,
         },
         draggable: true,
         selectable: false,
@@ -1046,7 +1112,7 @@ function DiagramContent() {
               style={{
                 width: '100%',
                 padding: '10px',
-                marginBottom: '12px',
+                marginBottom: '8px',
                 background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
                 color: '#475569',
                 border: '1px solid #e2e8f0',
@@ -1059,6 +1125,28 @@ function DiagramContent() {
             >
               ↓ Export PDF
             </button>
+
+            {/* Save button */}
+            {personalizedNodes.length > 0 && (
+              <button
+                onClick={() => { /* Save function to be implemented */ }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginBottom: '12px',
+                  background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                  color: '#1d4ed8',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)',
+                }}
+              >
+                💾 Save
+              </button>
+            )}
 
             {/* Selected node IDs for copy-paste */}
             {manualHighlights.size > 0 && (
