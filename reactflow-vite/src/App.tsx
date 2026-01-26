@@ -340,7 +340,7 @@ function DiagramContent() {
   }, [activePathId]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyC5AEmHa19UNOQi0w1BD_IDwSqQZUrlD2P3mwyhqQ97fNYh_ONWOtldaYt77Su0iIgQQ/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj4w4nVvCcK3bk6JowxaAucUuLICJtd-airKLPaVZX18xQiZZ2vSXoXVoOZ-fryYR9_w/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
