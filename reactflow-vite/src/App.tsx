@@ -295,20 +295,25 @@ function DiagramContent() {
 
   const highlightColor = HIGHLIGHT_COLOR;
 
-  // Handler for info button click - shows the popup
+  // Use a ref to store the info click handler to avoid re-render loops
+  const nodesRef = useRef<Node[]>([]);
+  nodesRef.current = nodes;
+
+  // Handler for info button click - shows the popup (uses ref to avoid dependency on nodes)
   const handleInfoClick = useCallback((nodeId: string) => {
-    const node = nodes.find(n => n.id === nodeId || n.id === `personalized-${nodeId}` || nodeId === `personalized-${n.id}`);
+    const currentNodes = nodesRef.current;
+    const node = currentNodes.find(n => n.id === nodeId || n.id === `personalized-${nodeId}` || nodeId === `personalized-${n.id}`);
     if (node) {
       setSelectedNode(node);
     } else {
       // Try to find by stripping personalized- prefix
       const cleanId = nodeId.replace('personalized-', '');
-      const foundNode = nodes.find(n => n.id === cleanId || n.id === nodeId);
+      const foundNode = currentNodes.find(n => n.id === cleanId || n.id === nodeId);
       if (foundNode) {
         setSelectedNode(foundNode);
       }
     }
-  }, [nodes]);
+  }, []); // Empty deps - uses ref instead
 
   const exportToPDF = async () => {
     if (!flowRef.current) return;
@@ -617,7 +622,7 @@ function DiagramContent() {
     };
 
     loadSheet();
-  }, [buildFromRows, layoutNodes, setEdges, setNodes, handleInfoClick]);
+  }, [buildFromRows, layoutNodes, setEdges, setNodes, enforceRootHidden, handleInfoClick]);
 
   useEffect(() => {
     const loadPaths = async () => {
