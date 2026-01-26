@@ -6,12 +6,14 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
-const CANVAS_BG = 'linear-gradient(135deg, #e8f0fe 0%, #f1f3f9 50%, #e3e9f7 100%)';
-const NODE_SURFACE_MUTED = 'rgba(241, 245, 255, 0.75)';
-const NODE_BORDER = 'rgba(26, 115, 232, 0.35)';
-const HIGHLIGHT_COLOR = '#1a73e8';
-const EDGE_COLOR = '#90a4c8';
-const GLASS_SHADOW = '0 4px 12px rgba(31, 38, 135, 0.08), 0 2px 6px rgba(26, 115, 232, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6)';
+// Premium glass theme - clean whites and subtle accents
+const CANVAS_BG = 'linear-gradient(145deg, #fafbfc 0%, #f4f7fa 50%, #f0f4f8 100%)';
+const NODE_SURFACE = 'rgba(255, 255, 255, 0.92)';
+const NODE_BORDER = 'rgba(203, 213, 225, 0.6)';
+const HIGHLIGHT_COLOR = '#3b82f6';
+const EDGE_COLOR = '#cbd5e1';
+const GLASS_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 1)';
+const GLASS_SHADOW_SELECTED = '0 2px 8px rgba(59, 130, 246, 0.15), 0 4px 16px rgba(59, 130, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 1)';
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -37,7 +39,7 @@ function getLayoutedNodes(
     };
   });
 }
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import Papa from 'papaparse';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -104,31 +106,39 @@ const PATHS_GVIZ_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=paths&tqx=out:json';
 
 function MethodNode(props: any) {
-  const data = props.data as NodeData & { isHighlighted?: boolean };
+  const data = props.data as NodeData & { isHighlighted?: boolean; onInfoClick?: (nodeId: string) => void };
   const isHighlighted = data.isHighlighted === true;
   
-  // Lighter, refined glass-like blue gradient when highlighted
+  // Premium glass styling
   const background = isHighlighted 
-    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 155, 255, 0.18) 100%)'
-    : NODE_SURFACE_MUTED;
-  const color = isHighlighted ? '#1e40af' : '#475569';
-  const border = isHighlighted ? `2px solid rgba(59, 130, 246, 0.5)` : `1.5px solid ${NODE_BORDER}`;
-  const boxShadow = isHighlighted ? '0 4px 16px rgba(59, 130, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)' : GLASS_SHADOW;
+    ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)'
+    : NODE_SURFACE;
+  const textColor = isHighlighted ? '#1e40af' : '#334155';
+  const borderStyle = isHighlighted ? '1.5px solid rgba(59, 130, 246, 0.4)' : `1px solid ${NODE_BORDER}`;
+  const shadow = isHighlighted ? GLASS_SHADOW_SELECTED : GLASS_SHADOW;
+
+  const handleInfoClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent node selection
+    if (data.onInfoClick) {
+      data.onInfoClick(props.id);
+    }
+  };
 
   return (
     <div
       style={{
-        padding: 10,
+        padding: '12px 14px',
         fontSize: 13,
-        borderRadius: 16,
+        borderRadius: 14,
         background,
-        color,
-        border,
-        minWidth: 170,
-        maxWidth: 210,
-        boxShadow,
+        color: textColor,
+        border: borderStyle,
+        minWidth: 160,
+        maxWidth: 200,
+        boxShadow: shadow,
         cursor: 'pointer',
         position: 'relative',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <Handle
@@ -137,10 +147,42 @@ function MethodNode(props: any) {
         style={{ background: '#555', opacity: 0, width: 0, height: 0 }}
         isConnectable={false}
       />
-      <div />
-      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, textAlign: 'center' }}>{data.label}</div>
+      {/* Info button */}
+      <button
+        onClick={handleInfoClick}
+        style={{
+          position: 'absolute',
+          top: 6,
+          right: 6,
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          border: 'none',
+          background: 'rgba(100, 116, 139, 0.08)',
+          color: '#64748b',
+          fontSize: 10,
+          fontWeight: 600,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 0,
+          lineHeight: 1,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.12)';
+          e.currentTarget.style.color = '#3b82f6';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(100, 116, 139, 0.08)';
+          e.currentTarget.style.color = '#64748b';
+        }}
+      >
+        i
+      </button>
+      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, textAlign: 'center', paddingRight: 16 }}>{data.label}</div>
       {data.category && (
-        <div style={{ fontSize: 10, opacity: 0.8, fontStyle: 'italic', textAlign: 'center' }}>
+        <div style={{ fontSize: 10, opacity: 0.6, fontStyle: 'italic', textAlign: 'center' }}>
           {data.category}
         </div>
       )}
@@ -154,41 +196,72 @@ function MethodNode(props: any) {
   );
 }
 
-// Personalized node - larger, no handles
+// Personalized node - larger, premium styling with info button
 function PersonalizedNode(props: any) {
-  const data = props.data as NodeData;
+  const data = props.data as NodeData & { onInfoClick?: (nodeId: string) => void };
+
+  const handleInfoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (data.onInfoClick) {
+      data.onInfoClick(props.id);
+    }
+  };
 
   return (
     <div
       style={{
-        padding: 20,
+        padding: '20px 22px',
         fontSize: 16,
-        borderRadius: 22,
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 253, 244, 0.95) 100%)',
+        borderRadius: 18,
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 253, 244, 0.96) 100%)',
         color: '#1f2937',
-        border: '2px solid #10b981',
-        width: 340,
-        minHeight: 100,
-        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+        border: '1.5px solid rgba(16, 185, 129, 0.35)',
+        width: 320,
+        minHeight: 90,
+        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
         cursor: 'pointer',
         position: 'relative',
-        willChange: 'transform',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
+        backdropFilter: 'blur(8px)',
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, textAlign: 'center' }}>{data.label}</div>
+      {/* Info button */}
+      <button
+        onClick={handleInfoClick}
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          border: 'none',
+          background: 'rgba(16, 185, 129, 0.08)',
+          color: '#10b981',
+          fontSize: 11,
+          fontWeight: 600,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 0,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
+        }}
+      >
+        i
+      </button>
+      <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6, textAlign: 'center', paddingRight: 20 }}>{data.label}</div>
       {data.category && (
-        <div style={{ fontSize: 12, opacity: 0.8, fontStyle: 'italic', marginBottom: 6, textAlign: 'center' }}>
+        <div style={{ fontSize: 11, opacity: 0.6, fontStyle: 'italic', marginBottom: 6, textAlign: 'center' }}>
           {data.category}
         </div>
       )}
       {data.description && (
-        <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.5, textAlign: 'center' }}>
           {data.description}
         </div>
       )}
@@ -204,23 +277,7 @@ type PathRow = {
 };
 
 function DiagramContent() {
-  const layoutDirections = useMemo(
-    () => [
-      { label: 'Top-Bottom', value: 'TB' },
-      { label: 'Bottom-Top', value: 'BT' },
-      { label: 'Left-Right', value: 'LR' },
-      { label: 'Right-Left', value: 'RL' },
-    ],
-    []
-  );
-  const [layoutIndex, setLayoutIndex] = useState(0);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-    // Toggle layout direction
-    const toggleLayout = () => {
-      const nextIndex = (layoutIndex + 1) % layoutDirections.length;
-      setLayoutIndex(nextIndex);
-      setNodes((nds) => getLayoutedNodes(nds, edges, layoutDirections[nextIndex].value as 'TB'));
-    };
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -238,15 +295,43 @@ function DiagramContent() {
 
   const highlightColor = HIGHLIGHT_COLOR;
 
+  // Handler for info button click - shows the popup
+  const handleInfoClick = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId || n.id === `personalized-${nodeId}` || nodeId === `personalized-${n.id}`);
+    if (node) {
+      setSelectedNode(node);
+    } else {
+      // Try to find by stripping personalized- prefix
+      const cleanId = nodeId.replace('personalized-', '');
+      const foundNode = nodes.find(n => n.id === cleanId || n.id === nodeId);
+      if (foundNode) {
+        setSelectedNode(foundNode);
+      }
+    }
+  }, [nodes]);
+
   const exportToPDF = async () => {
     if (!flowRef.current) return;
     
     try {
-      const canvas = await html2canvas(flowRef.current, {
-        backgroundColor: '#f8fafc',
+      // Find the viewport element for better capture
+      const viewport = flowRef.current.querySelector('.react-flow__viewport') as HTMLElement;
+      const targetElement = viewport || flowRef.current;
+      
+      const canvas = await html2canvas(targetElement, {
+        backgroundColor: '#fafbfc',
         scale: 2,
         useCORS: true,
         allowTaint: true,
+        logging: false,
+        onclone: (clonedDoc) => {
+          // Ensure styles are preserved in the clone
+          const clonedNodes = clonedDoc.querySelectorAll('.react-flow__node');
+          clonedNodes.forEach((node) => {
+            const el = node as HTMLElement;
+            el.style.opacity = '1';
+          });
+        },
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -265,8 +350,8 @@ function DiagramContent() {
 
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
-      getLayoutedNodes(nodesToLayout, edgesToLayout, layoutDirections[layoutIndex].value as 'TB'),
-    [layoutIndex, layoutDirections]
+      getLayoutedNodes(nodesToLayout, edgesToLayout, 'TB'),
+    []
   );
 
   const enforceRootHidden = useCallback(
@@ -509,7 +594,15 @@ function DiagramContent() {
         setBaseEdges(edgesFromSheet);
         setRootIds(effectiveRoots);
         setEdges(edgesFromSheet);
-        setNodes(enforceRootHidden(layoutNodes(nodesFromSheet, edgesFromSheet), effectiveRoots));
+        // Add onInfoClick to each node's data
+        const nodesWithCallback = nodesFromSheet.map(n => ({
+          ...n,
+          data: {
+            ...n.data,
+            onInfoClick: handleInfoClick,
+          },
+        }));
+        setNodes(enforceRootHidden(layoutNodes(nodesWithCallback, edgesFromSheet), effectiveRoots));
         setTimeout(() => {
           fitView({
             duration: 600,
@@ -524,7 +617,7 @@ function DiagramContent() {
     };
 
     loadSheet();
-  }, [buildFromRows, layoutNodes, setEdges, setNodes]);
+  }, [buildFromRows, layoutNodes, setEdges, setNodes, handleInfoClick]);
 
   useEffect(() => {
     const loadPaths = async () => {
@@ -584,7 +677,7 @@ function DiagramContent() {
 
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
-      setSelectedNode(node);
+      // Only toggle selection, don't show popup (popup is triggered by info button)
       // Skip personalized nodes from toggling
       if (node.id.startsWith('personalized-')) return;
       
@@ -650,6 +743,7 @@ function DiagramContent() {
           externalLinks: nodeData.externalLinks,
           images: nodeData.images,
           video: nodeData.video,
+          onInfoClick: handleInfoClick,
         },
         draggable: true,
         selectable: false,
@@ -798,34 +892,15 @@ function DiagramContent() {
               style={{
                 marginBottom: '10px',
                 padding: '8px',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 fontSize: '11px',
-                background: dataError ? '#fee2e2' : '#eef2ff',
-                color: dataError ? '#991b1b' : '#3730a3',
+                background: dataError ? '#fef2f2' : '#f0f9ff',
+                color: dataError ? '#b91c1c' : '#0369a1',
               }}
             >
               {dataError ? `Sheet error: ${dataError}` : 'Loading sheet data…'}
             </div>
           )}
-          
-          <button
-            onClick={toggleLayout}
-            style={{
-              width: '100%',
-              padding: '10px',
-              marginBottom: '8px',
-              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-              color: '#475569',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: '600',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            }}
-          >
-            ↻ Layout: {layoutDirections[layoutIndex].label}
-          </button>
 
           <button
             onClick={exportToPDF}
