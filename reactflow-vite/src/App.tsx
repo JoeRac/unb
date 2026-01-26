@@ -12,7 +12,6 @@ const NODE_BORDER = 'rgba(26, 115, 232, 0.35)';
 const HIGHLIGHT_COLOR = '#1a73e8';
 const EDGE_COLOR = '#90a4c8';
 const GLASS_SHADOW = '0 4px 12px rgba(31, 38, 135, 0.08), 0 2px 6px rgba(26, 115, 232, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6)';
-const GLASS_SHADOW_ACTIVE = '0 6px 18px rgba(26, 115, 232, 0.2), 0 3px 8px rgba(66, 133, 244, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8)';
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -38,8 +37,10 @@ function getLayoutedNodes(
     };
   });
 }
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import Papa from 'papaparse';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import {
   ReactFlow,
   Controls,
@@ -106,13 +107,13 @@ function MethodNode(props: any) {
   const data = props.data as NodeData & { isHighlighted?: boolean };
   const isHighlighted = data.isHighlighted === true;
   
-  // Blue gradient background when highlighted, otherwise default surface
+  // Lighter, refined glass-like blue gradient when highlighted
   const background = isHighlighted 
-    ? 'linear-gradient(135deg, rgba(26, 115, 232, 0.22) 0%, rgba(66, 133, 244, 0.28) 100%)'
+    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 155, 255, 0.18) 100%)'
     : NODE_SURFACE_MUTED;
-  const color = isHighlighted ? '#1a365d' : '#475569';
-  const border = isHighlighted ? `2.5px solid ${HIGHLIGHT_COLOR}` : `1.5px solid ${NODE_BORDER}`;
-  const boxShadow = isHighlighted ? GLASS_SHADOW_ACTIVE : GLASS_SHADOW;
+  const color = isHighlighted ? '#1e40af' : '#475569';
+  const border = isHighlighted ? `2px solid rgba(59, 130, 246, 0.5)` : `1.5px solid ${NODE_BORDER}`;
+  const boxShadow = isHighlighted ? '0 4px 16px rgba(59, 130, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)' : GLASS_SHADOW;
 
   return (
     <div
@@ -137,9 +138,9 @@ function MethodNode(props: any) {
         isConnectable={false}
       />
       <div />
-      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{data.label}</div>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, textAlign: 'center' }}>{data.label}</div>
       {data.category && (
-        <div style={{ fontSize: 10, opacity: 0.8, fontStyle: 'italic' }}>
+        <div style={{ fontSize: 10, opacity: 0.8, fontStyle: 'italic', textAlign: 'center' }}>
           {data.category}
         </div>
       )}
@@ -180,9 +181,9 @@ function PersonalizedNode(props: any) {
         e.currentTarget.style.transform = 'scale(1)';
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>{data.label}</div>
+      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, textAlign: 'center' }}>{data.label}</div>
       {data.category && (
-        <div style={{ fontSize: 12, opacity: 0.8, fontStyle: 'italic', marginBottom: 6 }}>
+        <div style={{ fontSize: 12, opacity: 0.8, fontStyle: 'italic', marginBottom: 6, textAlign: 'center' }}>
           {data.category}
         </div>
       )}
@@ -233,8 +234,34 @@ function DiagramContent() {
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const { fitView } = useReactFlow();
+  const flowRef = useRef<HTMLDivElement>(null);
 
   const highlightColor = HIGHLIGHT_COLOR;
+
+  const exportToPDF = async () => {
+    if (!flowRef.current) return;
+    
+    try {
+      const canvas = await html2canvas(flowRef.current, {
+        backgroundColor: '#f8fafc',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save('diagram-export.pdf');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+    }
+  };
 
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
@@ -587,19 +614,6 @@ function DiagramContent() {
     [setNodes, enforceRootHidden]
   );
 
-  const clearSelections = () => {
-    setManualHighlights(new Set());
-    setNodes((nds) =>
-      enforceRootHidden(nds).map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          isHighlighted: false,
-        },
-      }))
-    );
-  };
-
   const personalizeSelection = () => {
     if (manualHighlights.size === 0) return;
 
@@ -607,19 +621,19 @@ function DiagramContent() {
     const visibleNodes = nodes.filter((n) => !n.hidden && !n.id.startsWith('personalized-'));
     const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
     const startX = maxX + 200; // Gap between original diagram and personalized section
-    const startY = 100; // Vertical position for the horizontal row
-    const personalizedNodeWidth = 340; // Width of personalized nodes
-    const personalizedNodeSpacing = 60; // Increased spacing between nodes
+    const startY = 50; // Starting vertical position (higher up)
+    const horizontalStep = 180; // Horizontal step for diagonal
+    const verticalStep = 140; // Vertical step for descending staircase
 
     // Get selected nodes data
     const selectedNodeIds = Array.from(manualHighlights);
     const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
 
-    // Create duplicated nodes with unique IDs - create fresh nodes with correct positions
+    // Create duplicated nodes with unique IDs - descending diagonal staircase
     const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => {
       const nodeData = n.data as NodeData;
-      const xPos = startX + (index * (personalizedNodeWidth + personalizedNodeSpacing));
-      const yPos = startY;
+      const xPos = startX + (index * horizontalStep);
+      const yPos = startY + (index * verticalStep); // Descending: each node lower than previous
       
       return {
         id: `personalized-${n.id}`,
@@ -750,32 +764,10 @@ function DiagramContent() {
     }, 50);
   };
 
-  const showAll = () => {
-    setActivePath('All Nodes');
-    
-    setNodes((nds) =>
-      enforceRootHidden(nds).map((n) => ({
-        ...n,
-        hidden: rootIds.includes(n.id),
-        data: {
-          ...n.data,
-          isHighlighted: false,
-        },
-      }))
-    );
-
-    setTimeout(() => {
-      fitView({ 
-        duration: 600,
-        padding: 0.1,
-      });
-    }, 50);
-  };
-
   const selectedNodeData = selectedNode ? (selectedNode.data as NodeData) : null;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: CANVAS_BG }}>
+    <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: CANVAS_BG }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -791,14 +783,15 @@ function DiagramContent() {
         {/* <Background color="#222" gap={16} /> */}
 
         <Panel position="top-left" style={{ 
-          background: 'rgba(255,255,255,0.92)', 
-          padding: '16px', 
-          borderRadius: '14px',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)', 
+          padding: '18px', 
+          borderRadius: '16px',
           maxHeight: '90vh',
           overflowY: 'auto',
-          width: '230px',
-          boxShadow: '0 18px 40px rgba(15,23,42,0.14)',
-          border: '1px solid rgba(26,115,232,0.18)'
+          width: '220px',
+          boxShadow: '0 8px 32px rgba(15,23,42,0.08), 0 2px 8px rgba(59,130,246,0.04)',
+          border: '1px solid rgba(226,232,240,0.8)',
+          backdropFilter: 'blur(12px)',
         }}>
           {(dataLoading || dataError) && (
             <div
@@ -819,42 +812,46 @@ function DiagramContent() {
             onClick={toggleLayout}
             style={{
               width: '100%',
-              padding: '8px',
-              marginBottom: '10px',
-              background: '#222',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
+              padding: '10px',
+              marginBottom: '8px',
+              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+              color: '#475569',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
               cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold',
+              fontSize: '11px',
+              fontWeight: '600',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}
           >
-            🔄 Switch Layout ({layoutDirections[layoutIndex].label})
+            ↻ Layout: {layoutDirections[layoutIndex].label}
           </button>
 
-          {/* Selection info */}
-          <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
-            Click nodes to select • Selected: {manualHighlights.size}
-            {manualHighlights.size > 0 && (
-              <button
-                onClick={clearSelections}
-                style={{
-                  marginLeft: '8px',
-                  padding: '2px 6px',
-                  fontSize: '10px',
-                  background: '#e5e7eb',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              >
-                Clear
-              </button>
-            )}
+          <button
+            onClick={exportToPDF}
+            style={{
+              width: '100%',
+              padding: '10px',
+              marginBottom: '12px',
+              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+              color: '#475569',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: '600',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}
+          >
+            ↓ Export PDF
+          </button>
+
+          {/* Selection count - subtle */}
+          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px', textAlign: 'center' }}>
+            {manualHighlights.size} selected
           </div>
 
-          {/* Personalize button */}
+          {/* Personalize button - refined */}
           <button
             onClick={personalizeSelection}
             disabled={manualHighlights.size === 0}
@@ -863,20 +860,22 @@ function DiagramContent() {
               padding: '10px',
               marginBottom: '12px',
               background: manualHighlights.size > 0 
-                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
-                : '#e5e7eb',
-              color: manualHighlights.size > 0 ? 'white' : '#9ca3af',
-              border: 'none',
-              borderRadius: '8px',
+                ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
+                : '#f8fafc',
+              color: manualHighlights.size > 0 ? '#047857' : '#94a3b8',
+              border: manualHighlights.size > 0 
+                ? '1px solid rgba(16, 185, 129, 0.3)' 
+                : '1px solid #e2e8f0',
+              borderRadius: '10px',
               cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
-              fontSize: '12px',
-              fontWeight: 'bold',
+              fontSize: '11px',
+              fontWeight: '600',
               boxShadow: manualHighlights.size > 0 
-                ? '0 4px 14px rgba(16, 185, 129, 0.35)' 
+                ? '0 2px 8px rgba(16, 185, 129, 0.08)' 
                 : 'none',
             }}
           >
-            ✨ Personalize ({manualHighlights.size})
+            ✦ Personalize ({manualHighlights.size})
           </button>
 
           {personalizedNodes.length > 0 && (
@@ -886,60 +885,46 @@ function DiagramContent() {
                 width: '100%',
                 padding: '8px',
                 marginBottom: '12px',
-                background: '#fee2e2',
-                color: '#991b1b',
-                border: '1px solid #fca5a5',
-                borderRadius: '6px',
+                background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                color: '#b91c1c',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: '10px',
                 cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: '500',
+                fontSize: '10px',
+                fontWeight: '600',
               }}
             >
-              🗑️ Clear Personalized ({personalizedNodes.length})
+              ✕ Clear Personalized ({personalizedNodes.length})
             </button>
           )}
 
           {/* Paths section */}
           {pathsList.length > 0 && (
             <>
-              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '4px' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#333' }}>📊 Explore Paths</h3>
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '6px' }}>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#475569', fontWeight: '600', letterSpacing: '0.02em' }}>Explore Paths</h3>
               </div>
               
               <button
                 onClick={resetView}
                 style={{
                   width: '100%',
-                  padding: '8px',
-                  marginBottom: '6px',
-                  background: activePath === null ? '#3498db' : '#ecf0f1',
-                  color: activePath === null ? 'white' : '#333',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                }}
-              >
-                🔄 Reset View
-              </button>
-
-              <button
-                onClick={showAll}
-                style={{
-                  width: '100%',
-                  padding: '8px',
+                  padding: '9px',
                   marginBottom: '10px',
-                  background: activePath === 'All Nodes' ? '#3498db' : '#ecf0f1',
-                  color: activePath === 'All Nodes' ? 'white' : '#333',
-                  border: 'none',
-                  borderRadius: '4px',
+                  background: activePath === null 
+                    ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                    : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                  color: activePath === null ? '#1d4ed8' : '#64748b',
+                  border: activePath === null 
+                    ? '1px solid rgba(59, 130, 246, 0.3)' 
+                    : '1px solid #e2e8f0',
+                  borderRadius: '10px',
                   cursor: 'pointer',
                   fontSize: '11px',
-                  fontWeight: 'bold',
+                  fontWeight: '600',
                 }}
               >
-                🌐 Show All
+                ↺ Reset View
               </button>
 
               {pathsList.map((path) => (
@@ -948,16 +933,20 @@ function DiagramContent() {
                   onClick={() => showPath(path.name)}
                   style={{
                     width: '100%',
-                    padding: '8px',
-                    marginBottom: '4px',
-                    background: activePath === path.name ? '#3498db' : 'white',
-                    color: activePath === path.name ? 'white' : '#333',
-                    border: activePath === path.name ? 'none' : '1px solid #ddd',
-                    borderRadius: '6px',
+                    padding: '9px 10px',
+                    marginBottom: '5px',
+                    background: activePath === path.name 
+                      ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                      : 'rgba(255,255,255,0.6)',
+                    color: activePath === path.name ? '#1d4ed8' : '#475569',
+                    border: activePath === path.name 
+                      ? '1px solid rgba(59, 130, 246, 0.3)' 
+                      : '1px solid #e2e8f0',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     fontSize: '11px',
                     textAlign: 'left',
-                    fontWeight: activePath === path.name ? 'bold' : 'normal',
+                    fontWeight: activePath === path.name ? '600' : '500',
                   }}
                 >
                   {path.name}
