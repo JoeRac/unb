@@ -50,7 +50,6 @@ import {
   Position,
   useNodesState,
   useEdgesState,
-  Panel,
   Node,
   Edge,
   useReactFlow,
@@ -375,6 +374,16 @@ function DiagramContent() {
   const [showAddSubsubcategory, setShowAddSubsubcategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   
+  // Panel position and size state for draggable/resizable panels
+  const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
+  const [leftPanelSize, setLeftPanelSize] = useState({ width: 220, height: 600 });
+  const [infoPanelPos, setInfoPanelPos] = useState({ x: window.innerWidth - 400, y: 20 });
+  const [infoPanelSize, setInfoPanelSize] = useState({ width: 360, height: 500 });
+  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | null>(null);
+  const [isResizingPanel, setIsResizingPanel] = useState<'left' | 'info' | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0 });
+  
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
@@ -384,6 +393,49 @@ function DiagramContent() {
   useEffect(() => {
     activePathIdRef.current = activePathId;
   }, [activePathId]);
+
+  // Panel drag and resize handlers
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingPanel === 'left') {
+        setLeftPanelPos({
+          x: Math.max(0, e.clientX - dragOffset.x),
+          y: Math.max(0, e.clientY - dragOffset.y),
+        });
+      } else if (isDraggingPanel === 'info') {
+        setInfoPanelPos({
+          x: Math.max(0, e.clientX - dragOffset.x),
+          y: Math.max(0, e.clientY - dragOffset.y),
+        });
+      }
+      
+      if (isResizingPanel === 'left') {
+        setLeftPanelSize({
+          width: Math.max(180, resizeStart.width + (e.clientX - resizeStart.mouseX)),
+          height: Math.max(200, resizeStart.height + (e.clientY - resizeStart.mouseY)),
+        });
+      } else if (isResizingPanel === 'info') {
+        setInfoPanelSize({
+          width: Math.max(280, resizeStart.width + (e.clientX - resizeStart.mouseX)),
+          height: Math.max(200, resizeStart.height + (e.clientY - resizeStart.mouseY)),
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingPanel(null);
+      setIsResizingPanel(null);
+    };
+
+    if (isDraggingPanel || isResizingPanel) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDraggingPanel, isResizingPanel, dragOffset, resizeStart]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
   const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEdi6EMynx4G9b8FKhC9i7GcxKMtSJVkGjCmWWryz49B9UIGlMdrcpOJfFzPxbW3JVGQ/exec';
@@ -1355,17 +1407,76 @@ function DiagramContent() {
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
 
-        <Panel position="top-left" style={{ 
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)', 
-          padding: '18px', 
-          borderRadius: '16px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          width: '220px',
-          boxShadow: '0 8px 32px rgba(15,23,42,0.08), 0 2px 8px rgba(59,130,246,0.04)',
-          border: '1px solid rgba(226,232,240,0.8)',
-          backdropFilter: 'blur(12px)',
-        }}>
+        {/* Left sidebar - draggable and resizable */}
+        <div
+          style={{ 
+            position: 'absolute',
+            left: leftPanelPos.x,
+            top: leftPanelPos.y,
+            zIndex: 10,
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)', 
+            padding: '18px', 
+            borderRadius: '16px',
+            height: leftPanelSize.height,
+            overflowY: 'auto',
+            width: leftPanelSize.width,
+            boxShadow: '0 8px 32px rgba(15,23,42,0.08), 0 2px 8px rgba(59,130,246,0.04)',
+            border: '1px solid rgba(226,232,240,0.8)',
+            backdropFilter: 'blur(12px)',
+          }}
+        >
+          {/* Drag handle */}
+          <div
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsDraggingPanel('left');
+              setDragOffset({ x: e.clientX - leftPanelPos.x, y: e.clientY - leftPanelPos.y });
+            }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '28px',
+              cursor: 'move',
+              background: 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
+              borderTopLeftRadius: '16px',
+              borderTopRightRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <div style={{ 
+              width: '40px', 
+              height: '4px', 
+              background: '#cbd5e1', 
+              borderRadius: '2px',
+            }} />
+          </div>
+          
+          {/* Resize handle */}
+          <div
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizingPanel('left');
+              setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height });
+            }}
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              right: 4,
+              width: '14px',
+              height: '14px',
+              cursor: 'se-resize',
+              background: 'linear-gradient(135deg, transparent 50%, #94a3b8 50%)',
+              borderRadius: '0 0 12px 0',
+              opacity: 0.6,
+            }}
+          />
+          
+          {/* Panel content - with padding top for drag handle */}
+          <div style={{ marginTop: '12px' }}>
           {/* App Title */}
           <h1 style={{ 
             margin: '0 0 16px 0', 
@@ -1667,7 +1778,7 @@ function DiagramContent() {
                   paddingLeft: '12px',
                 }}>
                   {getSubcategories(pathsList, selectedCategory).map(sub => {
-                    const count = pathsList.filter(p => p.category === selectedCategory && p.subcategory === sub).length;
+                    const count = pathsList.filter(p => p.name && p.category === selectedCategory && p.subcategory === sub).length;
                     return (
                       <button
                         type="button"
@@ -1821,6 +1932,7 @@ function DiagramContent() {
                 }}>
                   {getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory!, selectedSubcategory).map(subsub => {
                     const count = pathsList.filter(p => 
+                      p.name &&
                       p.category === (selectedCategory === '__uncategorized__' ? '' : selectedCategory) && 
                       p.subcategory === selectedSubcategory && 
                       p.subsubcategory === subsub
@@ -1958,11 +2070,11 @@ function DiagramContent() {
                   width: '100%',
                   padding: '9px',
                   marginBottom: '10px',
-                  background: activePath === null 
+                  background: activePath !== null 
                     ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
                     : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                  color: activePath === null ? '#1d4ed8' : '#64748b',
-                  border: activePath === null 
+                  color: activePath !== null ? '#1d4ed8' : '#64748b',
+                  border: activePath !== null 
                     ? '1px solid rgba(59, 130, 246, 0.3)' 
                     : '1px solid #e2e8f0',
                   borderRadius: '10px',
@@ -2045,7 +2157,25 @@ function DiagramContent() {
                 📝 Node Notes
               </div>
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {Array.from(manualHighlights).map((nodeId) => {
+                {(() => {
+                  // Sort nodes by hierarchy depth (parents first)
+                  const getNodeDepth = (nodeId: string, visited = new Set<string>()): number => {
+                    if (visited.has(nodeId)) return 0; // Prevent cycles
+                    visited.add(nodeId);
+                    
+                    // Find edges where this node is the target (i.e., find parents)
+                    const parentEdges = edges.filter(e => e.target === nodeId);
+                    if (parentEdges.length === 0) return 0; // Root node
+                    
+                    // Return max depth of parents + 1
+                    return Math.max(...parentEdges.map(e => getNodeDepth(e.source, visited))) + 1;
+                  };
+                  
+                  const sortedNodeIds = Array.from(manualHighlights).sort((a, b) => {
+                    return getNodeDepth(a) - getNodeDepth(b);
+                  });
+                  
+                  return sortedNodeIds.map((nodeId) => {
                   const node = nodes.find(n => n.id === nodeId);
                   const nodeData = node?.data as NodeData | undefined;
                   const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
@@ -2118,7 +2248,8 @@ function DiagramContent() {
                       />
                     </div>
                   );
-                })}
+                });
+                })()}
               </div>
             </div>
           )}
@@ -2352,23 +2483,79 @@ function DiagramContent() {
               </div>
             )}
           </div>
-        </Panel>
+          </div>
+        </div>
 
         {selectedNode && selectedNodeData && (
-  <Panel
-    position="top-right"
+  <div
     style={{
+      position: 'absolute',
+      left: infoPanelPos.x,
+      top: infoPanelPos.y,
+      zIndex: 10,
       background: 'rgba(255,255,255,0.96)',
       padding: '20px',
       borderRadius: '14px',
-      width: '360px',
-      maxHeight: '90vh',
+      width: infoPanelSize.width,
+      height: infoPanelSize.height,
       overflowY: 'auto',
       boxShadow: '0 22px 48px rgba(15,23,42,0.2)',
       border: '1px solid rgba(26,115,232,0.22)',
       color: '#333',
     }}
   >
+    {/* Drag handle */}
+    <div
+      onMouseDown={(e) => {
+        e.preventDefault();
+        setIsDraggingPanel('info');
+        setDragOffset({ x: e.clientX - infoPanelPos.x, y: e.clientY - infoPanelPos.y });
+      }}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '28px',
+        cursor: 'move',
+        background: 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
+        borderTopLeftRadius: '14px',
+        borderTopRightRadius: '14px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <div style={{ 
+        width: '40px', 
+        height: '4px', 
+        background: '#cbd5e1', 
+        borderRadius: '2px',
+      }} />
+    </div>
+    
+    {/* Resize handle */}
+    <div
+      onMouseDown={(e) => {
+        e.preventDefault();
+        setIsResizingPanel('info');
+        setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height });
+      }}
+      style={{
+        position: 'absolute',
+        bottom: 4,
+        right: 4,
+        width: '14px',
+        height: '14px',
+        cursor: 'se-resize',
+        background: 'linear-gradient(135deg, transparent 50%, #94a3b8 50%)',
+        borderRadius: '0 0 10px 0',
+        opacity: 0.6,
+      }}
+    />
+    
+    {/* Content with padding for drag handle */}
+    <div style={{ marginTop: '10px' }}>
     <button
       onClick={() => setSelectedNode(null)}
       style={{
@@ -2546,7 +2733,8 @@ function DiagramContent() {
         </div>
       );
     })()}
-  </Panel>
+    </div>
+  </div>
 )}
       </ReactFlow>
     </div>
