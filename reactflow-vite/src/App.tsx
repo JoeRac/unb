@@ -652,32 +652,23 @@ function DiagramContent() {
     });
     setPersonalizedNodes((prev) => [...prev, ...duplicatedNodes]);
 
-    // Fit view to show both original and personalized after a brief delay
+    // Fit view to the personalized nodes only, with proper centering
     setTimeout(() => {
       fitView({
         duration: 800,
-        padding: 0.1,
+        padding: 0.3, // More padding to center properly
+        nodes: duplicatedNodes.map(n => ({ id: n.id })), // Focus on personalized nodes
       });
     }, 100);
   };
 
   const clearPersonalized = () => {
-    // Remove personalized nodes
+    // Remove personalized nodes but keep highlights on original nodes
     setNodes((nds) => nds.filter((n) => !n.id.startsWith('personalized-')));
     setPersonalizedNodes([]);
-    // Clear the manual highlights that were personalized
-    setManualHighlights(new Set());
-    // Reset all remaining nodes
+    // Don't clear manualHighlights - keep the original boxes highlighted
+    // Fit view back to the diagram
     setTimeout(() => {
-      setNodes((nds) =>
-        enforceRootHidden(nds).map((n) => ({
-          ...n,
-          data: {
-            ...n.data,
-            isHighlighted: false,
-          },
-        }))
-      );
       fitView({ duration: 400, padding: 0.15 });
     }, 50);
   };
@@ -688,12 +679,8 @@ function DiagramContent() {
       return;
     }
     setActivePath(pathName);
-    // Update manualHighlights to include the path nodes
-    setManualHighlights((prev) => {
-      const next = new Set(prev);
-      pathNodes.forEach((id) => next.add(id));
-      return next;
-    });
+    // Reset to only the new path's nodes (don't accumulate between path buttons)
+    setManualHighlights(new Set(pathNodes));
     setNodes((nds) => {
       const updated = enforceRootHidden(nds).map((n) => {
         const isActive = pathNodes.includes(n.id);
@@ -701,7 +688,7 @@ function DiagramContent() {
           ...n,
           data: {
             ...n.data,
-            isHighlighted: isActive || (n.data as NodeData & { isHighlighted?: boolean }).isHighlighted,
+            isHighlighted: isActive, // Reset: only show this path's nodes
           },
         };
       });
@@ -713,7 +700,7 @@ function DiagramContent() {
         padding: 0.2,
       });
     }, 100);
-    // Also update edge styles
+    // Reset all edges: only highlight this path's edges
     setEdges((eds: Edge[]) =>
       eds.map((e: Edge) => {
         const isActive = pathNodes.includes(e.source) && pathNodes.includes(e.target);
