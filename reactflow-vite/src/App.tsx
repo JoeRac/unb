@@ -1375,204 +1375,135 @@ function DiagramContent() {
                 <h3 style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#475569', fontWeight: '600', letterSpacing: '0.02em' }}>Explore Paths</h3>
               </div>
               
-              {/* Category breadcrumb navigation */}
-              {(selectedCategory || selectedSubcategory || selectedSubsubcategory) && (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px', 
-                  marginBottom: '10px',
-                  fontSize: '10px',
-                  color: '#64748b',
-                  flexWrap: 'wrap',
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory(null);
-                      setSelectedSubcategory(null);
-                      setSelectedSubsubcategory(null);
-                      setSaveCategory('');
-                      setSaveSubcategory('');
-                      setSaveSubsubcategory('');
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#3b82f6',
-                      cursor: 'pointer',
-                      padding: '2px 4px',
-                      fontSize: '10px',
-                      fontWeight: '500',
-                    }}
-                  >
-                    All
-                  </button>
-                  {selectedCategory && selectedCategory !== '__uncategorized__' && (
-                    <>
-                      <span style={{ color: '#94a3b8' }}>›</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSubcategory(null);
-                          setSelectedSubsubcategory(null);
-                          setSaveSubcategory('');
-                          setSaveSubsubcategory('');
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: selectedSubcategory ? '#3b82f6' : '#475569',
-                          cursor: selectedSubcategory ? 'pointer' : 'default',
-                          padding: '2px 4px',
-                          fontSize: '10px',
-                          fontWeight: selectedSubcategory ? '500' : '600',
-                        }}
-                      >
-                        {selectedCategory}
-                      </button>
-                    </>
-                  )}
-                  {selectedCategory === '__uncategorized__' && (
-                    <>
-                      <span style={{ color: '#94a3b8' }}>›</span>
-                      <span style={{ fontWeight: '600', color: '#94a3b8', padding: '2px 4px', fontStyle: 'italic' }}>
-                        Uncategorized
-                      </span>
-                    </>
-                  )}
-                  {selectedSubcategory && (
-                    <>
-                      <span style={{ color: '#94a3b8' }}>›</span>
-                      <button
-                        onClick={() => setSelectedSubsubcategory(null)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: selectedSubsubcategory ? '#3b82f6' : '#475569',
-                          cursor: selectedSubsubcategory ? 'pointer' : 'default',
-                          padding: '2px 4px',
-                          fontSize: '10px',
-                          fontWeight: selectedSubsubcategory ? '500' : '600',
-                        }}
-                      >
-                        {selectedSubcategory}
-                      </button>
-                    </>
-                  )}
-                  {selectedSubsubcategory && (
-                    <>
-                      <span style={{ color: '#94a3b8' }}>›</span>
-                      <span style={{ fontWeight: '600', color: '#475569', padding: '2px 4px' }}>
-                        {selectedSubsubcategory}
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
-              
-              {/* Category chips */}
+              {/* Category chips - always visible */}
               <div style={{ 
                 display: 'flex', 
                 flexWrap: 'wrap', 
                 gap: '6px', 
-                marginBottom: '10px',
+                marginBottom: '8px',
               }}>
-                {/* Show top-level categories or subcategories based on selection */}
-                {!selectedCategory ? (
-                  // Show top-level categories + "All" chip
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategory(null);
-                        setSelectedSubcategory(null);
-                        setSelectedSubsubcategory(null);
-                      }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (draggedPath) {
-                          updatePathCategory(draggedPath, '', '');
-                          setDraggedPath(null);
-                        }
-                      }}
-                      style={{
-                        padding: '5px 10px',
-                        fontSize: '10px',
-                        fontWeight: '600',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(59, 130, 246, 0.3)',
-                        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                        color: '#1d4ed8',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      All ({pathsList.length})
-                    </button>
-                    {getUniqueCategories(pathsList).map(cat => (
-                      <button
-                        type="button"
-                        key={cat}
-                        onClick={() => {
-                          setSelectedCategory(cat);
-                          setSelectedSubcategory(null);
-                          setSelectedSubsubcategory(null);
-                          // Pre-populate save category
-                          setSaveCategory(cat);
-                          setSaveSubcategory('');
-                          setSaveSubsubcategory('');
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (draggedPath) {
-                            updatePathCategory(draggedPath, cat, '');
-                            setDraggedPath(null);
-                          }
-                        }}
-                        style={{
-                          padding: '5px 10px',
-                          fontSize: '10px',
-                          fontWeight: '500',
-                          borderRadius: '12px',
-                          border: '1px solid rgba(59, 130, 246, 0.2)',
-                          background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                          color: '#1d4ed8',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {cat} ({pathsList.filter(p => p.category === cat).length})
-                      </button>
-                    ))}
-                    {/* Show uncategorized count if any */}
-                    {pathsList.some(p => !p.category) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategory('__uncategorized__');
-                          setSelectedSubcategory(null);
-                          setSelectedSubsubcategory(null);
-                        }}
-                        style={{
-                          padding: '5px 10px',
-                          fontSize: '10px',
-                          fontWeight: '500',
-                          borderRadius: '12px',
-                          border: '1px solid #e2e8f0',
-                          background: '#f8fafc',
-                          color: '#94a3b8',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Uncategorized ({pathsList.filter(p => !p.category).length})
-                      </button>
-                    )}
-                  </>
-                ) : selectedCategory && !selectedSubcategory ? (
-                  // Show subcategories of selected category
-                  <>
-                    {getSubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory).map(sub => (
+                {/* All chip */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    setSelectedSubcategory(null);
+                    setSelectedSubsubcategory(null);
+                    setSaveCategory('');
+                    setSaveSubcategory('');
+                    setSaveSubsubcategory('');
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedPath) {
+                      updatePathCategory(draggedPath, '', '');
+                      setDraggedPath(null);
+                    }
+                  }}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: '10px',
+                    fontWeight: selectedCategory === null ? '600' : '500',
+                    borderRadius: '12px',
+                    border: selectedCategory === null 
+                      ? '1px solid rgba(59, 130, 246, 0.5)' 
+                      : '1px solid #e2e8f0',
+                    background: selectedCategory === null 
+                      ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                      : 'rgba(255,255,255,0.6)',
+                    color: selectedCategory === null ? '#1d4ed8' : '#64748b',
+                    cursor: 'pointer',
+                    boxShadow: selectedCategory === null ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
+                  }}
+                >
+                  All ({pathsList.length})
+                </button>
+                
+                {/* Category chips */}
+                {getUniqueCategories(pathsList).map(cat => (
+                  <button
+                    type="button"
+                    key={cat}
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setSelectedSubcategory(null);
+                      setSelectedSubsubcategory(null);
+                      setSaveCategory(cat);
+                      setSaveSubcategory('');
+                      setSaveSubsubcategory('');
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedPath) {
+                        updatePathCategory(draggedPath, cat, '');
+                        setDraggedPath(null);
+                      }
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      fontSize: '10px',
+                      fontWeight: selectedCategory === cat ? '600' : '500',
+                      borderRadius: '12px',
+                      border: selectedCategory === cat 
+                        ? '1px solid rgba(59, 130, 246, 0.5)' 
+                        : '1px solid rgba(59, 130, 246, 0.2)',
+                      background: selectedCategory === cat 
+                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                        : 'rgba(239, 246, 255, 0.5)',
+                      color: selectedCategory === cat ? '#1d4ed8' : '#3b82f6',
+                      cursor: 'pointer',
+                      boxShadow: selectedCategory === cat ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
+                    }}
+                  >
+                    {cat} ({pathsList.filter(p => p.category === cat).length})
+                  </button>
+                ))}
+                
+                {/* Uncategorized chip */}
+                {pathsList.some(p => !p.category) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory('__uncategorized__');
+                      setSelectedSubcategory(null);
+                      setSelectedSubsubcategory(null);
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      fontSize: '10px',
+                      fontWeight: selectedCategory === '__uncategorized__' ? '600' : '500',
+                      borderRadius: '12px',
+                      border: selectedCategory === '__uncategorized__' 
+                        ? '1px solid rgba(148, 163, 184, 0.5)' 
+                        : '1px solid #e2e8f0',
+                      background: selectedCategory === '__uncategorized__' 
+                        ? '#f1f5f9' 
+                        : '#f8fafc',
+                      color: selectedCategory === '__uncategorized__' ? '#475569' : '#94a3b8',
+                      cursor: 'pointer',
+                      fontStyle: 'italic',
+                      boxShadow: selectedCategory === '__uncategorized__' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                    }}
+                  >
+                    Uncategorized ({pathsList.filter(p => !p.category).length})
+                  </button>
+                )}
+              </div>
+              
+              {/* Subcategory chips - show when category selected */}
+              {selectedCategory && selectedCategory !== '__uncategorized__' && getSubcategories(pathsList, selectedCategory).length > 0 && (
+                <div style={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: '6px', 
+                  marginBottom: '8px',
+                  paddingLeft: '12px',
+                }}>
+                  {getSubcategories(pathsList, selectedCategory).map(sub => {
+                    const count = pathsList.filter(p => p.category === selectedCategory && p.subcategory === sub).length;
+                    return (
                       <button
                         type="button"
                         key={sub}
@@ -1586,29 +1517,49 @@ function DiagramContent() {
                         onDrop={(e) => {
                           e.preventDefault();
                           if (draggedPath) {
-                            updatePathCategory(draggedPath, selectedCategory === '__uncategorized__' ? '' : selectedCategory, sub);
+                            updatePathCategory(draggedPath, selectedCategory, sub);
                             setDraggedPath(null);
                           }
                         }}
                         style={{
                           padding: '5px 10px',
                           fontSize: '10px',
-                          fontWeight: '500',
+                          fontWeight: selectedSubcategory === sub ? '600' : '500',
                           borderRadius: '12px',
-                          border: '1px solid rgba(16, 185, 129, 0.2)',
-                          background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                          color: '#047857',
+                          border: selectedSubcategory === sub 
+                            ? '1px solid rgba(16, 185, 129, 0.5)' 
+                            : '1px solid rgba(16, 185, 129, 0.2)',
+                          background: selectedSubcategory === sub 
+                            ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
+                            : 'rgba(236, 253, 245, 0.5)',
+                          color: selectedSubcategory === sub ? '#047857' : '#10b981',
                           cursor: 'pointer',
+                          boxShadow: selectedSubcategory === sub ? '0 1px 3px rgba(16, 185, 129, 0.15)' : 'none',
                         }}
                       >
-                        {sub}
+                        {sub} ({count})
                       </button>
-                    ))}
-                  </>
-                ) : selectedSubcategory && !selectedSubsubcategory ? (
-                  // Show sub-subcategories
-                  <>
-                    {getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory, selectedSubcategory).map(subsub => (
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Sub-subcategory chips - show when subcategory selected */}
+              {selectedSubcategory && getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory!, selectedSubcategory).length > 0 && (
+                <div style={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: '6px', 
+                  marginBottom: '8px',
+                  paddingLeft: '24px',
+                }}>
+                  {getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory!, selectedSubcategory).map(subsub => {
+                    const count = pathsList.filter(p => 
+                      p.category === (selectedCategory === '__uncategorized__' ? '' : selectedCategory) && 
+                      p.subcategory === selectedSubcategory && 
+                      p.subsubcategory === subsub
+                    ).length;
+                    return (
                       <button
                         type="button"
                         key={subsub}
@@ -1619,20 +1570,25 @@ function DiagramContent() {
                         style={{
                           padding: '5px 10px',
                           fontSize: '10px',
-                          fontWeight: '500',
+                          fontWeight: selectedSubsubcategory === subsub ? '600' : '500',
                           borderRadius: '12px',
-                          border: '1px solid rgba(168, 85, 247, 0.2)',
-                          background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
-                          color: '#7c3aed',
+                          border: selectedSubsubcategory === subsub 
+                            ? '1px solid rgba(168, 85, 247, 0.5)' 
+                            : '1px solid rgba(168, 85, 247, 0.2)',
+                          background: selectedSubsubcategory === subsub 
+                            ? 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)' 
+                            : 'rgba(250, 245, 255, 0.5)',
+                          color: selectedSubsubcategory === subsub ? '#7c3aed' : '#a855f7',
                           cursor: 'pointer',
+                          boxShadow: selectedSubsubcategory === subsub ? '0 1px 3px rgba(168, 85, 247, 0.15)' : 'none',
                         }}
                       >
-                        {subsub}
+                        {subsub} ({count})
                       </button>
-                    ))}
-                  </>
-                ) : null}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
               
               <button
                 onClick={resetView}
