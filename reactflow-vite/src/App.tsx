@@ -689,6 +689,46 @@ function DiagramContent() {
     }
   };
 
+  // Save a category placeholder (empty path with just category info)
+  const saveCategoryPlaceholder = async (category: string, subcategory?: string, subsubcategory?: string) => {
+    const placeholderId = `__cat__${category}${subcategory ? `__${subcategory}` : ''}${subsubcategory ? `__${subsubcategory}` : ''}`;
+    
+    // Check if this placeholder already exists
+    if (pathsList.some(p => p.id === placeholderId)) {
+      return; // Already exists
+    }
+
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'savePath',
+          pathId: placeholderId,
+          pathName: '', // Empty name indicates placeholder
+          nodeIds: '',
+          category: category,
+          subcategory: subcategory || '',
+          subsubcategory: subsubcategory || '',
+        }),
+      });
+
+      // Add to local state
+      const newPlaceholder: PathRow = {
+        id: placeholderId,
+        name: '',
+        nodeIds: [],
+        category: category || undefined,
+        subcategory: subcategory || undefined,
+        subsubcategory: subsubcategory || undefined,
+      };
+      setPathsList(prev => [...prev, newPlaceholder]);
+    } catch (error) {
+      console.error('Error saving category:', error);
+    }
+  };
+
   const exportToPDF = async () => {
     if (!flowRef.current) return;
     
@@ -1422,7 +1462,7 @@ function DiagramContent() {
                     boxShadow: selectedCategory === null ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
                   }}
                 >
-                  All ({pathsList.length})
+                  All ({pathsList.filter(p => p.name).length})
                 </button>
                 
                 {/* Category chips */}
@@ -1482,12 +1522,12 @@ function DiagramContent() {
                       transition: 'transform 0.15s ease',
                     }}
                   >
-                    {cat} ({pathsList.filter(p => p.category === cat).length})
+                    {cat} ({pathsList.filter(p => p.name && p.category === cat).length})
                   </button>
                 ))}
                 
                 {/* Uncategorized chip - same style as other categories */}
-                {pathsList.some(p => !p.category) && (
+                {pathsList.some(p => p.name && !p.category) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1512,7 +1552,7 @@ function DiagramContent() {
                       boxShadow: selectedCategory === '__uncategorized__' ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
                     }}
                   >
-                    Uncategorized ({pathsList.filter(p => !p.category).length})
+                    Uncategorized ({pathsList.filter(p => p.name && !p.category).length})
                   </button>
                 )}
                 
@@ -1543,8 +1583,8 @@ function DiagramContent() {
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && newCategoryName.trim()) {
-                          // Add a placeholder path with this category to make it appear
-                          // The category will be available for selection
+                          // Save category placeholder to Google Sheets
+                          saveCategoryPlaceholder(newCategoryName.trim());
                           setSaveCategory(newCategoryName.trim());
                           setSelectedCategory(newCategoryName.trim());
                           setSelectedSubcategory(null);
@@ -1573,6 +1613,8 @@ function DiagramContent() {
                       type="button"
                       onClick={() => {
                         if (newCategoryName.trim()) {
+                          // Save category placeholder to Google Sheets
+                          saveCategoryPlaceholder(newCategoryName.trim());
                           setSaveCategory(newCategoryName.trim());
                           setSelectedCategory(newCategoryName.trim());
                           setSelectedSubcategory(null);
@@ -1695,6 +1737,8 @@ function DiagramContent() {
                         onChange={(e) => setNewCategoryName(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newCategoryName.trim()) {
+                            // Save subcategory placeholder to Google Sheets
+                            saveCategoryPlaceholder(selectedCategory!, newCategoryName.trim());
                             setSaveSubcategory(newCategoryName.trim());
                             setSelectedSubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(null);
@@ -1722,6 +1766,8 @@ function DiagramContent() {
                         type="button"
                         onClick={() => {
                           if (newCategoryName.trim()) {
+                            // Save subcategory placeholder to Google Sheets
+                            saveCategoryPlaceholder(selectedCategory!, newCategoryName.trim());
                             setSaveSubcategory(newCategoryName.trim());
                             setSelectedSubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(null);
@@ -1835,6 +1881,8 @@ function DiagramContent() {
                         onChange={(e) => setNewCategoryName(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newCategoryName.trim()) {
+                            // Save sub-subcategory placeholder to Google Sheets
+                            saveCategoryPlaceholder(selectedCategory!, selectedSubcategory!, newCategoryName.trim());
                             setSaveSubsubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(newCategoryName.trim());
                             setNewCategoryName('');
@@ -1861,6 +1909,8 @@ function DiagramContent() {
                         type="button"
                         onClick={() => {
                           if (newCategoryName.trim()) {
+                            // Save sub-subcategory placeholder to Google Sheets
+                            saveCategoryPlaceholder(selectedCategory!, selectedSubcategory!, newCategoryName.trim());
                             setSaveSubsubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(newCategoryName.trim());
                             setNewCategoryName('');
@@ -1927,6 +1977,9 @@ function DiagramContent() {
               {/* Filtered paths list */}
               {pathsList
                 .filter(path => {
+                  // Filter out category placeholders (empty names)
+                  if (!path.name) return false;
+                  
                   // Filter by selected category hierarchy
                   if (selectedCategory === '__uncategorized__') {
                     return !path.category;
