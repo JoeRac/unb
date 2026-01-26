@@ -7,13 +7,13 @@ const nodeWidth = 240;
 const nodeHeight = 80;
 
 // Premium glass theme - clean whites and subtle accents
-const CANVAS_BG = 'linear-gradient(145deg, #fafbfc 0%, #f4f7fa 50%, #f0f4f8 100%)';
-const NODE_SURFACE = 'rgba(255, 255, 255, 0.92)';
-const NODE_BORDER = 'rgba(203, 213, 225, 0.6)';
+const CANVAS_BG = 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)';
+const NODE_SURFACE = 'rgba(255, 255, 255, 0.95)';
+const NODE_BORDER = 'rgba(203, 213, 225, 0.5)';
 const HIGHLIGHT_COLOR = '#3b82f6';
 const EDGE_COLOR = '#cbd5e1';
-const GLASS_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 1)';
-const GLASS_SHADOW_SELECTED = '0 2px 8px rgba(59, 130, 246, 0.15), 0 4px 16px rgba(59, 130, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 1)';
+const GLASS_SHADOW = '0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)';
+const GLASS_SHADOW_SELECTED = '0 2px 8px rgba(59, 130, 246, 0.18), 0 4px 20px rgba(59, 130, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 1)';
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -341,7 +341,7 @@ function DiagramContent() {
   }, [activePathId]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9gvtw42BBGpWMjjG1MYocKq6aaDEz45H2Fi_SYQkWoNYzRg69yAyNMtV88beF5zjyvQ/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxB-ZqUET5wE2NSvq47fisCRYE3r8SpaMHbPJ1zEBdTiUX71QhnM75A2yDY-vBCNHaZ/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -477,49 +477,36 @@ function DiagramContent() {
       // This handles the "copy path" scenario when user modifies the name
       if (activePathId && nodePathMap[activePathId]) {
         const sourceContent = nodePathMap[activePathId];
-        // Copy each node's content to the new path
-        for (const [nodeId, content] of Object.entries(sourceContent)) {
-          if (content && manualHighlights.has(nodeId)) {
-            await fetch(GOOGLE_SCRIPT_URL, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'saveNodeContent',
-                pathId: pathId,
-                nodeId: nodeId,
-                content: content,
-              }),
-            });
-          }
-        }
         
-        // Also copy content from sidebarNodeContent (in case user edited content before saving)
-        for (const [nodeId, content] of Object.entries(sidebarNodeContent)) {
-          if (content && manualHighlights.has(nodeId)) {
-            await fetch(GOOGLE_SCRIPT_URL, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'saveNodeContent',
-                pathId: pathId,
-                nodeId: nodeId,
-                content: content,
-              }),
-            });
-          }
-        }
+        // Build a batch of all node content to copy in a single request
+        const nodeContentBatch: Array<{nodeId: string; content: string}> = [];
         
-        // Update local nodePathMap with copied content
-        const copiedContent: Record<string, string> = {};
+        // Collect content from source path and sidebar edits
         for (const nodeId of manualHighlights) {
           const content = sidebarNodeContent[nodeId] ?? sourceContent[nodeId];
           if (content) {
-            copiedContent[nodeId] = content;
+            nodeContentBatch.push({ nodeId, content });
           }
         }
-        if (Object.keys(copiedContent).length > 0) {
+        
+        // Send all content in a single batch request
+        if (nodeContentBatch.length > 0) {
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'batchSaveNodeContent',
+              pathId: pathId,
+              nodeContents: nodeContentBatch,
+            }),
+          });
+          
+          // Update local nodePathMap with copied content
+          const copiedContent: Record<string, string> = {};
+          nodeContentBatch.forEach(({ nodeId, content }) => {
+            copiedContent[nodeId] = content;
+          });
           setNodePathMap(prev => ({
             ...prev,
             [pathId]: copiedContent,
