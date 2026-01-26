@@ -102,8 +102,8 @@ type SheetRow = {
 
 const SHEET_TSV_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
-const PATHS_GVIZ_URL =
-  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=paths&tqx=out:json';
+const PATHS_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=paths&tqx=out:csv';
 const NODE_PATH_GVIZ_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=node-path&tqx=out:json';
 
@@ -341,7 +341,7 @@ function DiagramContent() {
   }, [activePathId]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRb2uF8lZdyOMfffHOwpeqcjl1DAa6SgM6WLADNW1Ky7tBSlW9M4wOtkMBTmAk2OZXgw/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9gvtw42BBGpWMjjG1MYocKq6aaDEz45H2Fi_SYQkWoNYzRg69yAyNMtV88beF5zjyvQ/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -514,6 +514,9 @@ function DiagramContent() {
       return;
     }
 
+    // Use id if available, otherwise use name as identifier
+    const pathIdToDelete = pathRow.id || pathRow.name;
+
     setSaveStatus('saving');
 
     try {
@@ -525,7 +528,8 @@ function DiagramContent() {
         },
         body: JSON.stringify({
           action: 'deletePath',
-          pathId: pathRow.id,
+          pathId: pathIdToDelete,
+          pathName: pathRow.name, // Also send name for fallback matching
         }),
       });
 
@@ -534,6 +538,14 @@ function DiagramContent() {
       setActivePathId(null);
       setSidebarNodeContent({});
       setManualHighlights(new Set());
+      
+      // Also remove from local state immediately
+      setPathsList(prev => prev.filter(p => p.name !== activePath));
+      setPathsMap(prev => {
+        const newMap = { ...prev };
+        delete newMap[activePath];
+        return newMap;
+      });
       
       // Clear highlighting
       setNodes((nds) =>
@@ -864,47 +876,30 @@ function DiagramContent() {
   useEffect(() => {
     const loadPaths = async () => {
       try {
-        const response = await fetch(PATHS_GVIZ_URL);
+        const response = await fetch(PATHS_CSV_URL);
         if (!response.ok) {
           setPathsList([]);
           setPathsMap({});
           return;
         }
-        const rawText = await response.text();
-        const jsonMatch = rawText.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
-        const jsonText = jsonMatch?.[1];
-        if (!jsonText) {
-          setPathsList([]);
-          setPathsMap({});
-          return;
-        }
-        const parsedJson = JSON.parse(jsonText);
-        const rows: any[] = parsedJson?.table?.rows || [];
-        // Now expecting 3 columns: id, name, nodeIds
-        const values: Array<[string | null | undefined, string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v, row.c?.[2]?.v]);
-        const isHeaderRow = (row: Array<string | null | undefined>) => {
-          const first = (row?.[0] || '').toString().toLowerCase().trim();
-          const second = (row?.[1] || '').toString().toLowerCase().trim();
-          // Check if it's exactly 'id' or 'pathid' (header row), not a data row with ID containing 'id'
-          return (
-            (first === 'id' || first === 'pathid') &&
-            (second === 'name' || second === 'button' || second === 'label' || second.includes('name'))
-          );
-        };
-        const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 3 && row[0]);
-        const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
-        const list: PathRow[] = effectiveRows
-          .map((row: Array<string | null | undefined>) => {
-            const id = (row[0] || '').toString().trim();
-            const name = (row[1] || '').toString().trim();
-            const nodeIds = (row[2] || '')
-              .toString()
+        const text = await response.text();
+        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+        const rows = parsed.data as Array<Record<string, string>>;
+        
+        const list: PathRow[] = rows
+          .map((row) => {
+            // Handle various column name possibilities
+            const id = (row['id'] || row['Id'] || row['ID'] || '').toString().trim();
+            const name = (row['name'] || row['Name'] || row['NAME'] || '').toString().trim();
+            const nodeIdsRaw = (row['nodeIds'] || row['NodeIds'] || row['nodeids'] || row['node_ids'] || '').toString();
+            const nodeIds = nodeIdsRaw
               .split(',')
               .map((v: string) => v.trim())
               .filter(Boolean);
             return { id, name, nodeIds };
           })
-          .filter((row) => row.id && row.name && row.nodeIds.length);
+          .filter((row) => row.name && row.nodeIds.length); // Only require name and nodeIds, id can be empty for legacy rows
+        
         const map: Record<string, string[]> = {};
         list.forEach((row) => {
           map[row.name] = row.nodeIds;
@@ -1089,7 +1084,8 @@ function DiagramContent() {
       return;
     }
     setActivePath(pathName);
-    setActivePathId(pathRow.id);
+    // Use id if available, otherwise fallback to name as identifier
+    setActivePathId(pathRow.id || pathRow.name);
     setSidebarNodeContent({}); // Reset content when switching paths
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
