@@ -381,7 +381,7 @@ function DiagramContent() {
   }, [activePathId]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyrTrA1Q-eJwZmdGau29eQezheeIXdgOfVcj2JPPGyU-P5GoWX90--SGOr5HPc9Rzgleg/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEdi6EMynx4G9b8FKhC9i7GcxKMtSJVkGjCmWWryz49B9UIGlMdrcpOJfFzPxbW3JVGQ/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -1387,10 +1387,14 @@ function DiagramContent() {
                   flexWrap: 'wrap',
                 }}>
                   <button
+                    type="button"
                     onClick={() => {
                       setSelectedCategory(null);
                       setSelectedSubcategory(null);
                       setSelectedSubsubcategory(null);
+                      setSaveCategory('');
+                      setSaveSubcategory('');
+                      setSaveSubsubcategory('');
                     }}
                     style={{
                       background: 'none',
@@ -1404,13 +1408,16 @@ function DiagramContent() {
                   >
                     All
                   </button>
-                  {selectedCategory && (
+                  {selectedCategory && selectedCategory !== '__uncategorized__' && (
                     <>
                       <span style={{ color: '#94a3b8' }}>›</span>
                       <button
+                        type="button"
                         onClick={() => {
                           setSelectedSubcategory(null);
                           setSelectedSubsubcategory(null);
+                          setSaveSubcategory('');
+                          setSaveSubsubcategory('');
                         }}
                         style={{
                           background: 'none',
@@ -1424,6 +1431,14 @@ function DiagramContent() {
                       >
                         {selectedCategory}
                       </button>
+                    </>
+                  )}
+                  {selectedCategory === '__uncategorized__' && (
+                    <>
+                      <span style={{ color: '#94a3b8' }}>›</span>
+                      <span style={{ fontWeight: '600', color: '#94a3b8', padding: '2px 4px', fontStyle: 'italic' }}>
+                        Uncategorized
+                      </span>
                     </>
                   )}
                   {selectedSubcategory && (
@@ -1468,6 +1483,7 @@ function DiagramContent() {
                   // Show top-level categories + "All" chip
                   <>
                     <button
+                      type="button"
                       onClick={() => {
                         setSelectedCategory(null);
                         setSelectedSubcategory(null);
@@ -1486,16 +1502,17 @@ function DiagramContent() {
                         fontSize: '10px',
                         fontWeight: '600',
                         borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
-                        background: 'rgba(255,255,255,0.8)',
-                        color: '#64748b',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                        color: '#1d4ed8',
                         cursor: 'pointer',
                       }}
                     >
-                      All
+                      All ({pathsList.length})
                     </button>
                     {getUniqueCategories(pathsList).map(cat => (
                       <button
+                        type="button"
                         key={cat}
                         onClick={() => {
                           setSelectedCategory(cat);
@@ -1525,12 +1542,13 @@ function DiagramContent() {
                           cursor: 'pointer',
                         }}
                       >
-                        {cat}
+                        {cat} ({pathsList.filter(p => p.category === cat).length})
                       </button>
                     ))}
                     {/* Show uncategorized count if any */}
                     {pathsList.some(p => !p.category) && (
                       <button
+                        type="button"
                         onClick={() => {
                           setSelectedCategory('__uncategorized__');
                           setSelectedSubcategory(null);
@@ -1556,6 +1574,7 @@ function DiagramContent() {
                   <>
                     {getSubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory).map(sub => (
                       <button
+                        type="button"
                         key={sub}
                         onClick={() => {
                           setSelectedSubcategory(sub);
@@ -1591,6 +1610,7 @@ function DiagramContent() {
                   <>
                     {getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory, selectedSubcategory).map(subsub => (
                       <button
+                        type="button"
                         key={subsub}
                         onClick={() => {
                           setSelectedSubsubcategory(subsub);
