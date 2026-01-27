@@ -588,28 +588,36 @@ function DiagramContent() {
         const deltaX = e.clientX - resizeStart.mouseX;
         const deltaY = e.clientY - resizeStart.mouseY;
         
-        const setPos = panel === 'left' ? setLeftPanelPos : panel === 'info' ? setInfoPanelPos : panel === 'notes' ? setNotesPanelPos : setPathNotesBoxPos;
-        const setSize = panel === 'left' ? setLeftPanelSize : panel === 'info' ? setInfoPanelSize : panel === 'notes' ? setNotesPanelSize : setPathNotesBoxSize;
         const minW = panel === 'left' ? 180 : panel === 'notes' ? 220 : panel === 'pathNotesBox' ? 150 : 280;
         const minH = panel === 'pathNotesBox' ? 60 : 200;
         
         if (edge.includes('e')) {
-          setSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
+          if (panel === 'left') setLeftPanelSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
+          else if (panel === 'info') setInfoPanelSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
+          else if (panel === 'notes') setNotesPanelSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
+          else setPathNotesBoxSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
         }
         if (edge.includes('w')) {
           const newWidth = Math.max(minW, resizeStart.width - deltaX);
           const newX = resizeStart.x + (resizeStart.width - newWidth);
-          setSize(prev => ({ ...prev, width: newWidth }));
-          setPos(prev => ({ ...prev, x: Math.max(0, newX) }));
+          if (panel === 'left') { setLeftPanelSize(prev => ({ ...prev, width: newWidth })); setLeftPanelPos(prev => ({ ...prev, x: Math.max(0, newX) })); }
+          else if (panel === 'info') { setInfoPanelSize(prev => ({ ...prev, width: newWidth })); setInfoPanelPos(prev => ({ ...prev, x: Math.max(0, newX) })); }
+          else if (panel === 'notes') { setNotesPanelSize(prev => ({ ...prev, width: newWidth })); setNotesPanelPos(prev => ({ ...prev, x: Math.max(0, newX) })); }
+          else { setPathNotesBoxSize(prev => ({ ...prev, width: newWidth })); setPathNotesBoxPos(prev => prev ? { ...prev, x: Math.max(0, newX) } : null); }
         }
         if (edge.includes('s')) {
-          setSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
+          if (panel === 'left') setLeftPanelSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
+          else if (panel === 'info') setInfoPanelSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
+          else if (panel === 'notes') setNotesPanelSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
+          else setPathNotesBoxSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
         }
         if (edge.includes('n')) {
           const newHeight = Math.max(minH, resizeStart.height - deltaY);
           const newY = resizeStart.y + (resizeStart.height - newHeight);
-          setSize(prev => ({ ...prev, height: newHeight }));
-          setPos(prev => ({ ...prev, y: Math.max(0, newY) }));
+          if (panel === 'left') { setLeftPanelSize(prev => ({ ...prev, height: newHeight })); setLeftPanelPos(prev => ({ ...prev, y: Math.max(0, newY) })); }
+          else if (panel === 'info') { setInfoPanelSize(prev => ({ ...prev, height: newHeight })); setInfoPanelPos(prev => ({ ...prev, y: Math.max(0, newY) })); }
+          else if (panel === 'notes') { setNotesPanelSize(prev => ({ ...prev, height: newHeight })); setNotesPanelPos(prev => ({ ...prev, y: Math.max(0, newY) })); }
+          else { setPathNotesBoxSize(prev => ({ ...prev, height: newHeight })); setPathNotesBoxPos(prev => prev ? { ...prev, y: Math.max(0, newY) } : null); }
         }
       }
     };
