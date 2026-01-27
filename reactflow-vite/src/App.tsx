@@ -497,6 +497,7 @@ function DiagramContent() {
   
   // Temp path tracking for auto-save
   const [tempPathId, setTempPathId] = useState<string | null>(null);
+  const tempPathCreatingRef = useRef<boolean>(false); // Prevent multiple temp path creations
   const [tempPathName, setTempPathName] = useState<string | null>(null);
   
   const { fitView } = useReactFlow();
@@ -588,7 +589,7 @@ function DiagramContent() {
   }, [isDraggingPanel, resizeEdge, dragOffset, resizeStart]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEdi6EMynx4G9b8FKhC9i7GcxKMtSJVkGjCmWWryz49B9UIGlMdrcpOJfFzPxbW3JVGQ/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbySTguuprAT8Uj2_NYgEJJ0vY5CNw_JHV1XQ8guuz77Ii0CxRkga4qpZ7dUaEWPb2BPUw/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -744,6 +745,10 @@ function DiagramContent() {
     if (activePathId || tempPathId) return tempPathId;
     if (manualHighlights.size === 0) return null;
     
+    // Prevent multiple simultaneous temp path creations
+    if (tempPathCreatingRef.current) return null;
+    tempPathCreatingRef.current = true;
+    
     const newTempName = generateTempPathName();
     const newTempId = generatePathId(newTempName);
     const nodeIds = formatNodeIdsForSheet(manualHighlights);
@@ -767,6 +772,7 @@ function DiagramContent() {
       
       setTempPathId(newTempId);
       setTempPathName(newTempName);
+      tempPathCreatingRef.current = false;
       
       // Add to local paths list
       setPathsList(prev => [...prev, {
@@ -785,6 +791,7 @@ function DiagramContent() {
       return newTempId;
     } catch (error) {
       console.error('Error creating temp path:', error);
+      tempPathCreatingRef.current = false;
       return null;
     }
   }, [activePathId, tempPathId, manualHighlights, GOOGLE_SCRIPT_URL]);
@@ -873,9 +880,13 @@ function DiagramContent() {
   }, [handleInlineNoteChange]);
 
   // Sync nodes with inline note editing state and note content
+  // Also triggers when dataLoading becomes false to ensure callbacks are attached after initial load
   useEffect(() => {
-    setNodes((nds) =>
-      nds.map((n) => {
+    setNodes((nds) => {
+      // Don't update if no nodes yet
+      if (nds.length === 0) return nds;
+      
+      return nds.map((n) => {
         if (n.id.startsWith('personalized-')) return n;
         
         // Get note content from sidebar content or nodePathMap
@@ -894,9 +905,9 @@ function DiagramContent() {
             onStopEditNote: handleStopEditNote,
           },
         };
-      })
-    );
-  }, [editingNoteNodeId, sidebarNodeContent, activePathId, tempPathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote]);
+      });
+    });
+  }, [editingNoteNodeId, sidebarNodeContent, activePathId, tempPathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote, dataLoading]);
 
   // Save path to Google Sheets via Google Apps Script
   const savePath = async () => {
@@ -1543,6 +1554,48 @@ function DiagramContent() {
     loadNodePaths();
   }, []);
 
+  // Auto-save path nodes when they change (for active saved paths)
+  const updatePathNodesRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const updatePathNodes = useCallback(async (pathId: string, pathName: string, nodeIds: Set<string>) => {
+    if (!pathId || nodeIds.size === 0) return;
+    
+    // Debounce to avoid too many saves on rapid clicking
+    if (updatePathNodesRef.current) {
+      clearTimeout(updatePathNodesRef.current);
+    }
+    
+    updatePathNodesRef.current = setTimeout(async () => {
+      const nodeIdsStr = formatNodeIdsForSheet(nodeIds);
+      
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'updatePathNodes',
+            pathId: pathId,
+            pathName: pathName,
+            nodeIds: nodeIdsStr,
+          }),
+        });
+        
+        // Update local state
+        const nodeIdsArray = Array.from(nodeIds);
+        setPathsList(prev => prev.map(p => 
+          p.id === pathId ? { ...p, nodeIds: nodeIdsArray } : p
+        ));
+        setPathsMap(prev => ({
+          ...prev,
+          [pathName]: nodeIdsArray,
+        }));
+      } catch (error) {
+        console.error('Error updating path nodes:', error);
+      }
+    }, 500); // 500ms debounce
+  }, [GOOGLE_SCRIPT_URL]);
+
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
       // Close any open popup when clicking a node
@@ -1551,9 +1604,6 @@ function DiagramContent() {
       // Only toggle selection, don't show popup (popup is triggered by info button)
       // Skip personalized nodes from toggling
       if (node.id.startsWith('personalized-')) return;
-      
-      // Block manual selection when a path is loaded - must use Reset View first
-      if (activePath) return;
       
       setManualHighlights((prev) => {
         const next = new Set(prev);
@@ -1575,10 +1625,19 @@ function DiagramContent() {
             };
           })
         );
+        
+        // Auto-save node changes if an active saved path is loaded (not a temp path)
+        if (activePath && activePathId && !activePathId.startsWith('temp_')) {
+          // Use setTimeout to ensure state is updated before saving
+          setTimeout(() => {
+            updatePathNodes(activePathId, activePath, next);
+          }, 0);
+        }
+        
         return next;
       });
     },
-    [setNodes, enforceRootHidden, activePath]
+    [setNodes, enforceRootHidden, activePath, activePathId, updatePathNodes]
   );
 
   const personalizeSelection = () => {
