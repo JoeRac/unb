@@ -108,6 +108,14 @@ function formatNodeIdsForSheet(nodeIds: string[] | Set<string>): string {
   return arr.length === 1 ? joined + ',' : joined;
 }
 
+// Helper to force text format for any value written to Google Sheets
+// Prefix with single quote to prevent date/number interpretation
+function forceTextForSheet(value: string): string {
+  if (!value) return value;
+  // Prefix with single quote to force text format in Google Sheets
+  return "'" + value;
+}
+
 const SHEET_TSV_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
 const PATHS_CSV_URL =
@@ -280,7 +288,7 @@ function MethodNode(props: any) {
                 cursor: 'text',
               }}
             >
-              {hasNote ? firstLine : 'Click to add note...'}
+              {hasNote ? firstLine : '...'}
             </div>
           )}
         </div>
@@ -410,6 +418,7 @@ type PathRow = {
   category?: string;
   subcategory?: string;
   subsubcategory?: string;
+  notes?: string;
 };
 
 // Helper to get unique categories from paths
@@ -494,6 +503,10 @@ function DiagramContent() {
   
   // Inline note editing state
   const [editingNoteNodeId, setEditingNoteNodeId] = useState<string | null>(null);
+  
+  // Path-level notes state
+  const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
+  const [editingPathNotes, setEditingPathNotes] = useState<'top' | 'bottom' | 'panel' | null>(null);
   
   // Temp path tracking for auto-save
   const [tempPathId, setTempPathId] = useState<string | null>(null);
@@ -589,7 +602,7 @@ function DiagramContent() {
   }, [isDraggingPanel, resizeEdge, dragOffset, resizeStart]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbySTguuprAT8Uj2_NYgEJJ0vY5CNw_JHV1XQ8guuz77Ii0CxRkga4qpZ7dUaEWPb2BPUw/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHI0RLApaGvG6uMssek9ZpFtWyDurCoYcT1VDHA3fo1m9avnLPr20AaqzJT0IVn63etQ/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -754,15 +767,15 @@ function DiagramContent() {
     const nodeIds = formatNodeIdsForSheet(manualHighlights);
     
     try {
-      // Save temp path to Google Sheets
+      // Save temp path to Google Sheets - use forceTextForSheet to prevent date/number interpretation
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'savePath',
-          pathId: newTempId,
-          pathName: newTempName,
+          pathId: forceTextForSheet(newTempId),
+          pathName: forceTextForSheet(newTempName),
           nodeIds: nodeIds,
           category: '',
           subcategory: '',
@@ -795,6 +808,42 @@ function DiagramContent() {
       return null;
     }
   }, [activePathId, tempPathId, manualHighlights, GOOGLE_SCRIPT_URL]);
+
+  // Handler for path-level notes with debounced auto-save
+  const handlePathNotesChange = useCallback(async (notes: string) => {
+    let pathIdToUse = activePathId || tempPathId;
+    
+    // If no path exists, create a temp path first
+    if (!pathIdToUse && manualHighlights.size > 0) {
+      pathIdToUse = await createTempPathIfNeeded();
+    }
+    
+    if (!pathIdToUse) return;
+    
+    // Update local state
+    setPathNotes(prev => ({ ...prev, [pathIdToUse!]: notes }));
+    
+    // Debounced auto-save
+    if (debounceTimerRef.current['pathNotes']) {
+      clearTimeout(debounceTimerRef.current['pathNotes']);
+    }
+    debounceTimerRef.current['pathNotes'] = setTimeout(async () => {
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'savePathNotes',
+            pathId: pathIdToUse,
+            notes: notes,
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving path notes:', error);
+      }
+    }, 1000);
+  }, [activePathId, tempPathId, manualHighlights, createTempPathIfNeeded, GOOGLE_SCRIPT_URL]);
 
   // Delete temp path (called when user manually saves)
   const deleteTempPath = useCallback(async () => {
@@ -925,12 +974,15 @@ function DiagramContent() {
     setSaveStatus('saving');
 
     try {
+      // Get the old temp path ID before deleting (for transferring notes)
+      const oldTempPathId = tempPathId;
+      
       // Delete temp path if it exists (user is manually saving)
       if (tempPathId) {
         await deleteTempPath();
       }
       
-      // Save the path with category info
+      // Save the path with category info - use forceTextForSheet for pathName to prevent date interpretation
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors', // Google Apps Script requires no-cors
@@ -939,19 +991,20 @@ function DiagramContent() {
         },
         body: JSON.stringify({
           action: 'savePath',
-          pathId: pathId,
-          pathName: pathName.trim(),
+          pathId: forceTextForSheet(pathId),
+          pathName: forceTextForSheet(pathName.trim()),
           nodeIds: nodeIds,
           category: saveCategory.trim() || '',
           subcategory: saveSubcategory.trim() || '',
           subsubcategory: saveSubsubcategory.trim() || '',
+          notes: pathNotes[oldTempPathId || ''] || pathNotes[activePathId || ''] || '',
         }),
       });
 
-      // If we have an active path with node content, copy that content to the new path
-      // This handles the "copy path" scenario when user modifies the name
-      if (activePathId && nodePathMap[activePathId]) {
-        const sourceContent = nodePathMap[activePathId];
+      // Transfer node notes from temp path to new path
+      const sourcePathId = oldTempPathId || activePathId;
+      if (sourcePathId && (nodePathMap[sourcePathId] || Object.keys(sidebarNodeContent).length > 0)) {
+        const sourceContent = nodePathMap[sourcePathId] || {};
         
         // Build a batch of all node content to copy in a single request
         const nodeContentBatch: Array<{nodeId: string; content: string}> = [];
@@ -972,7 +1025,7 @@ function DiagramContent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'batchSaveNodeContent',
-              pathId: pathId,
+              pathId: forceTextForSheet(pathId),
               nodeContents: nodeContentBatch,
             }),
           });
@@ -987,6 +1040,14 @@ function DiagramContent() {
             [pathId]: copiedContent,
           }));
         }
+      }
+      
+      // Transfer path notes from temp path to new path
+      if (sourcePathId && pathNotes[sourcePathId]) {
+        setPathNotes(prev => ({
+          ...prev,
+          [pathId]: prev[sourcePathId] || '',
+        }));
       }
 
       // With no-cors, we can't read the response, so we assume success
@@ -1132,7 +1193,7 @@ function DiagramContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'savePath',
-          pathId: placeholderId,
+          pathId: forceTextForSheet(placeholderId),
           pathName: '', // Empty name indicates placeholder
           nodeIds: '',
           category: category,
@@ -1482,8 +1543,11 @@ function DiagramContent() {
         const list: PathRow[] = rows
           .map((row) => {
             // Handle various column name possibilities
-            const id = (row['id'] || row['Id'] || row['ID'] || '').toString().trim();
-            const name = (row['name'] || row['Name'] || row['NAME'] || '').toString().trim();
+            let id = (row['id'] || row['Id'] || row['ID'] || '').toString().trim();
+            let name = (row['name'] || row['Name'] || row['NAME'] || '').toString().trim();
+            // Remove leading single quote if present (from forceTextForSheet)
+            if (id.startsWith("'")) id = id.slice(1);
+            if (name.startsWith("'")) name = name.slice(1);
             const nodeIdsRaw = (row['nodeIds'] || row['NodeIds'] || row['nodeids'] || row['node_ids'] || '').toString();
             const nodeIds = nodeIdsRaw
               .split(',')
@@ -1492,16 +1556,22 @@ function DiagramContent() {
             const category = (row['category'] || row['Category'] || '').toString().trim() || undefined;
             const subcategory = (row['subcategory'] || row['Subcategory'] || row['subCategory'] || '').toString().trim() || undefined;
             const subsubcategory = (row['subsubcategory'] || row['Subsubcategory'] || row['subSubcategory'] || '').toString().trim() || undefined;
-            return { id, name, nodeIds, category, subcategory, subsubcategory };
+            const notes = (row['notes'] || row['Notes'] || '').toString().trim() || undefined;
+            return { id, name, nodeIds, category, subcategory, subsubcategory, notes };
           })
           .filter((row) => row.name && row.nodeIds.length); // Only require name and nodeIds, id can be empty for legacy rows
         
         const map: Record<string, string[]> = {};
+        const notesMap: Record<string, string> = {};
         list.forEach((row) => {
           map[row.name] = row.nodeIds;
+          if (row.notes && row.id) {
+            notesMap[row.id] = row.notes;
+          }
         });
         setPathsList(list);
         setPathsMap(map);
+        setPathNotes(notesMap);
       } catch {
         setPathsList([]);
         setPathsMap({});
@@ -1575,8 +1645,8 @@ function DiagramContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'updatePathNodes',
-            pathId: pathId,
-            pathName: pathName,
+            pathId: forceTextForSheet(pathId),
+            pathName: forceTextForSheet(pathName),
             nodeIds: nodeIdsStr,
           }),
         });
@@ -1829,6 +1899,94 @@ function DiagramContent() {
       >
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
+
+        {/* Path notes boxes - above first node and below last node */}
+        {(activePath || tempPathId) && manualHighlights.size > 0 && (() => {
+          // Get bounds of highlighted nodes
+          const highlightedNodes = nodes.filter(n => manualHighlights.has(n.id) && !n.hidden);
+          if (highlightedNodes.length === 0) return null;
+          
+          const minY = Math.min(...highlightedNodes.map(n => n.position.y));
+          const maxY = Math.max(...highlightedNodes.map(n => n.position.y + (nodeHeight || 80)));
+          const avgX = highlightedNodes.reduce((sum, n) => sum + n.position.x, 0) / highlightedNodes.length;
+          
+          const currentPathId = activePathId || tempPathId;
+          const currentNotes = pathNotes[currentPathId || ''] || '';
+          const previewText = currentNotes.split('\n').slice(0, 2).join('\n') || 'Click to add path notes...';
+          
+          const PathNotesBox = ({ position }: { position: 'top' | 'bottom' }) => {
+            const isEditing = editingPathNotes === position;
+            const yPos = position === 'top' ? minY - 80 : maxY + 20;
+            
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: avgX - 60,
+                  top: yPos,
+                  width: 180,
+                  padding: '8px 10px',
+                  background: 'rgba(248, 250, 252, 0.95)',
+                  border: '1px solid rgba(203, 213, 225, 0.5)',
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
+                  backdropFilter: 'blur(4px)',
+                  zIndex: 5,
+                  transform: 'translate(-50%, 0)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isEditing ? (
+                  <textarea
+                    autoFocus
+                    value={currentNotes}
+                    onChange={(e) => handlePathNotesChange(e.target.value)}
+                    onBlur={() => setEditingPathNotes(null)}
+                    placeholder="Add path notes..."
+                    style={{
+                      width: '100%',
+                      minHeight: '80px',
+                      padding: '4px',
+                      fontSize: '10px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#334155',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                      lineHeight: 1.4,
+                      outline: 'none',
+                    }}
+                  />
+                ) : (
+                  <div
+                    onClick={() => setEditingPathNotes(position)}
+                    style={{
+                      fontSize: '10px',
+                      color: currentNotes ? '#334155' : '#94a3b8',
+                      fontStyle: currentNotes ? 'normal' : 'italic',
+                      cursor: 'text',
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      lineHeight: 1.4,
+                      minHeight: '28px',
+                    }}
+                  >
+                    {previewText}
+                  </div>
+                )}
+              </div>
+            );
+          };
+          
+          return (
+            <>
+              <PathNotesBox position="top" />
+              <PathNotesBox position="bottom" />
+            </>
+          );
+        })()}
 
         {/* Left sidebar - draggable and resizable */}
         <div
@@ -2964,7 +3122,7 @@ function DiagramContent() {
         </div>
 
         {/* Notes Panel - shows when clicking info button on a path */}
-        {showNotesPanel && notesPathName && activePathId && (
+        {showNotesPanel && notesPathName && (activePathId || tempPathId) && (
           <div
             style={{
               position: 'absolute',
@@ -3065,10 +3223,12 @@ function DiagramContent() {
                     );
                   }
                   
+                  const currentPathIdForPanel = activePathId || tempPathId;
+                  
                   return sortedNodeIds.map((nodeId) => {
                     const node = nodes.find(n => n.id === nodeId);
                     const nodeData = node?.data as NodeData | undefined;
-                    const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+                    const content = sidebarNodeContent[nodeId] ?? (currentPathIdForPanel ? nodePathMap[currentPathIdForPanel]?.[nodeId] || '' : '');
                     
                     return (
                       <div key={nodeId} style={{ marginBottom: '12px' }}>
@@ -3090,13 +3250,15 @@ function DiagramContent() {
                             const newContent = e.target.value;
                             setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
                             
-                            setNodePathMap(prev => ({
-                              ...prev,
-                              [activePathId]: {
-                                ...(prev[activePathId] || {}),
-                                [nodeId]: newContent,
-                              },
-                            }));
+                            if (currentPathIdForPanel) {
+                              setNodePathMap(prev => ({
+                                ...prev,
+                                [currentPathIdForPanel]: {
+                                  ...(prev[currentPathIdForPanel] || {}),
+                                  [nodeId]: newContent,
+                                },
+                              }));
+                            }
                             
                             if (debounceTimerRef.current[nodeId]) {
                               clearTimeout(debounceTimerRef.current[nodeId]);
@@ -3109,7 +3271,7 @@ function DiagramContent() {
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({
                                     action: 'saveNodeContent',
-                                    pathId: activePathId,
+                                    pathId: currentPathIdForPanel,
                                     nodeId: nodeId,
                                     content: newContent,
                                   }),
@@ -3138,6 +3300,39 @@ function DiagramContent() {
                     );
                   });
                 })()}
+              </div>
+              
+              {/* Path-level notes section */}
+              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                <div style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '600', 
+                  color: '#64748b',
+                  marginBottom: '6px',
+                }}>
+                  📋 Path Notes
+                </div>
+                <textarea
+                  placeholder="Add path-level notes..."
+                  value={pathNotes[activePathId || tempPathId || ''] || ''}
+                  onClick={() => setEditingPathNotes('panel')}
+                  onBlur={() => setEditingPathNotes(null)}
+                  onChange={(e) => handlePathNotesChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    minHeight: editingPathNotes === 'panel' ? '100px' : '50px',
+                    padding: '8px 10px',
+                    fontSize: '11px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    background: 'white',
+                    color: '#334155',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.4,
+                    boxSizing: 'border-box',
+                  }}
+                />
               </div>
             </div>
           </div>
