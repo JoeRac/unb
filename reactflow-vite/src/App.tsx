@@ -1842,6 +1842,8 @@ function DiagramContent() {
   const resetView = () => {
     setActivePath(null);
     setActivePathId(null);
+    setTempPathId(null); // Clear temp path so new selections start fresh
+    setTempPathName(null);
     setManualHighlights(new Set());
     setSidebarNodeContent({});
     setPathName(''); // Clear path name input
@@ -1900,91 +1902,85 @@ function DiagramContent() {
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
 
-        {/* Path notes boxes - above first node and below last node */}
+        {/* Path notes box - above first node only */}
         {(activePath || tempPathId) && manualHighlights.size > 0 && (() => {
           // Get bounds of highlighted nodes
           const highlightedNodes = nodes.filter(n => manualHighlights.has(n.id) && !n.hidden);
           if (highlightedNodes.length === 0) return null;
           
           const minY = Math.min(...highlightedNodes.map(n => n.position.y));
-          const maxY = Math.max(...highlightedNodes.map(n => n.position.y + (nodeHeight || 80)));
           const avgX = highlightedNodes.reduce((sum, n) => sum + n.position.x, 0) / highlightedNodes.length;
           
           const currentPathId = activePathId || tempPathId;
           const currentNotes = pathNotes[currentPathId || ''] || '';
           const previewText = currentNotes.split('\n').slice(0, 2).join('\n') || 'Click to add path notes...';
-          
-          const PathNotesBox = ({ position }: { position: 'top' | 'bottom' }) => {
-            const isEditing = editingPathNotes === position;
-            const yPos = position === 'top' ? minY - 80 : maxY + 20;
-            
-            return (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: avgX - 60,
-                  top: yPos,
-                  width: 180,
-                  padding: '8px 10px',
-                  background: 'rgba(248, 250, 252, 0.95)',
-                  border: '1px solid rgba(203, 213, 225, 0.5)',
-                  borderRadius: '8px',
-                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
-                  backdropFilter: 'blur(4px)',
-                  zIndex: 5,
-                  transform: 'translate(-50%, 0)',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {isEditing ? (
-                  <textarea
-                    autoFocus
-                    value={currentNotes}
-                    onChange={(e) => handlePathNotesChange(e.target.value)}
-                    onBlur={() => setEditingPathNotes(null)}
-                    placeholder="Add path notes..."
-                    style={{
-                      width: '100%',
-                      minHeight: '80px',
-                      padding: '4px',
-                      fontSize: '10px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: '#334155',
-                      resize: 'vertical',
-                      fontFamily: 'inherit',
-                      lineHeight: 1.4,
-                      outline: 'none',
-                    }}
-                  />
-                ) : (
-                  <div
-                    onClick={() => setEditingPathNotes(position)}
-                    style={{
-                      fontSize: '10px',
-                      color: currentNotes ? '#334155' : '#94a3b8',
-                      fontStyle: currentNotes ? 'normal' : 'italic',
-                      cursor: 'text',
-                      overflow: 'hidden',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      lineHeight: 1.4,
-                      minHeight: '28px',
-                    }}
-                  >
-                    {previewText}
-                  </div>
-                )}
-              </div>
-            );
-          };
+          const isEditing = editingPathNotes === 'top';
           
           return (
-            <>
-              <PathNotesBox position="top" />
-              <PathNotesBox position="bottom" />
-            </>
+            <div
+              dir="ltr"
+              style={{
+                position: 'absolute',
+                left: avgX,
+                top: minY - 80,
+                width: 180,
+                padding: '8px 10px',
+                background: 'rgba(248, 250, 252, 0.95)',
+                border: '1px solid rgba(203, 213, 225, 0.5)',
+                borderRadius: '8px',
+                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
+                backdropFilter: 'blur(4px)',
+                zIndex: 5,
+                transform: 'translate(-50%, 0)',
+                textAlign: 'left',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isEditing ? (
+                <textarea
+                  dir="ltr"
+                  autoFocus
+                  value={currentNotes}
+                  onChange={(e) => handlePathNotesChange(e.target.value)}
+                  onBlur={() => setEditingPathNotes(null)}
+                  placeholder="Add path notes..."
+                  style={{
+                    width: '100%',
+                    minHeight: '80px',
+                    padding: '4px',
+                    fontSize: '10px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#334155',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.4,
+                    outline: 'none',
+                    textAlign: 'left',
+                    direction: 'ltr',
+                  }}
+                />
+              ) : (
+                <div
+                  onClick={() => setEditingPathNotes('top')}
+                  style={{
+                    fontSize: '10px',
+                    color: currentNotes ? '#334155' : '#94a3b8',
+                    fontStyle: currentNotes ? 'normal' : 'italic',
+                    cursor: 'text',
+                    overflow: 'hidden',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    lineHeight: 1.4,
+                    minHeight: '28px',
+                    textAlign: 'left',
+                  }}
+                >
+                  {previewText}
+                </div>
+              )}
+            </div>
           );
         })()}
 
@@ -3313,6 +3309,7 @@ function DiagramContent() {
                   📋 Path Notes
                 </div>
                 <textarea
+                  dir="ltr"
                   placeholder="Add path-level notes..."
                   value={pathNotes[activePathId || tempPathId || ''] || ''}
                   onClick={() => setEditingPathNotes('panel')}
@@ -3331,6 +3328,8 @@ function DiagramContent() {
                     fontFamily: 'inherit',
                     lineHeight: 1.4,
                     boxSizing: 'border-box',
+                    textAlign: 'left',
+                    direction: 'ltr',
                   }}
                 />
               </div>
