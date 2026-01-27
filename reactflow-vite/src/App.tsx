@@ -241,6 +241,27 @@ function MethodNode(props: any) {
       </button>
       <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, textAlign: 'center', paddingRight: 16 }}>{data.label}</div>
       
+      {/* Note preview for unselected nodes that have notes */}
+      {!isHighlighted && hasNote && (
+        <div
+          style={{
+            marginTop: 6,
+            borderTop: '1px solid rgba(100, 116, 139, 0.1)',
+            paddingTop: 4,
+            fontSize: 9,
+            opacity: 0.5,
+            fontStyle: 'italic',
+            textAlign: 'center',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: '#64748b',
+          }}
+        >
+          {firstLine}
+        </div>
+      )}
+      
       {/* Inline note area - only visible when highlighted */}
       {isHighlighted && (
         <div 
@@ -496,8 +517,10 @@ function DiagramContent() {
   const [notesPanelSize, setNotesPanelSize] = useState({ width: 280, height: 450 });
   const [showNotesPanel, setShowNotesPanel] = useState(false);
   const [notesPathName, setNotesPathName] = useState<string | null>(null);
-  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | 'notes' | null>(null);
-  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info' | 'notes'; edge: string } | null>(null);
+  const [pathNotesBoxPos, setPathNotesBoxPos] = useState<{ x: number; y: number } | null>(null);
+  const [pathNotesBoxSize, setPathNotesBoxSize] = useState({ width: 200, height: 80 });
+  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | 'notes' | 'pathNotesBox' | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info' | 'notes' | 'pathNotesBox'; edge: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0, x: 0, y: 0 });
   
@@ -553,6 +576,11 @@ function DiagramContent() {
           x: Math.max(0, e.clientX - dragOffset.x),
           y: Math.max(0, e.clientY - dragOffset.y),
         });
+      } else if (isDraggingPanel === 'pathNotesBox') {
+        setPathNotesBoxPos({
+          x: Math.max(0, e.clientX - dragOffset.x),
+          y: Math.max(0, e.clientY - dragOffset.y),
+        });
       }
       
       if (resizeEdge) {
@@ -560,10 +588,10 @@ function DiagramContent() {
         const deltaX = e.clientX - resizeStart.mouseX;
         const deltaY = e.clientY - resizeStart.mouseY;
         
-        const setPos = panel === 'left' ? setLeftPanelPos : panel === 'info' ? setInfoPanelPos : setNotesPanelPos;
-        const setSize = panel === 'left' ? setLeftPanelSize : panel === 'info' ? setInfoPanelSize : setNotesPanelSize;
-        const minW = panel === 'left' ? 180 : panel === 'notes' ? 220 : 280;
-        const minH = 200;
+        const setPos = panel === 'left' ? setLeftPanelPos : panel === 'info' ? setInfoPanelPos : panel === 'notes' ? setNotesPanelPos : setPathNotesBoxPos;
+        const setSize = panel === 'left' ? setLeftPanelSize : panel === 'info' ? setInfoPanelSize : panel === 'notes' ? setNotesPanelSize : setPathNotesBoxSize;
+        const minW = panel === 'left' ? 180 : panel === 'notes' ? 220 : panel === 'pathNotesBox' ? 150 : 280;
+        const minH = panel === 'pathNotesBox' ? 60 : 200;
         
         if (edge.includes('e')) {
           setSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
@@ -1802,6 +1830,7 @@ function DiagramContent() {
     setActivePathId(pathRow.id || pathRow.name);
     setSidebarNodeContent({}); // Reset content when switching paths
     setPathName(pathName); // Populate path name input with loaded path name
+    setPathNotesBoxPos(null); // Reset path notes box position when switching paths
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
     setNodes((nds) => {
@@ -1847,6 +1876,7 @@ function DiagramContent() {
     setManualHighlights(new Set());
     setSidebarNodeContent({});
     setPathName(''); // Clear path name input
+    setPathNotesBoxPos(null); // Reset path notes box position
     
     setNodes((nds) =>
       enforceRootHidden(nds).map((n) => ({
@@ -1902,28 +1932,42 @@ function DiagramContent() {
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
 
-        {/* Path notes box - above first node only */}
+        {/* Path notes box - draggable and resizable, above first node */}
         {(activePath || tempPathId) && manualHighlights.size > 0 && (() => {
           // Get bounds of highlighted nodes
           const highlightedNodes = nodes.filter(n => manualHighlights.has(n.id) && !n.hidden);
           if (highlightedNodes.length === 0) return null;
           
-          const minY = Math.min(...highlightedNodes.map(n => n.position.y));
-          const avgX = highlightedNodes.reduce((sum, n) => sum + n.position.x, 0) / highlightedNodes.length;
+          // Find the topmost node (first in the path visually)
+          const topNode = highlightedNodes.reduce((top, n) => n.position.y < top.position.y ? n : top, highlightedNodes[0]);
+          const nodeWidth = 180; // approximate node width
+          
+          // Default position: centered above the first/top node
+          const defaultX = topNode.position.x + (nodeWidth / 2) - (pathNotesBoxSize.width / 2);
+          const defaultY = topNode.position.y - pathNotesBoxSize.height - 20;
+          
+          // Use stored position or default
+          const boxX = pathNotesBoxPos?.x ?? defaultX;
+          const boxY = pathNotesBoxPos?.y ?? defaultY;
           
           const currentPathId = activePathId || tempPathId;
           const currentNotes = pathNotes[currentPathId || ''] || '';
           const previewText = currentNotes.split('\n').slice(0, 2).join('\n') || 'Click to add path notes...';
           const isEditing = editingPathNotes === 'top';
           
+          // When editing, expand width to 3x (600px)
+          const currentWidth = isEditing ? Math.max(pathNotesBoxSize.width, 500) : pathNotesBoxSize.width;
+          const currentHeight = isEditing ? Math.max(pathNotesBoxSize.height, 120) : pathNotesBoxSize.height;
+          
           return (
             <div
               dir="ltr"
               style={{
                 position: 'absolute',
-                left: avgX,
-                top: minY - 80,
-                width: 180,
+                left: boxX,
+                top: boxY,
+                width: currentWidth,
+                height: currentHeight,
                 padding: '8px 10px',
                 background: 'rgba(248, 250, 252, 0.95)',
                 border: '1px solid rgba(203, 213, 225, 0.5)',
@@ -1931,55 +1975,93 @@ function DiagramContent() {
                 boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
                 backdropFilter: 'blur(4px)',
                 zIndex: 5,
-                transform: 'translate(-50%, 0)',
                 textAlign: 'left',
+                boxSizing: 'border-box',
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {isEditing ? (
-                <textarea
-                  dir="ltr"
-                  autoFocus
-                  value={currentNotes}
-                  onChange={(e) => handlePathNotesChange(e.target.value)}
-                  onBlur={() => setEditingPathNotes(null)}
-                  placeholder="Add path notes..."
-                  style={{
-                    width: '100%',
-                    minHeight: '80px',
-                    padding: '4px',
-                    fontSize: '10px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: '#334155',
-                    resize: 'vertical',
-                    fontFamily: 'inherit',
-                    lineHeight: 1.4,
-                    outline: 'none',
-                    textAlign: 'left',
-                    direction: 'ltr',
-                  }}
-                />
-              ) : (
-                <div
-                  onClick={() => setEditingPathNotes('top')}
-                  style={{
-                    fontSize: '10px',
-                    color: currentNotes ? '#334155' : '#94a3b8',
-                    fontStyle: currentNotes ? 'normal' : 'italic',
-                    cursor: 'text',
-                    overflow: 'hidden',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    lineHeight: 1.4,
-                    minHeight: '28px',
-                    textAlign: 'left',
-                  }}
-                >
-                  {previewText}
-                </div>
-              )}
+              {/* Drag handle */}
+              <div
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // Initialize position if not set
+                  if (!pathNotesBoxPos) {
+                    setPathNotesBoxPos({ x: boxX, y: boxY });
+                  }
+                  setIsDraggingPanel('pathNotesBox');
+                  setDragOffset({ x: e.clientX - boxX, y: e.clientY - boxY });
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 20,
+                  cursor: 'grab',
+                  background: 'transparent',
+                  borderRadius: '8px 8px 0 0',
+                }}
+              />
+              
+              {/* Content */}
+              <div style={{ paddingTop: 8 }}>
+                {isEditing ? (
+                  <textarea
+                    dir="ltr"
+                    autoFocus
+                    value={currentNotes}
+                    onChange={(e) => handlePathNotesChange(e.target.value)}
+                    onBlur={() => setEditingPathNotes(null)}
+                    placeholder="Add path notes..."
+                    style={{
+                      width: '100%',
+                      height: currentHeight - 30,
+                      padding: '4px',
+                      fontSize: '11px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#334155',
+                      resize: 'none',
+                      fontFamily: 'inherit',
+                      lineHeight: 1.4,
+                      outline: 'none',
+                      textAlign: 'left',
+                      direction: 'ltr',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                ) : (
+                  <div
+                    onClick={() => setEditingPathNotes('top')}
+                    style={{
+                      fontSize: '10px',
+                      color: currentNotes ? '#334155' : '#94a3b8',
+                      fontStyle: currentNotes ? 'normal' : 'italic',
+                      cursor: 'text',
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      lineHeight: 1.4,
+                      minHeight: '28px',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {previewText}
+                  </div>
+                )}
+              </div>
+              
+              {/* Resize handles - all edges */}
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 4, cursor: 'ns-resize' }} />
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 4, cursor: 'ns-resize' }} />
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', left: 0, top: 8, bottom: 8, width: 4, cursor: 'ew-resize' }} />
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', right: 0, top: 8, bottom: 8, width: 4, cursor: 'ew-resize' }} />
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', top: 0, left: 0, width: 8, height: 8, cursor: 'nwse-resize' }} />
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, cursor: 'nesw-resize' }} />
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 8, height: 8, cursor: 'nesw-resize' }} />
+              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, cursor: 'nwse-resize' }} />
             </div>
           );
         })()}
