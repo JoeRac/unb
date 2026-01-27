@@ -602,7 +602,7 @@ function DiagramContent() {
   }, [isDraggingPanel, resizeEdge, dragOffset, resizeStart]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHI0RLApaGvG6uMssek9ZpFtWyDurCoYcT1VDHA3fo1m9avnLPr20AaqzJT0IVn63etQ/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlQ5lLsgbTYVgtGzrU8KXN9RI31UKV-JSIJV7xfcsXJMWw2pEmMKsKnWOIlE1_L-LnhQ/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
