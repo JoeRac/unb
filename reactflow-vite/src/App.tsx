@@ -99,6 +99,15 @@ type SheetRow = {
   hidden_by_default?: string | boolean;
 };
 
+// Helper to format nodeIds for Google Sheets - adds trailing comma for single nodes
+// to prevent Google Sheets from interpreting it as a number (which breaks gviz API)
+function formatNodeIdsForSheet(nodeIds: string[] | Set<string>): string {
+  const arr = Array.isArray(nodeIds) ? nodeIds : Array.from(nodeIds);
+  const joined = arr.join(', ');
+  // Add trailing comma if only one node to force text format
+  return arr.length === 1 ? joined + ',' : joined;
+}
+
 const SHEET_TSV_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
 const PATHS_CSV_URL =
@@ -737,7 +746,7 @@ function DiagramContent() {
     
     const newTempName = generateTempPathName();
     const newTempId = generatePathId(newTempName);
-    const nodeIds = Array.from(manualHighlights).join(', ');
+    const nodeIds = formatNodeIdsForSheet(manualHighlights);
     
     try {
       // Save temp path to Google Sheets
@@ -901,7 +910,7 @@ function DiagramContent() {
     }
 
     const pathId = generatePathId(pathName.trim());
-    const nodeIds = Array.from(manualHighlights).join(', ');
+    const nodeIds = formatNodeIdsForSheet(manualHighlights);
     setSaveStatus('saving');
 
     try {
