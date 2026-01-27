@@ -374,20 +374,37 @@ function DiagramContent() {
   const [showAddSubsubcategory, setShowAddSubsubcategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   
+  // Node filter state for filtering paths by node
+  const [nodeFilterQuery, setNodeFilterQuery] = useState('');
+  const [selectedNodeFilter, setSelectedNodeFilter] = useState<string | null>(null);
+  const [showNodeFilterDropdown, setShowNodeFilterDropdown] = useState(false);
+  
   // Panel position and size state for draggable/resizable panels
   const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
   const [leftPanelSize, setLeftPanelSize] = useState({ width: 220, height: 600 });
   const [infoPanelPos, setInfoPanelPos] = useState({ x: window.innerWidth - 400, y: 20 });
   const [infoPanelSize, setInfoPanelSize] = useState({ width: 360, height: 500 });
   const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | null>(null);
-  const [isResizingPanel, setIsResizingPanel] = useState<'left' | 'info' | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info'; edge: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0 });
+  const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0, x: 0, y: 0 });
   
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
+  const nodeFilterRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
   const activePathIdRef = useRef<string | null>(null);
+  
+  // Close node filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (nodeFilterRef.current && !nodeFilterRef.current.contains(e.target as HTMLElement)) {
+        setShowNodeFilterDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -409,25 +426,43 @@ function DiagramContent() {
         });
       }
       
-      if (isResizingPanel === 'left') {
-        setLeftPanelSize({
-          width: Math.max(180, resizeStart.width + (e.clientX - resizeStart.mouseX)),
-          height: Math.max(200, resizeStart.height + (e.clientY - resizeStart.mouseY)),
-        });
-      } else if (isResizingPanel === 'info') {
-        setInfoPanelSize({
-          width: Math.max(280, resizeStart.width + (e.clientX - resizeStart.mouseX)),
-          height: Math.max(200, resizeStart.height + (e.clientY - resizeStart.mouseY)),
-        });
+      if (resizeEdge) {
+        const { panel, edge } = resizeEdge;
+        const deltaX = e.clientX - resizeStart.mouseX;
+        const deltaY = e.clientY - resizeStart.mouseY;
+        
+        const setPos = panel === 'left' ? setLeftPanelPos : setInfoPanelPos;
+        const setSize = panel === 'left' ? setLeftPanelSize : setInfoPanelSize;
+        const minW = panel === 'left' ? 180 : 280;
+        const minH = 200;
+        
+        if (edge.includes('e')) {
+          setSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
+        }
+        if (edge.includes('w')) {
+          const newWidth = Math.max(minW, resizeStart.width - deltaX);
+          const newX = resizeStart.x + (resizeStart.width - newWidth);
+          setSize(prev => ({ ...prev, width: newWidth }));
+          setPos(prev => ({ ...prev, x: Math.max(0, newX) }));
+        }
+        if (edge.includes('s')) {
+          setSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
+        }
+        if (edge.includes('n')) {
+          const newHeight = Math.max(minH, resizeStart.height - deltaY);
+          const newY = resizeStart.y + (resizeStart.height - newHeight);
+          setSize(prev => ({ ...prev, height: newHeight }));
+          setPos(prev => ({ ...prev, y: Math.max(0, newY) }));
+        }
       }
     };
 
     const handleMouseUp = () => {
       setIsDraggingPanel(null);
-      setIsResizingPanel(null);
+      setResizeEdge(null);
     };
 
-    if (isDraggingPanel || isResizingPanel) {
+    if (isDraggingPanel || resizeEdge) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -435,7 +470,7 @@ function DiagramContent() {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDraggingPanel, isResizingPanel, dragOffset, resizeStart]);
+  }, [isDraggingPanel, resizeEdge, dragOffset, resizeStart]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
   const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEdi6EMynx4G9b8FKhC9i7GcxKMtSJVkGjCmWWryz49B9UIGlMdrcpOJfFzPxbW3JVGQ/exec';
@@ -1455,25 +1490,23 @@ function DiagramContent() {
             }} />
           </div>
           
-          {/* Resize handle */}
-          <div
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setIsResizingPanel('left');
-              setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height });
-            }}
-            style={{
-              position: 'absolute',
-              bottom: 4,
-              right: 4,
-              width: '14px',
-              height: '14px',
-              cursor: 'se-resize',
-              background: 'linear-gradient(135deg, transparent 50%, #94a3b8 50%)',
-              borderRadius: '0 0 12px 0',
-              opacity: 0.6,
-            }}
-          />
+          {/* Edge resize handles */}
+          {/* North edge */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
+          {/* South edge */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
+          {/* West edge */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, left: 0, width: 6, cursor: 'ew-resize' }} />
+          {/* East edge */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, right: 0, width: 6, cursor: 'ew-resize' }} />
+          {/* NW corner */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
+          {/* NE corner */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
+          {/* SW corner */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
+          {/* SE corner */}
+          <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
           
           {/* Panel content - with padding top for drag handle */}
           <div style={{ marginTop: '12px' }}>
@@ -1529,6 +1562,118 @@ function DiagramContent() {
             <>
               <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '6px' }}>
                 <h3 style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#475569', fontWeight: '600', letterSpacing: '0.02em' }}>Explore Paths</h3>
+              </div>
+              
+              {/* Node filter dropdown/autocomplete */}
+              <div ref={nodeFilterRef} style={{ marginBottom: '12px', position: 'relative' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Filter by node..."
+                    value={nodeFilterQuery}
+                    onChange={(e) => {
+                      setNodeFilterQuery(e.target.value);
+                      setShowNodeFilterDropdown(true);
+                    }}
+                    onFocus={() => setShowNodeFilterDropdown(true)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 28px 8px 10px',
+                      fontSize: '11px',
+                      border: selectedNodeFilter ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      background: selectedNodeFilter ? 'rgba(239, 246, 255, 0.8)' : 'white',
+                      color: '#334155',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  {selectedNodeFilter && (
+                    <button
+                      onClick={() => {
+                        setSelectedNodeFilter(null);
+                        setNodeFilterQuery('');
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '6px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        fontSize: '14px',
+                        padding: '2px',
+                        lineHeight: 1,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {showNodeFilterDropdown && (
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      zIndex: 100,
+                      marginTop: '4px',
+                    }}
+                  >
+                    {(() => {
+                      // Get unique node names from the nodes array
+                      const nodeNames = nodes
+                        .filter(n => !n.id.startsWith('personalized-'))
+                        .map(n => ({ id: n.id, label: (n.data as NodeData)?.label || n.id }))
+                        .filter(n => n.label.toLowerCase().includes(nodeFilterQuery.toLowerCase()))
+                        .sort((a, b) => a.label.localeCompare(b.label));
+                      
+                      if (nodeNames.length === 0) {
+                        return (
+                          <div style={{ padding: '10px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
+                            No nodes found
+                          </div>
+                        );
+                      }
+                      
+                      return nodeNames.slice(0, 50).map(node => (
+                        <button
+                          key={node.id}
+                          onClick={() => {
+                            setSelectedNodeFilter(node.id);
+                            setNodeFilterQuery(node.label);
+                            setShowNodeFilterDropdown(false);
+                          }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '8px 10px',
+                            fontSize: '11px',
+                            textAlign: 'left',
+                            border: 'none',
+                            background: selectedNodeFilter === node.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                            color: '#334155',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #f1f5f9',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = selectedNodeFilter === node.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent'}
+                        >
+                          {node.label}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                )}
               </div>
               
               {/* Category chips - always visible */}
@@ -2092,6 +2237,14 @@ function DiagramContent() {
                   // Filter out category placeholders (empty names)
                   if (!path.name) return false;
                   
+                  // Filter by selected node (if any)
+                  if (selectedNodeFilter) {
+                    const pathNodeIds = pathsMap[path.name] || [];
+                    if (!pathNodeIds.includes(selectedNodeFilter)) {
+                      return false;
+                    }
+                  }
+                  
                   // Filter by selected category hierarchy
                   if (selectedCategory === '__uncategorized__') {
                     return !path.category;
@@ -2534,25 +2687,23 @@ function DiagramContent() {
       }} />
     </div>
     
-    {/* Resize handle */}
-    <div
-      onMouseDown={(e) => {
-        e.preventDefault();
-        setIsResizingPanel('info');
-        setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height });
-      }}
-      style={{
-        position: 'absolute',
-        bottom: 4,
-        right: 4,
-        width: '14px',
-        height: '14px',
-        cursor: 'se-resize',
-        background: 'linear-gradient(135deg, transparent 50%, #94a3b8 50%)',
-        borderRadius: '0 0 10px 0',
-        opacity: 0.6,
-      }}
-    />
+    {/* Edge resize handles */}
+    {/* North edge */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
+    {/* South edge */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
+    {/* West edge */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, left: 0, width: 6, cursor: 'ew-resize' }} />
+    {/* East edge */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, right: 0, width: 6, cursor: 'ew-resize' }} />
+    {/* NW corner */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
+    {/* NE corner */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
+    {/* SW corner */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
+    {/* SE corner */}
+    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
     
     {/* Content with padding for drag handle */}
     <div style={{ marginTop: '10px' }}>
