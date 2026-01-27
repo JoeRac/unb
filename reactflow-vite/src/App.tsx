@@ -384,8 +384,12 @@ function DiagramContent() {
   const [leftPanelSize, setLeftPanelSize] = useState({ width: 220, height: 600 });
   const [infoPanelPos, setInfoPanelPos] = useState({ x: window.innerWidth - 400, y: 20 });
   const [infoPanelSize, setInfoPanelSize] = useState({ width: 360, height: 500 });
-  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | null>(null);
-  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info'; edge: string } | null>(null);
+  const [notesPanelPos, setNotesPanelPos] = useState({ x: 260, y: 20 });
+  const [notesPanelSize, setNotesPanelSize] = useState({ width: 280, height: 450 });
+  const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const [notesPathName, setNotesPathName] = useState<string | null>(null);
+  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | 'notes' | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info' | 'notes'; edge: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0, x: 0, y: 0 });
   
@@ -424,6 +428,11 @@ function DiagramContent() {
           x: Math.max(0, e.clientX - dragOffset.x),
           y: Math.max(0, e.clientY - dragOffset.y),
         });
+      } else if (isDraggingPanel === 'notes') {
+        setNotesPanelPos({
+          x: Math.max(0, e.clientX - dragOffset.x),
+          y: Math.max(0, e.clientY - dragOffset.y),
+        });
       }
       
       if (resizeEdge) {
@@ -431,9 +440,9 @@ function DiagramContent() {
         const deltaX = e.clientX - resizeStart.mouseX;
         const deltaY = e.clientY - resizeStart.mouseY;
         
-        const setPos = panel === 'left' ? setLeftPanelPos : setInfoPanelPos;
-        const setSize = panel === 'left' ? setLeftPanelSize : setInfoPanelSize;
-        const minW = panel === 'left' ? 180 : 280;
+        const setPos = panel === 'left' ? setLeftPanelPos : panel === 'info' ? setInfoPanelPos : setNotesPanelPos;
+        const setSize = panel === 'left' ? setLeftPanelSize : panel === 'info' ? setInfoPanelSize : setNotesPanelSize;
+        const minW = panel === 'left' ? 180 : panel === 'notes' ? 220 : 280;
         const minH = 200;
         
         if (edge.includes('e')) {
@@ -2263,148 +2272,84 @@ function DiagramContent() {
                   return true; // Show all when no filter
                 })
                 .map((path) => (
-                <button
+                <div
                   key={path.name}
-                  draggable
-                  onDragStart={() => setDraggedPath(path.name)}
-                  onDragEnd={() => setDraggedPath(null)}
-                  onClick={() => showPath(path.name)}
                   style={{
-                    width: '100%',
-                    padding: '9px 10px',
-                    marginBottom: '5px',
-                    background: activePath === path.name 
-                      ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                      : 'rgba(255,255,255,0.6)',
-                    color: activePath === path.name ? '#1d4ed8' : '#475569',
-                    border: activePath === path.name 
-                      ? '1px solid rgba(59, 130, 246, 0.3)' 
-                      : '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    cursor: 'grab',
-                    fontSize: '11px',
-                    textAlign: 'left',
-                    fontWeight: activePath === path.name ? '600' : '500',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
+                    gap: '4px',
+                    marginBottom: '5px',
                   }}
                 >
-                  {/* Drag handle */}
-                  <span style={{ 
-                    color: '#94a3b8', 
-                    fontSize: '10px',
-                    lineHeight: 1,
-                    cursor: 'grab',
-                  }}>⋮⋮</span>
-                  <span style={{ flex: 1 }}>{path.name}</span>
-                </button>
+                  <button
+                    draggable
+                    onDragStart={() => setDraggedPath(path.name)}
+                    onDragEnd={() => setDraggedPath(null)}
+                    onClick={() => showPath(path.name)}
+                    style={{
+                      flex: 1,
+                      padding: '9px 10px',
+                      background: activePath === path.name 
+                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                        : 'rgba(255,255,255,0.6)',
+                      color: activePath === path.name ? '#1d4ed8' : '#475569',
+                      border: activePath === path.name 
+                        ? '1px solid rgba(59, 130, 246, 0.3)' 
+                        : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'grab',
+                      fontSize: '11px',
+                      textAlign: 'left',
+                      fontWeight: activePath === path.name ? '600' : '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    {/* Drag handle */}
+                    <span style={{ 
+                      color: '#94a3b8', 
+                      fontSize: '10px',
+                      lineHeight: 1,
+                      cursor: 'grab',
+                    }}>⋮⋮</span>
+                    <span style={{ flex: 1 }}>{path.name}</span>
+                  </button>
+                  {/* Info button for notes */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Load the path first if not already loaded
+                      if (activePath !== path.name) {
+                        showPath(path.name);
+                      }
+                      setNotesPathName(path.name);
+                      setShowNotesPanel(true);
+                      // Position notes panel next to left panel
+                      setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                    }}
+                    style={{
+                      padding: '6px 8px',
+                      background: (showNotesPanel && notesPathName === path.name)
+                        ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
+                        : 'rgba(255,255,255,0.8)',
+                      color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
+                      border: (showNotesPanel && notesPathName === path.name)
+                        ? '1px solid rgba(59, 130, 246, 0.4)'
+                        : '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      lineHeight: 1,
+                    }}
+                    title="View notes"
+                  >
+                    ℹ
+                  </button>
+                </div>
               ))}
             </>
-          )}
-
-          {/* Node Content Editor - shows when a path is loaded */}
-          {activePath && activePathId && manualHighlights.size > 0 && (
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '14px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '10px' }}>
-                📝 Node Notes
-              </div>
-              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {(() => {
-                  // Sort nodes by hierarchy depth (parents first)
-                  const getNodeDepth = (nodeId: string, visited = new Set<string>()): number => {
-                    if (visited.has(nodeId)) return 0; // Prevent cycles
-                    visited.add(nodeId);
-                    
-                    // Find edges where this node is the target (i.e., find parents)
-                    const parentEdges = edges.filter(e => e.target === nodeId);
-                    if (parentEdges.length === 0) return 0; // Root node
-                    
-                    // Return max depth of parents + 1
-                    return Math.max(...parentEdges.map(e => getNodeDepth(e.source, visited))) + 1;
-                  };
-                  
-                  const sortedNodeIds = Array.from(manualHighlights).sort((a, b) => {
-                    return getNodeDepth(a) - getNodeDepth(b);
-                  });
-                  
-                  return sortedNodeIds.map((nodeId) => {
-                  const node = nodes.find(n => n.id === nodeId);
-                  const nodeData = node?.data as NodeData | undefined;
-                  const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
-                  
-                  return (
-                    <div key={nodeId} style={{ marginBottom: '12px' }}>
-                      <div style={{ 
-                        fontSize: '10px', 
-                        fontWeight: '600', 
-                        color: nodeData?.color || '#64748b',
-                        marginBottom: '4px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}>
-                        {nodeData?.label || nodeId}
-                      </div>
-                      <textarea
-                        placeholder="Add notes..."
-                        value={content}
-                        onChange={(e) => {
-                          const newContent = e.target.value;
-                          setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
-                          
-                          // Also update nodePathMap so changes persist when switching paths
-                          setNodePathMap(prev => ({
-                            ...prev,
-                            [activePathId]: {
-                              ...(prev[activePathId] || {}),
-                              [nodeId]: newContent,
-                            },
-                          }));
-                          
-                          // Debounced auto-save
-                          if (debounceTimerRef.current[nodeId]) {
-                            clearTimeout(debounceTimerRef.current[nodeId]);
-                          }
-                          debounceTimerRef.current[nodeId] = setTimeout(async () => {
-                            try {
-                              await fetch(GOOGLE_SCRIPT_URL, {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  action: 'saveNodeContent',
-                                  pathId: activePathId,
-                                  nodeId: nodeId,
-                                  content: newContent,
-                                }),
-                              });
-                            } catch (error) {
-                              console.error('Error saving node content:', error);
-                            }
-                          }, 1000);
-                        }}
-                        style={{
-                          width: '100%',
-                          minHeight: '60px',
-                          padding: '8px 10px',
-                          fontSize: '11px',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          background: 'white',
-                          color: '#334155',
-                          resize: 'vertical',
-                          fontFamily: 'inherit',
-                          lineHeight: 1.4,
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                    </div>
-                  );
-                });
-                })()}
-              </div>
-            </div>
           )}
 
           {/* Bottom section with Build, Export, and Save */}
@@ -2638,6 +2583,186 @@ function DiagramContent() {
           </div>
           </div>
         </div>
+
+        {/* Notes Panel - shows when clicking info button on a path */}
+        {showNotesPanel && notesPathName && activePathId && (
+          <div
+            style={{
+              position: 'absolute',
+              left: notesPanelPos.x,
+              top: notesPanelPos.y,
+              zIndex: 11,
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)',
+              padding: '18px',
+              borderRadius: '14px',
+              width: notesPanelSize.width,
+              height: notesPanelSize.height,
+              overflowY: 'auto',
+              boxShadow: '0 8px 32px rgba(15,23,42,0.12), 0 2px 8px rgba(59,130,246,0.06)',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            {/* Drag handle */}
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsDraggingPanel('notes');
+                setDragOffset({ x: e.clientX - notesPanelPos.x, y: e.clientY - notesPanelPos.y });
+              }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '28px',
+                cursor: 'move',
+                background: 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
+                borderTopLeftRadius: '14px',
+                borderTopRightRadius: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '2px' }} />
+            </div>
+            
+            {/* Edge resize handles */}
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, left: 0, width: 6, cursor: 'ew-resize' }} />
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, right: 0, width: 6, cursor: 'ew-resize' }} />
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
+            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
+            
+            {/* Close button */}
+            <button
+              onClick={() => setShowNotesPanel(false)}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '16px',
+                color: '#64748b',
+                padding: '4px',
+                lineHeight: 1,
+                zIndex: 1,
+              }}
+            >
+              ✕
+            </button>
+            
+            {/* Panel content */}
+            <div style={{ marginTop: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', marginBottom: '12px' }}>
+                📝 Notes: {notesPathName}
+              </div>
+              <div style={{ maxHeight: notesPanelSize.height - 80, overflowY: 'auto' }}>
+                {(() => {
+                  // Sort nodes by hierarchy depth (parents first)
+                  const getNodeDepth = (nodeId: string, visited = new Set<string>()): number => {
+                    if (visited.has(nodeId)) return 0;
+                    visited.add(nodeId);
+                    const parentEdges = edges.filter(e => e.target === nodeId);
+                    if (parentEdges.length === 0) return 0;
+                    return Math.max(...parentEdges.map(e => getNodeDepth(e.source, visited))) + 1;
+                  };
+                  
+                  const sortedNodeIds = Array.from(manualHighlights).sort((a, b) => {
+                    return getNodeDepth(a) - getNodeDepth(b);
+                  });
+                  
+                  if (sortedNodeIds.length === 0) {
+                    return (
+                      <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '20px' }}>
+                        No nodes in this path
+                      </div>
+                    );
+                  }
+                  
+                  return sortedNodeIds.map((nodeId) => {
+                    const node = nodes.find(n => n.id === nodeId);
+                    const nodeData = node?.data as NodeData | undefined;
+                    const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+                    
+                    return (
+                      <div key={nodeId} style={{ marginBottom: '12px' }}>
+                        <div style={{ 
+                          fontSize: '10px', 
+                          fontWeight: '600', 
+                          color: nodeData?.color || '#64748b',
+                          marginBottom: '4px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {nodeData?.label || nodeId}
+                        </div>
+                        <textarea
+                          placeholder="Add notes..."
+                          value={content}
+                          onChange={(e) => {
+                            const newContent = e.target.value;
+                            setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
+                            
+                            setNodePathMap(prev => ({
+                              ...prev,
+                              [activePathId]: {
+                                ...(prev[activePathId] || {}),
+                                [nodeId]: newContent,
+                              },
+                            }));
+                            
+                            if (debounceTimerRef.current[nodeId]) {
+                              clearTimeout(debounceTimerRef.current[nodeId]);
+                            }
+                            debounceTimerRef.current[nodeId] = setTimeout(async () => {
+                              try {
+                                await fetch(GOOGLE_SCRIPT_URL, {
+                                  method: 'POST',
+                                  mode: 'no-cors',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    action: 'saveNodeContent',
+                                    pathId: activePathId,
+                                    nodeId: nodeId,
+                                    content: newContent,
+                                  }),
+                                });
+                              } catch (error) {
+                                console.error('Error saving node content:', error);
+                              }
+                            }, 1000);
+                          }}
+                          style={{
+                            width: '100%',
+                            minHeight: '60px',
+                            padding: '8px 10px',
+                            fontSize: '11px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            background: 'white',
+                            color: '#334155',
+                            resize: 'vertical',
+                            fontFamily: 'inherit',
+                            lineHeight: 1.4,
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
 
         {selectedNode && selectedNodeData && (
   <div
