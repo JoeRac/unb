@@ -223,11 +223,6 @@ function MethodNode(props: any) {
         i
       </button>
       <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, textAlign: 'center', paddingRight: 16 }}>{data.label}</div>
-      {data.category && (
-        <div style={{ fontSize: 10, opacity: 0.6, fontStyle: 'italic', textAlign: 'center' }}>
-          {data.category}
-        </div>
-      )}
       
       {/* Inline note area - only visible when highlighted */}
       {isHighlighted && (
@@ -267,16 +262,13 @@ function MethodNode(props: any) {
             <div
               style={{
                 fontSize: 10,
-                color: hasNote ? '#475569' : '#94a3b8',
-                fontStyle: hasNote ? 'normal' : 'italic',
+                opacity: 0.6,
+                fontStyle: 'italic',
+                textAlign: 'center',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 cursor: 'text',
-                padding: '4px 6px',
-                borderRadius: 4,
-                background: 'rgba(59, 130, 246, 0.04)',
-                minHeight: 18,
               }}
             >
               {hasNote ? firstLine : 'Click to add note...'}
