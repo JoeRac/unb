@@ -107,8 +107,23 @@ const NODE_PATH_GVIZ_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=node-path&tqx=out:json';
 
 function MethodNode(props: any) {
-  const data = props.data as NodeData & { isHighlighted?: boolean; onInfoClick?: (nodeId: string) => void };
+  const data = props.data as NodeData & { 
+    isHighlighted?: boolean; 
+    onInfoClick?: (nodeId: string) => void;
+    nodeNote?: string;
+    onNodeNoteChange?: (nodeId: string, note: string) => void;
+    editingNoteNodeId?: string | null;
+    onStartEditNote?: (nodeId: string) => void;
+    onStopEditNote?: () => void;
+  };
   const isHighlighted = data.isHighlighted === true;
+  const isEditing = data.editingNoteNodeId === props.id;
+  const [localNote, setLocalNote] = useState(data.nodeNote || '');
+  
+  // Sync local note with prop when it changes externally
+  useEffect(() => {
+    setLocalNote(data.nodeNote || '');
+  }, [data.nodeNote]);
   
   // Premium glass styling
   const background = isHighlighted 
@@ -125,6 +140,32 @@ function MethodNode(props: any) {
     }
   };
 
+  const handleNoteAreaClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isHighlighted && data.onStartEditNote) {
+      data.onStartEditNote(props.id);
+    }
+  };
+
+  const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
+    const newValue = e.target.value;
+    setLocalNote(newValue);
+    if (data.onNodeNoteChange) {
+      data.onNodeNoteChange(props.id, newValue);
+    }
+  };
+
+  const handleNoteBlur = () => {
+    if (data.onStopEditNote) {
+      data.onStopEditNote();
+    }
+  };
+
+  // Get first line for preview
+  const firstLine = (data.nodeNote || '').split('\n')[0];
+  const hasNote = !!(data.nodeNote && data.nodeNote.trim());
+
   return (
     <div
       style={{
@@ -135,7 +176,7 @@ function MethodNode(props: any) {
         color: textColor,
         border: borderStyle,
         minWidth: 160,
-        maxWidth: 200,
+        maxWidth: 220,
         boxShadow: shadow,
         cursor: 'pointer',
         position: 'relative',
@@ -187,6 +228,63 @@ function MethodNode(props: any) {
           {data.category}
         </div>
       )}
+      
+      {/* Inline note area - only visible when highlighted */}
+      {isHighlighted && (
+        <div 
+          onClick={handleNoteAreaClick}
+          style={{ 
+            marginTop: 8,
+            borderTop: '1px solid rgba(59, 130, 246, 0.15)',
+            paddingTop: 6,
+          }}
+        >
+          {isEditing ? (
+            <textarea
+              autoFocus
+              value={localNote}
+              onChange={handleNoteChange}
+              onBlur={handleNoteBlur}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="Add note..."
+              style={{
+                width: '100%',
+                minHeight: '50px',
+                padding: '6px 8px',
+                fontSize: 10,
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: 6,
+                background: 'rgba(255, 255, 255, 0.9)',
+                color: '#334155',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                lineHeight: 1.4,
+                boxSizing: 'border-box',
+                outline: 'none',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                fontSize: 10,
+                color: hasNote ? '#475569' : '#94a3b8',
+                fontStyle: hasNote ? 'normal' : 'italic',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                cursor: 'text',
+                padding: '4px 6px',
+                borderRadius: 4,
+                background: 'rgba(59, 130, 246, 0.04)',
+                minHeight: 18,
+              }}
+            >
+              {hasNote ? firstLine : 'Click to add note...'}
+            </div>
+          )}
+        </div>
+      )}
+      
       <Handle
         type="source"
         position={Position.Bottom}
@@ -393,6 +491,13 @@ function DiagramContent() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0, x: 0, y: 0 });
   
+  // Inline note editing state
+  const [editingNoteNodeId, setEditingNoteNodeId] = useState<string | null>(null);
+  
+  // Temp path tracking for auto-save
+  const [tempPathId, setTempPathId] = useState<string | null>(null);
+  const [tempPathName, setTempPathName] = useState<string | null>(null);
+  
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const nodeFilterRef = useRef<HTMLDivElement>(null);
@@ -486,6 +591,30 @@ function DiagramContent() {
 
   const highlightColor = HIGHLIGHT_COLOR;
 
+  // Refs for callbacks to avoid re-render loops
+  const handleInlineNoteChangeRef = useRef<(nodeId: string, note: string) => void>(() => {});
+  const editingNoteNodeIdRef = useRef<string | null>(null);
+  const sidebarNodeContentRef = useRef<Record<string, string>>({});
+  const nodePathMapRef = useRef<Record<string, Record<string, string>>>({});
+  const activePathIdForNotesRef = useRef<string | null>(null);
+
+  // Keep refs in sync
+  useEffect(() => {
+    editingNoteNodeIdRef.current = editingNoteNodeId;
+  }, [editingNoteNodeId]);
+  
+  useEffect(() => {
+    sidebarNodeContentRef.current = sidebarNodeContent;
+  }, [sidebarNodeContent]);
+  
+  useEffect(() => {
+    nodePathMapRef.current = nodePathMap;
+  }, [nodePathMap]);
+  
+  useEffect(() => {
+    activePathIdForNotesRef.current = activePathId;
+  }, [activePathId]);
+
   // Use a ref to store the info click handler to avoid re-render loops
   const nodesRef = useRef<Node[]>([]);
   nodesRef.current = nodes;
@@ -505,6 +634,19 @@ function DiagramContent() {
       }
     }
   }, []); // Empty deps - uses ref instead
+
+  // Stable callbacks for inline note editing (use refs to avoid recreating)
+  const handleStartEditNote = useCallback((nodeId: string) => {
+    setEditingNoteNodeId(nodeId);
+  }, []);
+
+  const handleStopEditNote = useCallback(() => {
+    setEditingNoteNodeId(null);
+  }, []);
+
+  const handleNodeNoteChange = useCallback((nodeId: string, note: string) => {
+    handleInlineNoteChangeRef.current(nodeId, note);
+  }, []);
 
   // Handler for notes change in personalized nodes with debounced auto-save
   const handleNotesChange = useCallback((nodeId: string, notes: string) => {
@@ -583,6 +725,178 @@ function DiagramContent() {
     return `${name.replace(/\s+/g, '-')}-${timestamp}`;
   };
 
+  // Generate temp path name
+  const generateTempPathName = () => {
+    const now = new Date();
+    const timestamp = now.getFullYear().toString() +
+      (now.getMonth() + 1).toString().padStart(2, '0') +
+      now.getDate().toString().padStart(2, '0') +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0');
+    return `temp_${timestamp}`;
+  };
+
+  // Create temp path when editing notes without an active path
+  const createTempPathIfNeeded = useCallback(async () => {
+    // Only create temp path if no active path and no temp path already exists
+    if (activePathId || tempPathId) return tempPathId;
+    if (manualHighlights.size === 0) return null;
+    
+    const newTempName = generateTempPathName();
+    const newTempId = generatePathId(newTempName);
+    const nodeIds = Array.from(manualHighlights).join(', ');
+    
+    try {
+      // Save temp path to Google Sheets
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'savePath',
+          pathId: newTempId,
+          pathName: newTempName,
+          nodeIds: nodeIds,
+          category: '',
+          subcategory: '',
+          subsubcategory: '',
+        }),
+      });
+      
+      setTempPathId(newTempId);
+      setTempPathName(newTempName);
+      
+      // Add to local paths list
+      setPathsList(prev => [...prev, {
+        id: newTempId,
+        name: newTempName,
+        nodeIds: Array.from(manualHighlights),
+        category: '',
+        subcategory: '',
+        subsubcategory: '',
+      }]);
+      setPathsMap(prev => ({
+        ...prev,
+        [newTempName]: Array.from(manualHighlights),
+      }));
+      
+      return newTempId;
+    } catch (error) {
+      console.error('Error creating temp path:', error);
+      return null;
+    }
+  }, [activePathId, tempPathId, manualHighlights, GOOGLE_SCRIPT_URL]);
+
+  // Delete temp path (called when user manually saves)
+  const deleteTempPath = useCallback(async () => {
+    if (!tempPathId || !tempPathName) return;
+    
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'deletePath',
+          pathId: tempPathId,
+          pathName: tempPathName,
+        }),
+      });
+      
+      // Remove from local state
+      setPathsList(prev => prev.filter(p => p.name !== tempPathName));
+      setPathsMap(prev => {
+        const newMap = { ...prev };
+        delete newMap[tempPathName];
+        return newMap;
+      });
+      
+      setTempPathId(null);
+      setTempPathName(null);
+    } catch (error) {
+      console.error('Error deleting temp path:', error);
+    }
+  }, [tempPathId, tempPathName, GOOGLE_SCRIPT_URL]);
+
+  // Handler for inline node note changes with debounced auto-save
+  const handleInlineNoteChange = useCallback(async (nodeId: string, note: string) => {
+    // Update sidebar content state
+    setSidebarNodeContent(prev => ({ ...prev, [nodeId]: note }));
+    
+    // Determine which path ID to use
+    let pathIdToUse = activePathId;
+    
+    // If no active path, create temp path
+    if (!pathIdToUse) {
+      pathIdToUse = tempPathId || await createTempPathIfNeeded();
+    }
+    
+    if (!pathIdToUse) return;
+    
+    // Update nodePathMap
+    setNodePathMap(prev => ({
+      ...prev,
+      [pathIdToUse!]: {
+        ...(prev[pathIdToUse!] || {}),
+        [nodeId]: note,
+      },
+    }));
+    
+    // Debounced auto-save
+    if (debounceTimerRef.current[`inline-${nodeId}`]) {
+      clearTimeout(debounceTimerRef.current[`inline-${nodeId}`]);
+    }
+    debounceTimerRef.current[`inline-${nodeId}`] = setTimeout(async () => {
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'saveNodeContent',
+            pathId: pathIdToUse,
+            nodeId: nodeId,
+            content: note,
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving inline note:', error);
+      }
+    }, 1000);
+  }, [activePathId, tempPathId, createTempPathIfNeeded, GOOGLE_SCRIPT_URL]);
+
+  // Keep the ref in sync with the handler
+  useEffect(() => {
+    handleInlineNoteChangeRef.current = handleInlineNoteChange;
+  }, [handleInlineNoteChange]);
+
+  // Sync nodes with inline note editing state and note content
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id.startsWith('personalized-')) return n;
+        
+        // Get note content from sidebar content or nodePathMap
+        const pathIdForNotes = activePathId || tempPathId;
+        const noteContent = sidebarNodeContent[n.id] ?? 
+          (pathIdForNotes ? nodePathMap[pathIdForNotes]?.[n.id] : undefined) ?? '';
+        
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            nodeNote: noteContent,
+            onNodeNoteChange: handleNodeNoteChange,
+            editingNoteNodeId: editingNoteNodeId,
+            onStartEditNote: handleStartEditNote,
+            onStopEditNote: handleStopEditNote,
+          },
+        };
+      })
+    );
+  }, [editingNoteNodeId, sidebarNodeContent, activePathId, tempPathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote]);
+
   // Save path to Google Sheets via Google Apps Script
   const savePath = async () => {
     if (!pathName.trim()) {
@@ -599,6 +913,11 @@ function DiagramContent() {
     setSaveStatus('saving');
 
     try {
+      // Delete temp path if it exists (user is manually saving)
+      if (tempPathId) {
+        await deleteTempPath();
+      }
+      
       // Save the path with category info
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
