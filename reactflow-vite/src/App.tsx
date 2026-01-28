@@ -136,11 +136,25 @@ function MethodNode(props: any) {
   const isHighlighted = data.isHighlighted === true;
   const isEditing = data.editingNoteNodeId === props.id;
   const [localNote, setLocalNote] = useState(data.nodeNote || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Sync local note with prop when it changes externally
   useEffect(() => {
     setLocalNote(data.nodeNote || '');
   }, [data.nodeNote]);
+  
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    if (textareaRef.current && isEditing) {
+      const textarea = textareaRef.current;
+      textarea.style.height = 'auto';
+      const lineHeight = 14; // ~10px font * 1.4 line-height
+      const maxRows = 15;
+      const maxHeight = lineHeight * maxRows;
+      const scrollHeight = textarea.scrollHeight;
+      textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+    }
+  }, [localNote, isEditing]);
   
   // Premium glass styling
   const background = isHighlighted 
@@ -274,6 +288,7 @@ function MethodNode(props: any) {
         >
           {isEditing ? (
             <textarea
+              ref={textareaRef}
               autoFocus
               value={localNote}
               onChange={handleNoteChange}
@@ -285,6 +300,7 @@ function MethodNode(props: any) {
               style={{
                 width: '100%',
                 minHeight: '50px',
+                maxHeight: '210px', // ~15 rows at 14px line height
                 padding: '6px 8px',
                 fontSize: 10,
                 border: '1px solid rgba(59, 130, 246, 0.3)',
@@ -296,6 +312,7 @@ function MethodNode(props: any) {
                 lineHeight: 1.4,
                 boxSizing: 'border-box',
                 outline: 'none',
+                overflow: 'auto',
               }}
             />
           ) : (
@@ -582,6 +599,7 @@ type PathRow = {
   subcategory?: string;
   subsubcategory?: string;
   notes?: string;
+  lastUpdated?: number; // timestamp for sorting by latest activity
 };
 
 // Helper to get unique categories from paths
@@ -649,8 +667,11 @@ function DiagramContent() {
   const [selectedNodeFilter, setSelectedNodeFilter] = useState<string | null>(null);
   const [showNodeFilterDropdown, setShowNodeFilterDropdown] = useState(false);
   
-  // Path sort order: 'latest' (default - spreadsheet order) or 'alpha' (alphabetical)
-  const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha'>('latest');
+  // Path sort order: 'latest' (by last activity), 'alpha' (alphabetical), or 'category' (grouped by category)
+  const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha' | 'category'>('latest');
+  
+  // Track last updated timestamps for each path (pathId -> timestamp)
+  const [pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
   
   // Panel position and size state for draggable/resizable panels
   const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
@@ -935,6 +956,9 @@ function DiagramContent() {
     // Update local state
     setPathNotes(prev => ({ ...prev, [pathIdToUse!]: notes }));
     
+    // Update last updated timestamp
+    setPathLastUpdated(prev => ({ ...prev, [pathIdToUse!]: Date.now() }));
+    
     // Debounced auto-save
     if (debounceTimerRef.current['pathNotes']) {
       clearTimeout(debounceTimerRef.current['pathNotes']);
@@ -1002,6 +1026,9 @@ function DiagramContent() {
     }
     
     if (!pathIdToUse) return;
+    
+    // Update last updated timestamp
+    setPathLastUpdated(prev => ({ ...prev, [pathIdToUse!]: Date.now() }));
     
     // Update nodePathMap
     setNodePathMap(prev => ({
@@ -1835,6 +1862,9 @@ function DiagramContent() {
         
         // Auto-save node changes if an active saved path is loaded (not a temp path)
         if (activePath && activePathId && !activePathId.startsWith('temp_')) {
+          // Update last updated timestamp
+          setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [activePathId]: Date.now() }));
+          
           // Use setTimeout to ensure state is updated before saving
           setTimeout(() => {
             updatePathNodes(activePathId, activePath, next);
@@ -2063,7 +2093,9 @@ function DiagramContent() {
           <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'left', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: leftPanelSize.width, height: leftPanelSize.height, x: leftPanelPos.x, y: leftPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
           
           {/* Panel content - with padding top for drag handle */}
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', height: 'calc(100% - 12px)' }}>
+          {/* Sticky header section */}
+          <div style={{ flexShrink: 0, paddingBottom: '8px', borderBottom: '1px solid #e2e8f0', marginBottom: '8px' }}>
           {/* App Title */}
           <h1 style={{ 
             margin: '0 0 16px 0', 
@@ -2094,9 +2126,7 @@ function DiagramContent() {
           {/* Paths section */}
           {pathsList.length > 0 && (
             <>
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '6px' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#475569', fontWeight: '600', letterSpacing: '0.02em' }}>Explore Paths</h3>
-              </div>
+             
               
               {/* Node filter dropdown/autocomplete */}
               <div ref={nodeFilterRef} style={{ marginBottom: '12px', position: 'relative' }}>
@@ -2804,8 +2834,31 @@ function DiagramContent() {
                 >
                   A-Z
                 </button>
+                <button
+                  onClick={() => setPathSortOrder('category')}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '9px',
+                    fontWeight: pathSortOrder === 'category' ? '600' : '400',
+                    background: pathSortOrder === 'category' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                    color: pathSortOrder === 'category' ? '#1d4ed8' : '#64748b',
+                    border: pathSortOrder === 'category' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Category
+                </button>
               </div>
+            </>
+          )}
+          </div>
+          {/* End of sticky header */}
 
+          {/* Scrollable paths list */}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          {pathsList.length > 0 && (
+            <>
               {/* Filtered and grouped paths list */}
               {(() => {
                 // Filter paths first
@@ -2839,128 +2892,225 @@ function DiagramContent() {
                   return true;
                 });
                 
-                // Sort if alphabetical is selected
-                const sortedPaths = pathSortOrder === 'alpha' 
-                  ? [...filteredPaths].sort((a, b) => a.name.localeCompare(b.name))
-                  : filteredPaths; // Keep original order (latest first from spreadsheet)
+                // Sort based on selected sort order
+                let sortedPaths: PathRow[];
+                if (pathSortOrder === 'alpha') {
+                  // Alphabetical sort - flat list, no category grouping
+                  sortedPaths = [...filteredPaths].sort((a, b) => a.name.localeCompare(b.name));
+                } else if (pathSortOrder === 'latest') {
+                  // Latest updated sort - flat list, sorted by most recently updated
+                  sortedPaths = [...filteredPaths].sort((a, b) => {
+                    const aTime = pathLastUpdated[a.id] || 0;
+                    const bTime = pathLastUpdated[b.id] || 0;
+                    return bTime - aTime; // Descending (most recent first)
+                  });
+                } else {
+                  // Category sort - keep original order within categories
+                  sortedPaths = filteredPaths;
+                }
                 
-                // Group by category (alphabetically sorted categories)
-                const groupedPaths: Record<string, PathRow[]> = {};
-                sortedPaths.forEach(path => {
-                  const cat = path.category || '__uncategorized__';
-                  if (!groupedPaths[cat]) groupedPaths[cat] = [];
-                  groupedPaths[cat].push(path);
-                });
-                
-                // Sort category keys alphabetically, with uncategorized at the end
-                const sortedCategories = Object.keys(groupedPaths).sort((a, b) => {
-                  if (a === '__uncategorized__') return 1;
-                  if (b === '__uncategorized__') return -1;
-                  return a.localeCompare(b);
-                });
-                
-                return sortedCategories.map(cat => (
-                  <div key={cat}>
-                    {/* Category header - only show if not filtering by specific category */}
-                    {!selectedCategory && sortedCategories.length > 1 && (
-                      <div style={{ 
-                        fontSize: '9px', 
-                        fontWeight: '600', 
-                        color: '#94a3b8', 
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        marginTop: cat === sortedCategories[0] ? 0 : '12px',
-                        marginBottom: '6px',
-                        paddingBottom: '4px',
-                        borderBottom: '1px solid #f1f5f9',
-                      }}>
-                        {cat === '__uncategorized__' ? 'Uncategorized' : cat}
-                      </div>
-                    )}
-                    {groupedPaths[cat].map((path) => (
-                    <div
-                      key={path.name}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        marginBottom: '5px',
-                      }}
-                    >
-                      <button
-                        draggable
-                        onDragStart={() => setDraggedPath(path.name)}
-                        onDragEnd={() => setDraggedPath(null)}
-                        onClick={() => showPath(path.name)}
+                // Only group by category when in 'category' sort mode
+                if (pathSortOrder === 'category') {
+                  // Group by category (alphabetically sorted categories)
+                  const groupedPaths: Record<string, PathRow[]> = {};
+                  sortedPaths.forEach(path => {
+                    const cat = path.category || '__uncategorized__';
+                    if (!groupedPaths[cat]) groupedPaths[cat] = [];
+                    groupedPaths[cat].push(path);
+                  });
+                  
+                  // Sort category keys alphabetically, with uncategorized at the end
+                  const sortedCategories = Object.keys(groupedPaths).sort((a, b) => {
+                    if (a === '__uncategorized__') return 1;
+                    if (b === '__uncategorized__') return -1;
+                    return a.localeCompare(b);
+                  });
+                  
+                  return sortedCategories.map(cat => (
+                    <div key={cat}>
+                      {/* Category header - only show if not filtering by specific category */}
+                      {!selectedCategory && sortedCategories.length > 1 && (
+                        <div style={{ 
+                          fontSize: '9px', 
+                          fontWeight: '600', 
+                          color: '#94a3b8', 
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          marginTop: cat === sortedCategories[0] ? 0 : '12px',
+                          marginBottom: '6px',
+                          paddingBottom: '4px',
+                          borderBottom: '1px solid #f1f5f9',
+                        }}>
+                          {cat === '__uncategorized__' ? 'Uncategorized' : cat}
+                        </div>
+                      )}
+                      {groupedPaths[cat].map((path) => (
+                      <div
+                        key={path.name}
                         style={{
-                          flex: 1,
-                          padding: '9px 10px',
-                          background: activePath === path.name 
-                            ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                            : 'rgba(255,255,255,0.6)',
-                          color: activePath === path.name ? '#1d4ed8' : '#475569',
-                          border: activePath === path.name 
-                            ? '1px solid rgba(59, 130, 246, 0.3)' 
-                            : '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          cursor: 'grab',
-                          fontSize: '11px',
-                          textAlign: 'left',
-                          fontWeight: activePath === path.name ? '600' : '500',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '8px',
+                          gap: '4px',
+                          marginBottom: '5px',
                         }}
                       >
-                        {/* Drag handle */}
-                        <span style={{ 
-                          color: '#94a3b8', 
-                          fontSize: '10px',
-                          lineHeight: 1,
-                          cursor: 'grab',
-                        }}>⋮⋮</span>
-                        <span style={{ flex: 1 }}>{path.name}</span>
-                      </button>
-                      {/* Info button for notes */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Load the path first if not already loaded
-                          if (activePath !== path.name) {
-                            showPath(path.name);
-                          }
-                          setNotesPathName(path.name);
-                          setShowNotesPanel(true);
-                          // Position notes panel next to left panel
-                          setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
-                        }}
-                        style={{
-                          padding: '6px 8px',
-                          background: (showNotesPanel && notesPathName === path.name)
-                            ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
-                            : 'rgba(255,255,255,0.8)',
-                          color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
-                          border: (showNotesPanel && notesPathName === path.name)
-                            ? '1px solid rgba(59, 130, 246, 0.4)'
-                            : '1px solid #e2e8f0',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          lineHeight: 1,
-                        }}
-                        title="View notes"
-                      >
-                        ℹ
-                      </button>
+                        <button
+                          draggable
+                          onDragStart={() => setDraggedPath(path.name)}
+                          onDragEnd={() => setDraggedPath(null)}
+                          onClick={() => showPath(path.name)}
+                          style={{
+                            flex: 1,
+                            padding: '9px 10px',
+                            background: activePath === path.name 
+                              ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                              : 'rgba(255,255,255,0.6)',
+                            color: activePath === path.name ? '#1d4ed8' : '#475569',
+                            border: activePath === path.name 
+                              ? '1px solid rgba(59, 130, 246, 0.3)' 
+                              : '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            cursor: 'grab',
+                            fontSize: '11px',
+                            textAlign: 'left',
+                            fontWeight: activePath === path.name ? '600' : '500',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          {/* Drag handle */}
+                          <span style={{ 
+                            color: '#94a3b8', 
+                            fontSize: '10px',
+                            lineHeight: 1,
+                            cursor: 'grab',
+                          }}>⋮⋮</span>
+                          <span style={{ flex: 1 }}>{path.name}</span>
+                        </button>
+                        {/* Info button for notes */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Load the path first if not already loaded
+                            if (activePath !== path.name) {
+                              showPath(path.name);
+                            }
+                            setNotesPathName(path.name);
+                            setShowNotesPanel(true);
+                            // Position notes panel next to left panel
+                            setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                          }}
+                          style={{
+                            padding: '6px 8px',
+                            background: (showNotesPanel && notesPathName === path.name)
+                              ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
+                              : 'rgba(255,255,255,0.8)',
+                            color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
+                            border: (showNotesPanel && notesPathName === path.name)
+                              ? '1px solid rgba(59, 130, 246, 0.4)'
+                              : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            lineHeight: 1,
+                          }}
+                          title="View notes"
+                        >
+                          ℹ
+                        </button>
+                      </div>
+                      ))}
                     </div>
-                    ))}
+                  ));
+                }
+                
+                // For 'latest' and 'alpha' modes - flat list without category headers
+                return sortedPaths.map((path) => (
+                  <div
+                    key={path.name}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      marginBottom: '5px',
+                    }}
+                  >
+                    <button
+                      draggable
+                      onDragStart={() => setDraggedPath(path.name)}
+                      onDragEnd={() => setDraggedPath(null)}
+                      onClick={() => showPath(path.name)}
+                      style={{
+                        flex: 1,
+                        padding: '9px 10px',
+                        background: activePath === path.name 
+                          ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                          : 'rgba(255,255,255,0.6)',
+                        color: activePath === path.name ? '#1d4ed8' : '#475569',
+                        border: activePath === path.name 
+                          ? '1px solid rgba(59, 130, 246, 0.3)' 
+                          : '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        cursor: 'grab',
+                        fontSize: '11px',
+                        textAlign: 'left',
+                        fontWeight: activePath === path.name ? '600' : '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      {/* Drag handle */}
+                      <span style={{ 
+                        color: '#94a3b8', 
+                        fontSize: '10px',
+                        lineHeight: 1,
+                        cursor: 'grab',
+                      }}>⋮⋮</span>
+                      <span style={{ flex: 1 }}>{path.name}</span>
+                    </button>
+                    {/* Info button for notes */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Load the path first if not already loaded
+                        if (activePath !== path.name) {
+                          showPath(path.name);
+                        }
+                        setNotesPathName(path.name);
+                        setShowNotesPanel(true);
+                        // Position notes panel next to left panel
+                        setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        background: (showNotesPanel && notesPathName === path.name)
+                          ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
+                          : 'rgba(255,255,255,0.8)',
+                        color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
+                        border: (showNotesPanel && notesPathName === path.name)
+                          ? '1px solid rgba(59, 130, 246, 0.4)'
+                          : '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        lineHeight: 1,
+                      }}
+                      title="View notes"
+                    >
+                      ℹ
+                    </button>
                   </div>
                 ));
               })()}
+              {/* End of scrollable paths list */}
             </>
           )}
           </div>
+        </div>
         </div>
 
         {/* Notes Panel - shows when clicking info button on a path */}
