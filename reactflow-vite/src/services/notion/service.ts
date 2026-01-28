@@ -158,7 +158,11 @@ async function findPathByAppId(appId: string): Promise<NotionPage | null> {
  * Save a path (create or update)
  */
 export async function savePath(path: PathRecord): Promise<PathRecord> {
-  const properties = pathToNotionProperties(path);
+  const pathWithDate: PathRecord = {
+    ...path,
+    dateUpdated: path.dateUpdated || new Date().toISOString(),
+  };
+  const properties = pathToNotionProperties(pathWithDate);
   
   try {
     // Try to find existing path
@@ -179,7 +183,7 @@ export async function savePath(path: PathRecord): Promise<PathRecord> {
     cache.paths = null;
     
     return {
-      ...path,
+      ...pathWithDate,
       notionPageId: resultPage.id,
       lastModified: resultPage.last_edited_time,
     };
@@ -213,6 +217,7 @@ export async function updatePathNodes(
   const nodeIdsStr = nodeIds.length === 1 ? nodeIds[0] + ',' : nodeIds.join(', ');
   await updatePage(existingPage.id, {
     nodeIds: { rich_text: [{ text: { content: nodeIdsStr } }] },
+    date_updated: { date: { start: new Date().toISOString() } },
   });
   
   // Invalidate cache
@@ -283,6 +288,7 @@ export async function savePathNotes(
   
   await updatePage(existingPage.id, {
     notes: { rich_text: [{ text: { content: notes || '' } }] },
+    date_updated: { date: { start: new Date().toISOString() } },
   });
   
   // Invalidate cache
@@ -410,6 +416,9 @@ export async function saveNodePath(nodePath: NodePathRecord): Promise<NodePathRe
     
     // Invalidate cache
     cache.nodePaths = null;
+
+    // Touch parent path's date_updated for latest sorting
+    await updatePathDateUpdated(nodePath.pathId);
     
     return {
       ...nodePath,
@@ -420,6 +429,18 @@ export async function saveNodePath(nodePath: NodePathRecord): Promise<NodePathRe
     console.error('Error saving node-path to Notion:', error);
     throw error;
   }
+}
+
+/**
+ * Update a path's date_updated field
+ */
+async function updatePathDateUpdated(pathId: string): Promise<void> {
+  const existingPage = await findPathByAppId(pathId);
+  if (!existingPage) return;
+  await updatePage(existingPage.id, {
+    date_updated: { date: { start: new Date().toISOString() } },
+  });
+  cache.paths = null;
 }
 
 /**

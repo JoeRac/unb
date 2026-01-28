@@ -639,6 +639,7 @@ type PathRow = {
   subcategory?: string;
   subsubcategory?: string;
   notes?: string;
+  dateUpdated?: string;
   lastUpdated?: number; // timestamp for sorting by latest activity
 };
 
@@ -1348,6 +1349,7 @@ function DiagramContent() {
       setSaveStatus('success');
       
       // Add the new path to local state immediately
+      const updatedAt = new Date().toISOString();
       const newPathRow: PathRow = {
         id: pathId,
         name: pathName.trim(),
@@ -1355,11 +1357,16 @@ function DiagramContent() {
         category: saveCategory.trim() || undefined,
         subcategory: saveSubcategory.trim() || undefined,
         subsubcategory: saveSubsubcategory.trim() || undefined,
+        dateUpdated: updatedAt,
       };
       setPathsList(prev => [...prev, newPathRow]);
       setPathsMap(prev => ({
         ...prev,
         [pathName.trim()]: nodeIdsArray,
+      }));
+      setPathLastUpdated(prev => ({
+        ...prev,
+        [pathId]: Date.parse(updatedAt),
       }));
       
       // Update the active path to the newly saved one
@@ -1913,27 +1920,39 @@ function DiagramContent() {
           const paths = await notionService.fetchPaths();
           const list: PathRow[] = paths
             .filter((p: PathRecord) => p.name && p.nodeIds.length)
-            .map((p: PathRecord) => ({
-              id: p.id,
-              name: p.name,
-              nodeIds: p.nodeIds,
-              category: p.category,
-              subcategory: p.subcategory,
-              subsubcategory: p.subsubcategory,
-              notes: p.notes,
-            }));
+            .map((p: PathRecord) => {
+              const lastUpdatedValue = p.dateUpdated || p.lastModified || '';
+              const parsedLastUpdated = lastUpdatedValue ? Date.parse(lastUpdatedValue) : 0;
+              return {
+                id: p.id,
+                name: p.name,
+                nodeIds: p.nodeIds,
+                category: p.category,
+                subcategory: p.subcategory,
+                subsubcategory: p.subsubcategory,
+                notes: p.notes,
+                dateUpdated: p.dateUpdated,
+                lastUpdated: Number.isNaN(parsedLastUpdated) ? undefined : parsedLastUpdated,
+              };
+            });
           
           const map: Record<string, string[]> = {};
           const notesMap: Record<string, string> = {};
+          const updatedMap: Record<string, number> = {};
           list.forEach((row) => {
             map[row.name] = row.nodeIds;
             if (row.notes && row.id) {
               notesMap[row.id] = row.notes;
             }
+            if (row.id) {
+              const ts = row.lastUpdated ?? 0;
+              updatedMap[row.id] = ts;
+            }
           });
           setPathsList(list);
           setPathsMap(map);
           setPathNotes(notesMap);
+          setPathLastUpdated(updatedMap);
         } else {
           // Load from Google Sheets (legacy)
           const response = await fetch(PATHS_CSV_URL);

@@ -68,6 +68,14 @@ function extractSelect(property: NotionProperty | undefined): string {
 }
 
 /**
+ * Extract date value
+ */
+function extractDate(property: NotionProperty | undefined): string {
+  if (!property || property.type !== 'date') return '';
+  return (property as { date: { start: string } | null }).date?.start || '';
+}
+
+/**
  * Parse JSON safely, returning default value on error
  */
 function safeParseJSON<T>(value: string, defaultValue: T): T {
@@ -195,7 +203,8 @@ export function notionPageToPath(page: NotionPage): PathRecord {
     category: extractRichText(props['category']) || extractSelect(props['category']) || undefined,
     subcategory: extractRichText(props['subcategory']) || extractSelect(props['subcategory']) || undefined,
     subsubcategory: extractRichText(props['subsubcategory']) || extractSelect(props['subsubcategory']) || undefined,
-    notes: extractRichText(props['notes']) || undefined,
+    notes: extractRichText(props['notes']) || extractRichText(props['Notes']) || undefined,
+    dateUpdated: extractDate(props['date_updated']) || extractDate(props['dateUpdated']) || undefined,
     lastModified: page.last_edited_time,
   };
 }
@@ -246,6 +255,14 @@ function createTitleProperty(value: string): { title: Array<{ text: { content: s
  */
 function createCheckboxProperty(value: boolean): { checkbox: boolean } {
   return { checkbox: value };
+}
+
+/**
+ * Create Notion date property
+ */
+function createDateProperty(value: string | Date): { date: { start: string } } {
+  const iso = value instanceof Date ? value.toISOString() : value;
+  return { date: { start: iso } };
 }
 
 /**
@@ -327,6 +344,9 @@ export function pathToNotionProperties(path: Partial<PathRecord>): Record<string
   }
   if (path.notes !== undefined) {
     props['notes'] = createRichTextProperty(path.notes || '');
+  }
+  if (path.dateUpdated !== undefined) {
+    props['date_updated'] = createDateProperty(path.dateUpdated || new Date().toISOString());
   }
   
   return props;
