@@ -712,7 +712,6 @@ function DiagramContent() {
   
   // Path search state
   const [pathSearchQuery, setPathSearchQuery] = useState('');
-  const [showPathSearchDropdown, setShowPathSearchDropdown] = useState(false);
   
   // Path sort order: 'latest' (by last activity), 'alpha' (alphabetical), or 'category' (grouped by category)
   const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha' | 'category'>('latest');
@@ -769,9 +768,6 @@ function DiagramContent() {
     const handleClickOutside = (e: MouseEvent) => {
       if (nodeFilterRef.current && !nodeFilterRef.current.contains(e.target as HTMLElement)) {
         setShowNodeFilterDropdown(false);
-      }
-      if (pathSearchRef.current && !pathSearchRef.current.contains(e.target as HTMLElement)) {
-        setShowPathSearchDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1106,8 +1102,8 @@ function DiagramContent() {
   }, [editingPathNotes, pathNotes, activePathId, activePath, handlePathNotesStartEdit, handlePathNotesStopEdit, handlePathNotesChange]);
 
 
-  // Rename a path (with debounced auto-save)
-  const renamePath = useCallback(async (oldName: string, newName: string) => {
+  // Rename a path (instant UI update, background save)
+  const renamePath = useCallback((oldName: string, newName: string) => {
     if (!oldName || !newName || oldName === newName) return;
     
     const pathRow = pathsList.find(p => p.name === oldName);
@@ -1119,7 +1115,28 @@ function DiagramContent() {
       return;
     }
     
-    // Clear existing debounce timer
+    // Immediate UI update (optimistic)
+    setPathsList(prev => prev.map(p => 
+      p.name === oldName ? { ...p, name: newName } : p
+    ));
+    setPathsMap(prev => {
+      const newMap = { ...prev };
+      if (newMap[oldName]) {
+        newMap[newName] = newMap[oldName];
+        delete newMap[oldName];
+      }
+      return newMap;
+    });
+    
+    // Update active path if it's the renamed one
+    if (activePath === oldName) {
+      setActivePath(newName);
+    }
+    if (notesPathName === oldName) {
+      setNotesPathName(newName);
+    }
+    
+    // Background save with debounce
     if (debounceTimerRef.current['renamePath']) {
       clearTimeout(debounceTimerRef.current['renamePath']);
     }
@@ -1141,31 +1158,22 @@ function DiagramContent() {
             }),
           });
         }
-        
-        // Update local state
+      } catch (error) {
+        console.error('Error renaming path:', error);
+        // Revert on error
         setPathsList(prev => prev.map(p => 
-          p.name === oldName ? { ...p, name: newName } : p
+          p.name === newName ? { ...p, name: oldName } : p
         ));
         setPathsMap(prev => {
           const newMap = { ...prev };
-          if (newMap[oldName]) {
-            newMap[newName] = newMap[oldName];
-            delete newMap[oldName];
+          if (newMap[newName]) {
+            newMap[oldName] = newMap[newName];
+            delete newMap[newName];
           }
           return newMap;
         });
-        
-        // Update active path if it's the renamed one
-        if (activePath === oldName) {
-          setActivePath(newName);
-        }
-        if (notesPathName === oldName) {
-          setNotesPathName(newName);
-        }
-      } catch (error) {
-        console.error('Error renaming path:', error);
       }
-    }, 1000);
+    }, 500);
   }, [pathsList, activePath, notesPathName, GOOGLE_SCRIPT_URL]);
 
   const startEditingPath = useCallback((pathName: string) => {
@@ -2188,124 +2196,6 @@ function DiagramContent() {
           {/* Paths section */}
           {pathsList.length > 0 && (
             <>
-              {/* Path search dropdown/autocomplete */}
-              <div ref={pathSearchRef} style={{ marginBottom: '8px', position: 'relative' }}>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search paths..."
-                    value={pathSearchQuery}
-                    onChange={(e) => {
-                      setPathSearchQuery(e.target.value);
-                      setShowPathSearchDropdown(true);
-                    }}
-                    onFocus={() => setShowPathSearchDropdown(true)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 28px 8px 10px',
-                      fontSize: '11px',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      background: 'white',
-                      color: '#334155',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  {pathSearchQuery && (
-                    <button
-                      onClick={() => {
-                        setPathSearchQuery('');
-                        setShowPathSearchDropdown(false);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        right: '6px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: '#64748b',
-                        fontSize: '14px',
-                        padding: '2px',
-                        lineHeight: 1,
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                {showPathSearchDropdown && pathSearchQuery && (
-                  <div 
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      background: 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                      zIndex: 100,
-                      marginTop: '4px',
-                    }}
-                  >
-                    {(() => {
-                      const matchingPaths = pathsList
-                        .filter(p => p.name && p.name.toLowerCase().includes(pathSearchQuery.toLowerCase()))
-                        .sort((a, b) => a.name.localeCompare(b.name));
-                      
-                      if (matchingPaths.length === 0) {
-                        return (
-                          <div style={{ padding: '10px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
-                            No paths found
-                          </div>
-                        );
-                      }
-                      
-                      return matchingPaths.slice(0, 20).map(path => (
-                        <button
-                          key={path.id}
-                          onClick={() => {
-                            showPath(path.name);
-                            setPathSearchQuery('');
-                            setShowPathSearchDropdown(false);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              showPath(path.name);
-                              setPathSearchQuery('');
-                              setShowPathSearchDropdown(false);
-                            }
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '8px 10px',
-                            fontSize: '11px',
-                            textAlign: 'left',
-                            background: activePath === path.name ? 'rgba(239, 246, 255, 0.8)' : 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: '#334155',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                          }}
-                        >
-                          <span style={{ flex: 1 }}>{path.name}</span>
-                          {path.category && (
-                            <span style={{ fontSize: '9px', color: '#94a3b8' }}>{path.category}</span>
-                          )}
-                        </button>
-                      ));
-                    })()}
-                  </div>
-                )}
-              </div>
-              
               {/* Node filter dropdown/autocomplete */}
               <div ref={nodeFilterRef} style={{ marginBottom: '12px', position: 'relative' }}>
                 <div style={{ position: 'relative' }}>
@@ -3083,12 +2973,58 @@ function DiagramContent() {
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {pathsList.length > 0 && (
             <>
+              {/* Path search filter */}
+              <div ref={pathSearchRef} style={{ marginBottom: '8px', position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Search paths..."
+                  value={pathSearchQuery}
+                  onChange={(e) => setPathSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 28px 8px 10px',
+                    fontSize: '11px',
+                    border: pathSearchQuery ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    background: pathSearchQuery ? 'rgba(239, 246, 255, 0.5)' : 'white',
+                    color: '#334155',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                {pathSearchQuery && (
+                  <button
+                    onClick={() => setPathSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      fontSize: '14px',
+                      padding: '2px',
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              
               {/* Filtered and grouped paths list */}
               {(() => {
                 // Filter paths first
                 const filteredPaths = pathsList.filter(path => {
                   // Filter out category placeholders (empty names)
                   if (!path.name) return false;
+                  
+                  // Filter by path search query
+                  if (pathSearchQuery && !path.name.toLowerCase().includes(pathSearchQuery.toLowerCase())) {
+                    return false;
+                  }
                   
                   // Filter by selected node (if any)
                   if (selectedNodeFilter) {
@@ -3123,9 +3059,10 @@ function DiagramContent() {
                   sortedPaths = [...filteredPaths].sort((a, b) => a.name.localeCompare(b.name));
                 } else if (pathSortOrder === 'latest') {
                   // Latest updated sort - flat list, sorted by most recently updated
+                  // Use local pathLastUpdated first, then fall back to path.lastUpdated from the record
                   sortedPaths = [...filteredPaths].sort((a, b) => {
-                    const aTime = pathLastUpdated[a.id] || 0;
-                    const bTime = pathLastUpdated[b.id] || 0;
+                    const aTime = pathLastUpdated[a.id] || a.lastUpdated || 0;
+                    const bTime = pathLastUpdated[b.id] || b.lastUpdated || 0;
                     return bTime - aTime; // Descending (most recent first)
                   });
                 } else {
@@ -3260,28 +3197,31 @@ function DiagramContent() {
                             <span style={{ flex: 1 }}>{path.name}</span>
                           </button>
                         )}
-                        {editingPathName === path.name && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deletePathByName(path.name);
-                            }}
-                            style={{
-                              padding: '6px 8px',
-                              background: 'rgba(254, 226, 226, 0.9)',
-                              color: '#dc2626',
-                              border: '1px solid rgba(220, 38, 38, 0.3)',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              lineHeight: 1,
-                            }}
-                            title="Delete path"
-                          >
-                            🗑
-                          </button>
-                        )}
+                        {/* Delete button - always visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deletePathByName(path.name);
+                          }}
+                          style={{
+                            padding: '6px 8px',
+                            background: 'rgba(254, 226, 226, 0.6)',
+                            color: '#dc2626',
+                            border: '1px solid rgba(220, 38, 38, 0.2)',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            lineHeight: 1,
+                            opacity: 0.7,
+                            transition: 'opacity 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                          title="Delete path"
+                        >
+                          🗑
+                        </button>
                         {/* Info button for notes */}
                         <button
                           onClick={(e) => {
@@ -3413,28 +3353,31 @@ function DiagramContent() {
                         <span style={{ flex: 1 }}>{path.name}</span>
                       </button>
                     )}
-                    {editingPathName === path.name && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deletePathByName(path.name);
-                        }}
-                        style={{
-                          padding: '6px 8px',
-                          background: 'rgba(254, 226, 226, 0.9)',
-                          color: '#dc2626',
-                          border: '1px solid rgba(220, 38, 38, 0.3)',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          lineHeight: 1,
-                        }}
-                        title="Delete path"
-                      >
-                        🗑
-                      </button>
-                    )}
+                    {/* Delete button - always visible */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePathByName(path.name);
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        background: 'rgba(254, 226, 226, 0.6)',
+                        color: '#dc2626',
+                        border: '1px solid rgba(220, 38, 38, 0.2)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        lineHeight: 1,
+                        opacity: 0.7,
+                        transition: 'opacity 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                      title="Delete path"
+                    >
+                      🗑
+                    </button>
                     {/* Info button for notes */}
                     <button
                       onClick={(e) => {
