@@ -99,23 +99,6 @@ type SheetRow = {
   hidden_by_default?: string | boolean;
 };
 
-// Helper to format nodeIds for Google Sheets - adds trailing comma for single nodes
-// to prevent Google Sheets from interpreting it as a number (which breaks gviz API)
-function formatNodeIdsForSheet(nodeIds: string[] | Set<string>): string {
-  const arr = Array.isArray(nodeIds) ? nodeIds : Array.from(nodeIds);
-  const joined = arr.join(', ');
-  // Add trailing comma if only one node to force text format
-  return arr.length === 1 ? joined + ',' : joined;
-}
-
-// Helper to force text format for any value written to Google Sheets
-// Prefix with single quote to prevent date/number interpretation
-function forceTextForSheet(value: string): string {
-  if (!value) return value;
-  // Prefix with single quote to force text format in Google Sheets
-  return "'" + value;
-}
-
 const SHEET_TSV_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/export?format=tsv';
 const PATHS_CSV_URL =
@@ -241,27 +224,6 @@ function MethodNode(props: any) {
       </button>
       <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, textAlign: 'center', paddingRight: 16 }}>{data.label}</div>
       
-      {/* Note preview for unselected nodes that have notes */}
-      {!isHighlighted && hasNote && (
-        <div
-          style={{
-            marginTop: 6,
-            borderTop: '1px solid rgba(100, 116, 139, 0.1)',
-            paddingTop: 4,
-            fontSize: 9,
-            opacity: 0.5,
-            fontStyle: 'italic',
-            textAlign: 'center',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            color: '#64748b',
-          }}
-        >
-          {firstLine}
-        </div>
-      )}
-      
       {/* Inline note area - only visible when highlighted */}
       {isHighlighted && (
         <div 
@@ -279,7 +241,9 @@ function MethodNode(props: any) {
               onChange={handleNoteChange}
               onBlur={handleNoteBlur}
               onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
               placeholder="Add note..."
+              className="nodrag nopan"
               style={{
                 width: '100%',
                 minHeight: '50px',
@@ -289,11 +253,12 @@ function MethodNode(props: any) {
                 borderRadius: 6,
                 background: 'rgba(255, 255, 255, 0.9)',
                 color: '#334155',
-                resize: 'vertical',
+                resize: 'both',
                 fontFamily: 'inherit',
                 lineHeight: 1.4,
                 boxSizing: 'border-box',
                 outline: 'none',
+                overflow: 'auto',
               }}
             />
           ) : (
@@ -309,7 +274,7 @@ function MethodNode(props: any) {
                 cursor: 'text',
               }}
             >
-              {hasNote ? firstLine : '...'}
+              {hasNote ? firstLine : 'Click to add note...'}
             </div>
           )}
         </div>
@@ -411,6 +376,8 @@ function PersonalizedNode(props: any) {
         value={data.userNotes || ''}
         onChange={handleNotesChange}
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="nodrag nopan"
         style={{
           width: 240,
           minHeight: 90,
@@ -420,17 +387,178 @@ function PersonalizedNode(props: any) {
           border: '1px solid #e2e8f0',
           background: 'rgba(255, 255, 255, 0.95)',
           color: '#334155',
-          resize: 'vertical',
+          resize: 'both',
           fontFamily: 'inherit',
           lineHeight: 1.5,
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
+          overflow: 'auto',
         }}
       />
     </div>
   );
 }
 
-const nodeTypes = { method: MethodNode, personalizedNode: PersonalizedNode };
+// Path Title Node - displays path name and path-level notes
+// This node appears at the top of the path hierarchy
+function PathTitleNode(props: any) {
+  const data = props.data as {
+    pathName: string;
+    pathNotes: string;
+    onPathNotesChange: (notes: string) => void;
+    isEditing: boolean;
+    onStartEdit: () => void;
+    onStopEdit: () => void;
+  };
+  
+  const [localNotes, setLocalNotes] = useState(data.pathNotes || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Sync local notes with prop when it changes externally
+  useEffect(() => {
+    setLocalNotes(data.pathNotes || '');
+  }, [data.pathNotes]);
+  
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
+    const newValue = e.target.value;
+    setLocalNotes(newValue);
+    if (data.onPathNotesChange) {
+      data.onPathNotesChange(newValue);
+    }
+  };
+  
+  const handleNotesBlur = () => {
+    if (data.onStopEdit) {
+      data.onStopEdit();
+    }
+  };
+  
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!data.isEditing && data.onStartEdit) {
+      data.onStartEdit();
+    }
+  };
+  
+  // Prevent canvas drag when interacting with textarea resize handle
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+  
+  // Get first line for preview
+  const firstLine = (data.pathNotes || '').split('\n')[0];
+  const hasNotes = !!(data.pathNotes && data.pathNotes.trim());
+  
+  return (
+    <div
+      style={{
+        padding: '16px 18px',
+        fontSize: 14,
+        borderRadius: 16,
+        background: 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)',
+        color: '#1e40af',
+        border: '2px solid rgba(59, 130, 246, 0.4)',
+        minWidth: 200,
+        maxWidth: 320,
+        boxShadow: '0 4px 16px rgba(59, 130, 246, 0.15), 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1)',
+        position: 'relative',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      {/* Path name title */}
+      <div style={{ 
+        fontWeight: 700, 
+        fontSize: 15, 
+        marginBottom: 10, 
+        textAlign: 'center',
+        color: '#1e40af',
+        borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+        paddingBottom: 8,
+      }}>
+        📋 {data.pathName}
+      </div>
+      
+      {/* Path notes area */}
+      <div 
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        style={{ 
+          marginTop: 4,
+        }}
+      >
+        {data.isEditing ? (
+          <textarea
+            ref={textareaRef}
+            autoFocus
+            value={localNotes}
+            onChange={handleNotesChange}
+            onBlur={handleNotesBlur}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            placeholder="Add path notes..."
+            className="nodrag nopan"
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '10px 12px',
+              fontSize: 12,
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.95)',
+              color: '#334155',
+              resize: 'both',
+              fontFamily: 'inherit',
+              lineHeight: 1.5,
+              boxSizing: 'border-box',
+              outline: 'none',
+              overflow: 'auto',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              fontSize: 11,
+              color: hasNotes ? '#334155' : '#64748b',
+              fontStyle: hasNotes ? 'normal' : 'italic',
+              textAlign: 'center',
+              padding: '8px 12px',
+              background: 'rgba(255, 255, 255, 0.6)',
+              borderRadius: 8,
+              cursor: 'text',
+              minHeight: 40,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {hasNotes ? (
+              <span style={{ 
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                display: 'block',
+                width: '100%',
+              }}>
+                {firstLine}
+              </span>
+            ) : (
+              'Click to add path notes...'
+            )}
+          </div>
+        )}
+      </div>
+      
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: '#3b82f6', opacity: 0.8, width: 8, height: 8 }}
+        isConnectable={false}
+      />
+    </div>
+  );
+}
+
+const nodeTypes = { method: MethodNode, personalizedNode: PersonalizedNode, pathTitle: PathTitleNode };
 
 type PathRow = {
   id: string;
@@ -439,7 +567,6 @@ type PathRow = {
   category?: string;
   subcategory?: string;
   subsubcategory?: string;
-  notes?: string;
 };
 
 // Helper to get unique categories from paths
@@ -517,23 +644,20 @@ function DiagramContent() {
   const [notesPanelSize, setNotesPanelSize] = useState({ width: 280, height: 450 });
   const [showNotesPanel, setShowNotesPanel] = useState(false);
   const [notesPathName, setNotesPathName] = useState<string | null>(null);
-  const [pathNotesBoxPos, setPathNotesBoxPos] = useState<{ x: number; y: number } | null>(null);
-  const [pathNotesBoxSize, setPathNotesBoxSize] = useState({ width: 200, height: 80 });
-  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | 'notes' | 'pathNotesBox' | null>(null);
-  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info' | 'notes' | 'pathNotesBox'; edge: string } | null>(null);
+  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | 'notes' | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info' | 'notes'; edge: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0, x: 0, y: 0 });
   
   // Inline note editing state
   const [editingNoteNodeId, setEditingNoteNodeId] = useState<string | null>(null);
   
-  // Path-level notes state
-  const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
-  const [editingPathNotes, setEditingPathNotes] = useState<'top' | 'bottom' | 'panel' | null>(null);
+  // Path title node editing state
+  const [editingPathNotes, setEditingPathNotes] = useState(false);
+  const [pathNotes, setPathNotes] = useState('');
   
   // Temp path tracking for auto-save
   const [tempPathId, setTempPathId] = useState<string | null>(null);
-  const tempPathCreatingRef = useRef<boolean>(false); // Prevent multiple temp path creations
   const [tempPathName, setTempPathName] = useState<string | null>(null);
   
   const { fitView } = useReactFlow();
@@ -576,11 +700,6 @@ function DiagramContent() {
           x: Math.max(0, e.clientX - dragOffset.x),
           y: Math.max(0, e.clientY - dragOffset.y),
         });
-      } else if (isDraggingPanel === 'pathNotesBox') {
-        setPathNotesBoxPos({
-          x: Math.max(0, e.clientX - dragOffset.x),
-          y: Math.max(0, e.clientY - dragOffset.y),
-        });
       }
       
       if (resizeEdge) {
@@ -588,36 +707,28 @@ function DiagramContent() {
         const deltaX = e.clientX - resizeStart.mouseX;
         const deltaY = e.clientY - resizeStart.mouseY;
         
-        const minW = panel === 'left' ? 180 : panel === 'notes' ? 220 : panel === 'pathNotesBox' ? 150 : 280;
-        const minH = panel === 'pathNotesBox' ? 60 : 200;
+        const setPos = panel === 'left' ? setLeftPanelPos : panel === 'info' ? setInfoPanelPos : setNotesPanelPos;
+        const setSize = panel === 'left' ? setLeftPanelSize : panel === 'info' ? setInfoPanelSize : setNotesPanelSize;
+        const minW = panel === 'left' ? 180 : panel === 'notes' ? 220 : 280;
+        const minH = 200;
         
         if (edge.includes('e')) {
-          if (panel === 'left') setLeftPanelSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
-          else if (panel === 'info') setInfoPanelSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
-          else if (panel === 'notes') setNotesPanelSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
-          else setPathNotesBoxSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
+          setSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
         }
         if (edge.includes('w')) {
           const newWidth = Math.max(minW, resizeStart.width - deltaX);
           const newX = resizeStart.x + (resizeStart.width - newWidth);
-          if (panel === 'left') { setLeftPanelSize(prev => ({ ...prev, width: newWidth })); setLeftPanelPos(prev => ({ ...prev, x: Math.max(0, newX) })); }
-          else if (panel === 'info') { setInfoPanelSize(prev => ({ ...prev, width: newWidth })); setInfoPanelPos(prev => ({ ...prev, x: Math.max(0, newX) })); }
-          else if (panel === 'notes') { setNotesPanelSize(prev => ({ ...prev, width: newWidth })); setNotesPanelPos(prev => ({ ...prev, x: Math.max(0, newX) })); }
-          else { setPathNotesBoxSize(prev => ({ ...prev, width: newWidth })); setPathNotesBoxPos(prev => prev ? { ...prev, x: Math.max(0, newX) } : null); }
+          setSize(prev => ({ ...prev, width: newWidth }));
+          setPos(prev => ({ ...prev, x: Math.max(0, newX) }));
         }
         if (edge.includes('s')) {
-          if (panel === 'left') setLeftPanelSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
-          else if (panel === 'info') setInfoPanelSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
-          else if (panel === 'notes') setNotesPanelSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
-          else setPathNotesBoxSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
+          setSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
         }
         if (edge.includes('n')) {
           const newHeight = Math.max(minH, resizeStart.height - deltaY);
           const newY = resizeStart.y + (resizeStart.height - newHeight);
-          if (panel === 'left') { setLeftPanelSize(prev => ({ ...prev, height: newHeight })); setLeftPanelPos(prev => ({ ...prev, y: Math.max(0, newY) })); }
-          else if (panel === 'info') { setInfoPanelSize(prev => ({ ...prev, height: newHeight })); setInfoPanelPos(prev => ({ ...prev, y: Math.max(0, newY) })); }
-          else if (panel === 'notes') { setNotesPanelSize(prev => ({ ...prev, height: newHeight })); setNotesPanelPos(prev => ({ ...prev, y: Math.max(0, newY) })); }
-          else { setPathNotesBoxSize(prev => ({ ...prev, height: newHeight })); setPathNotesBoxPos(prev => prev ? { ...prev, y: Math.max(0, newY) } : null); }
+          setSize(prev => ({ ...prev, height: newHeight }));
+          setPos(prev => ({ ...prev, y: Math.max(0, newY) }));
         }
       }
     };
@@ -638,7 +749,7 @@ function DiagramContent() {
   }, [isDraggingPanel, resizeEdge, dragOffset, resizeStart]);
 
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlQ5lLsgbTYVgtGzrU8KXN9RI31UKV-JSIJV7xfcsXJMWw2pEmMKsKnWOIlE1_L-LnhQ/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEdi6EMynx4G9b8FKhC9i7GcxKMtSJVkGjCmWWryz49B9UIGlMdrcpOJfFzPxbW3JVGQ/exec';
 
   const highlightColor = HIGHLIGHT_COLOR;
 
@@ -694,6 +805,56 @@ function DiagramContent() {
   const handleStopEditNote = useCallback(() => {
     setEditingNoteNodeId(null);
   }, []);
+
+  // Handlers for path notes editing
+  const handleStartEditPathNotes = useCallback(() => {
+    setEditingPathNotes(true);
+  }, []);
+
+  const handleStopEditPathNotes = useCallback(() => {
+    setEditingPathNotes(false);
+  }, []);
+
+  const handlePathNotesChange = useCallback((notes: string) => {
+    setPathNotes(notes);
+    
+    // Also update sidebarNodeContent and nodePathMap with special key for path notes
+    const pathNotesKey = '__path_notes__';
+    setSidebarNodeContent(prev => ({ ...prev, [pathNotesKey]: notes }));
+    
+    const pathIdToUse = activePathIdRef.current || tempPathId;
+    if (pathIdToUse) {
+      setNodePathMap(prev => ({
+        ...prev,
+        [pathIdToUse]: {
+          ...(prev[pathIdToUse] || {}),
+          [pathNotesKey]: notes,
+        },
+      }));
+      
+      // Auto-save with debounce
+      if (debounceTimerRef.current[pathNotesKey]) {
+        clearTimeout(debounceTimerRef.current[pathNotesKey]);
+      }
+      debounceTimerRef.current[pathNotesKey] = setTimeout(async () => {
+        try {
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'saveNodeContent',
+              pathId: pathIdToUse,
+              nodeId: pathNotesKey,
+              content: notes,
+            }),
+          });
+        } catch (error) {
+          console.error('Error saving path notes:', error);
+        }
+      }, 1000);
+    }
+  }, [tempPathId, GOOGLE_SCRIPT_URL]);
 
   const handleNodeNoteChange = useCallback((nodeId: string, note: string) => {
     handleInlineNoteChangeRef.current(nodeId, note);
@@ -794,24 +955,20 @@ function DiagramContent() {
     if (activePathId || tempPathId) return tempPathId;
     if (manualHighlights.size === 0) return null;
     
-    // Prevent multiple simultaneous temp path creations
-    if (tempPathCreatingRef.current) return null;
-    tempPathCreatingRef.current = true;
-    
     const newTempName = generateTempPathName();
     const newTempId = generatePathId(newTempName);
-    const nodeIds = formatNodeIdsForSheet(manualHighlights);
+    const nodeIds = Array.from(manualHighlights).join(', ');
     
     try {
-      // Save temp path to Google Sheets - use forceTextForSheet to prevent date/number interpretation
+      // Save temp path to Google Sheets
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'savePath',
-          pathId: forceTextForSheet(newTempId),
-          pathName: forceTextForSheet(newTempName),
+          pathId: newTempId,
+          pathName: newTempName,
           nodeIds: nodeIds,
           category: '',
           subcategory: '',
@@ -821,7 +978,6 @@ function DiagramContent() {
       
       setTempPathId(newTempId);
       setTempPathName(newTempName);
-      tempPathCreatingRef.current = false;
       
       // Add to local paths list
       setPathsList(prev => [...prev, {
@@ -840,46 +996,9 @@ function DiagramContent() {
       return newTempId;
     } catch (error) {
       console.error('Error creating temp path:', error);
-      tempPathCreatingRef.current = false;
       return null;
     }
   }, [activePathId, tempPathId, manualHighlights, GOOGLE_SCRIPT_URL]);
-
-  // Handler for path-level notes with debounced auto-save
-  const handlePathNotesChange = useCallback(async (notes: string) => {
-    let pathIdToUse = activePathId || tempPathId;
-    
-    // If no path exists, create a temp path first
-    if (!pathIdToUse && manualHighlights.size > 0) {
-      pathIdToUse = await createTempPathIfNeeded();
-    }
-    
-    if (!pathIdToUse) return;
-    
-    // Update local state
-    setPathNotes(prev => ({ ...prev, [pathIdToUse!]: notes }));
-    
-    // Debounced auto-save
-    if (debounceTimerRef.current['pathNotes']) {
-      clearTimeout(debounceTimerRef.current['pathNotes']);
-    }
-    debounceTimerRef.current['pathNotes'] = setTimeout(async () => {
-      try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'savePathNotes',
-            pathId: pathIdToUse,
-            notes: notes,
-          }),
-        });
-      } catch (error) {
-        console.error('Error saving path notes:', error);
-      }
-    }, 1000);
-  }, [activePathId, tempPathId, manualHighlights, createTempPathIfNeeded, GOOGLE_SCRIPT_URL]);
 
   // Delete temp path (called when user manually saves)
   const deleteTempPath = useCallback(async () => {
@@ -965,14 +1084,25 @@ function DiagramContent() {
   }, [handleInlineNoteChange]);
 
   // Sync nodes with inline note editing state and note content
-  // Also triggers when dataLoading becomes false to ensure callbacks are attached after initial load
   useEffect(() => {
-    setNodes((nds) => {
-      // Don't update if no nodes yet
-      if (nds.length === 0) return nds;
-      
-      return nds.map((n) => {
+    setNodes((nds) =>
+      nds.map((n) => {
         if (n.id.startsWith('personalized-')) return n;
+        
+        // Handle path title nodes specially
+        if (n.type === 'pathTitle') {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              pathNotes: pathNotes,
+              onPathNotesChange: handlePathNotesChange,
+              isEditing: editingPathNotes,
+              onStartEdit: handleStartEditPathNotes,
+              onStopEdit: handleStopEditPathNotes,
+            },
+          };
+        }
         
         // Get note content from sidebar content or nodePathMap
         const pathIdForNotes = activePathId || tempPathId;
@@ -990,9 +1120,9 @@ function DiagramContent() {
             onStopEditNote: handleStopEditNote,
           },
         };
-      });
-    });
-  }, [editingNoteNodeId, sidebarNodeContent, activePathId, tempPathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote, dataLoading]);
+      })
+    );
+  }, [editingNoteNodeId, sidebarNodeContent, activePathId, tempPathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote, pathNotes, editingPathNotes, handlePathNotesChange, handleStartEditPathNotes, handleStopEditPathNotes]);
 
   // Save path to Google Sheets via Google Apps Script
   const savePath = async () => {
@@ -1006,19 +1136,16 @@ function DiagramContent() {
     }
 
     const pathId = generatePathId(pathName.trim());
-    const nodeIds = formatNodeIdsForSheet(manualHighlights);
+    const nodeIds = Array.from(manualHighlights).join(', ');
     setSaveStatus('saving');
 
     try {
-      // Get the old temp path ID before deleting (for transferring notes)
-      const oldTempPathId = tempPathId;
-      
       // Delete temp path if it exists (user is manually saving)
       if (tempPathId) {
         await deleteTempPath();
       }
       
-      // Save the path with category info - use forceTextForSheet for pathName to prevent date interpretation
+      // Save the path with category info
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors', // Google Apps Script requires no-cors
@@ -1027,20 +1154,19 @@ function DiagramContent() {
         },
         body: JSON.stringify({
           action: 'savePath',
-          pathId: forceTextForSheet(pathId),
-          pathName: forceTextForSheet(pathName.trim()),
+          pathId: pathId,
+          pathName: pathName.trim(),
           nodeIds: nodeIds,
           category: saveCategory.trim() || '',
           subcategory: saveSubcategory.trim() || '',
           subsubcategory: saveSubsubcategory.trim() || '',
-          notes: pathNotes[oldTempPathId || ''] || pathNotes[activePathId || ''] || '',
         }),
       });
 
-      // Transfer node notes from temp path to new path
-      const sourcePathId = oldTempPathId || activePathId;
-      if (sourcePathId && (nodePathMap[sourcePathId] || Object.keys(sidebarNodeContent).length > 0)) {
-        const sourceContent = nodePathMap[sourcePathId] || {};
+      // If we have an active path with node content, copy that content to the new path
+      // This handles the "copy path" scenario when user modifies the name
+      if (activePathId && nodePathMap[activePathId]) {
+        const sourceContent = nodePathMap[activePathId];
         
         // Build a batch of all node content to copy in a single request
         const nodeContentBatch: Array<{nodeId: string; content: string}> = [];
@@ -1061,7 +1187,7 @@ function DiagramContent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'batchSaveNodeContent',
-              pathId: forceTextForSheet(pathId),
+              pathId: pathId,
               nodeContents: nodeContentBatch,
             }),
           });
@@ -1076,14 +1202,6 @@ function DiagramContent() {
             [pathId]: copiedContent,
           }));
         }
-      }
-      
-      // Transfer path notes from temp path to new path
-      if (sourcePathId && pathNotes[sourcePathId]) {
-        setPathNotes(prev => ({
-          ...prev,
-          [pathId]: prev[sourcePathId] || '',
-        }));
       }
 
       // With no-cors, we can't read the response, so we assume success
@@ -1229,7 +1347,7 @@ function DiagramContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'savePath',
-          pathId: forceTextForSheet(placeholderId),
+          pathId: placeholderId,
           pathName: '', // Empty name indicates placeholder
           nodeIds: '',
           category: category,
@@ -1579,11 +1697,8 @@ function DiagramContent() {
         const list: PathRow[] = rows
           .map((row) => {
             // Handle various column name possibilities
-            let id = (row['id'] || row['Id'] || row['ID'] || '').toString().trim();
-            let name = (row['name'] || row['Name'] || row['NAME'] || '').toString().trim();
-            // Remove leading single quote if present (from forceTextForSheet)
-            if (id.startsWith("'")) id = id.slice(1);
-            if (name.startsWith("'")) name = name.slice(1);
+            const id = (row['id'] || row['Id'] || row['ID'] || '').toString().trim();
+            const name = (row['name'] || row['Name'] || row['NAME'] || '').toString().trim();
             const nodeIdsRaw = (row['nodeIds'] || row['NodeIds'] || row['nodeids'] || row['node_ids'] || '').toString();
             const nodeIds = nodeIdsRaw
               .split(',')
@@ -1592,22 +1707,16 @@ function DiagramContent() {
             const category = (row['category'] || row['Category'] || '').toString().trim() || undefined;
             const subcategory = (row['subcategory'] || row['Subcategory'] || row['subCategory'] || '').toString().trim() || undefined;
             const subsubcategory = (row['subsubcategory'] || row['Subsubcategory'] || row['subSubcategory'] || '').toString().trim() || undefined;
-            const notes = (row['notes'] || row['Notes'] || '').toString().trim() || undefined;
-            return { id, name, nodeIds, category, subcategory, subsubcategory, notes };
+            return { id, name, nodeIds, category, subcategory, subsubcategory };
           })
           .filter((row) => row.name && row.nodeIds.length); // Only require name and nodeIds, id can be empty for legacy rows
         
         const map: Record<string, string[]> = {};
-        const notesMap: Record<string, string> = {};
         list.forEach((row) => {
           map[row.name] = row.nodeIds;
-          if (row.notes && row.id) {
-            notesMap[row.id] = row.notes;
-          }
         });
         setPathsList(list);
         setPathsMap(map);
-        setPathNotes(notesMap);
       } catch {
         setPathsList([]);
         setPathsMap({});
@@ -1660,48 +1769,6 @@ function DiagramContent() {
     loadNodePaths();
   }, []);
 
-  // Auto-save path nodes when they change (for active saved paths)
-  const updatePathNodesRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const updatePathNodes = useCallback(async (pathId: string, pathName: string, nodeIds: Set<string>) => {
-    if (!pathId || nodeIds.size === 0) return;
-    
-    // Debounce to avoid too many saves on rapid clicking
-    if (updatePathNodesRef.current) {
-      clearTimeout(updatePathNodesRef.current);
-    }
-    
-    updatePathNodesRef.current = setTimeout(async () => {
-      const nodeIdsStr = formatNodeIdsForSheet(nodeIds);
-      
-      try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'updatePathNodes',
-            pathId: forceTextForSheet(pathId),
-            pathName: forceTextForSheet(pathName),
-            nodeIds: nodeIdsStr,
-          }),
-        });
-        
-        // Update local state
-        const nodeIdsArray = Array.from(nodeIds);
-        setPathsList(prev => prev.map(p => 
-          p.id === pathId ? { ...p, nodeIds: nodeIdsArray } : p
-        ));
-        setPathsMap(prev => ({
-          ...prev,
-          [pathName]: nodeIdsArray,
-        }));
-      } catch (error) {
-        console.error('Error updating path nodes:', error);
-      }
-    }, 500); // 500ms debounce
-  }, [GOOGLE_SCRIPT_URL]);
-
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
       // Close any open popup when clicking a node
@@ -1710,6 +1777,9 @@ function DiagramContent() {
       // Only toggle selection, don't show popup (popup is triggered by info button)
       // Skip personalized nodes from toggling
       if (node.id.startsWith('personalized-')) return;
+      
+      // Block manual selection when a path is loaded - must use Reset View first
+      if (activePath) return;
       
       setManualHighlights((prev) => {
         const next = new Set(prev);
@@ -1731,19 +1801,10 @@ function DiagramContent() {
             };
           })
         );
-        
-        // Auto-save node changes if an active saved path is loaded (not a temp path)
-        if (activePath && activePathId && !activePathId.startsWith('temp_')) {
-          // Use setTimeout to ensure state is updated before saving
-          setTimeout(() => {
-            updatePathNodes(activePathId, activePath, next);
-          }, 0);
-        }
-        
         return next;
       });
     },
-    [setNodes, enforceRootHidden, activePath, activePathId, updatePathNodes]
+    [setNodes, enforceRootHidden, activePath]
   );
 
   const personalizeSelection = () => {
@@ -1835,14 +1896,23 @@ function DiagramContent() {
     }
     setActivePath(pathName);
     // Use id if available, otherwise fallback to name as identifier
-    setActivePathId(pathRow.id || pathRow.name);
+    const pathId = pathRow.id || pathRow.name;
+    setActivePathId(pathId);
     setSidebarNodeContent({}); // Reset content when switching paths
     setPathName(pathName); // Populate path name input with loaded path name
-    setPathNotesBoxPos(null); // Reset path notes box position when switching paths
+    
+    // Load path notes from nodePathMap
+    const loadedPathNotes = nodePathMap[pathId]?.['__path_notes__'] || '';
+    setPathNotes(loadedPathNotes);
+    setEditingPathNotes(false);
+    
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
     setNodes((nds) => {
-      const updated = enforceRootHidden(nds).map((n) => {
+      // Remove any existing path title nodes
+      const filteredNodes = nds.filter(n => n.type !== 'pathTitle');
+      
+      const updated = enforceRootHidden(filteredNodes).map((n) => {
         const isActive = pathNodes.includes(n.id);
         return {
           ...n,
@@ -1852,17 +1922,73 @@ function DiagramContent() {
           },
         };
       });
-      return getLayoutedNodes(updated, edges);
+      
+      // Find the root nodes of the path (nodes with no parent in the path)
+      const pathEdges = edges.filter(e => pathNodes.includes(e.source) && pathNodes.includes(e.target));
+      const targetsInPath = new Set(pathEdges.map(e => e.target));
+      const rootPathNodes = pathNodes.filter(id => !targetsInPath.has(id));
+      
+      // Get position for path title node (above the first root node)
+      const firstRootNode = updated.find(n => rootPathNodes.includes(n.id));
+      const titleNodePosition = firstRootNode 
+        ? { x: firstRootNode.position.x, y: firstRootNode.position.y - 160 }
+        : { x: 0, y: -160 };
+      
+      // Create the path title node
+      const pathTitleNode: Node = {
+        id: `__path_title_${pathId}__`,
+        type: 'pathTitle',
+        position: titleNodePosition,
+        data: {
+          pathName: pathName,
+          pathNotes: loadedPathNotes,
+          onPathNotesChange: handlePathNotesChange,
+          isEditing: false,
+          onStartEdit: handleStartEditPathNotes,
+          onStopEdit: handleStopEditPathNotes,
+        },
+        draggable: true,
+        selectable: false,
+        hidden: false,
+      };
+      
+      const layoutedNodes = getLayoutedNodes([...updated], edges);
+      
+      // Re-position path title node above the first root after layout
+      const layoutedFirstRoot = layoutedNodes.find(n => rootPathNodes.includes(n.id));
+      if (layoutedFirstRoot) {
+        pathTitleNode.position = {
+          x: layoutedFirstRoot.position.x,
+          y: layoutedFirstRoot.position.y - 160,
+        };
+      }
+      
+      return [pathTitleNode, ...layoutedNodes];
     });
-    setTimeout(() => {
-      fitView({ 
-        duration: 500,
-        padding: 0.2,
-      });
-    }, 100);
-    // Reset all edges: only highlight this path's edges
-    setEdges((eds: Edge[]) =>
-      eds.map((e: Edge) => {
+    
+    // Create edge from path title to first root node
+    setEdges((eds: Edge[]) => {
+      // Find root nodes of the path
+      const pathEdges = eds.filter(e => pathNodes.includes(e.source) && pathNodes.includes(e.target));
+      const targetsInPath = new Set(pathEdges.map(e => e.target));
+      const rootPathNodes = pathNodes.filter(id => !targetsInPath.has(id));
+      
+      // Remove any existing path title edges
+      const filteredEdges = eds.filter(e => !e.id.startsWith('__path_title_edge'));
+      
+      // Create edges from path title to root nodes
+      const pathTitleEdges: Edge[] = rootPathNodes.map(rootId => ({
+        id: `__path_title_edge_${rootId}__`,
+        source: `__path_title_${pathId}__`,
+        target: rootId,
+        style: {
+          stroke: highlightColor,
+          opacity: 1,
+          strokeWidth: 2.5,
+        },
+      }));
+      
+      const updatedEdges = filteredEdges.map((e: Edge) => {
         const isActive = pathNodes.includes(e.source) && pathNodes.includes(e.target);
         return {
           ...e,
@@ -1872,22 +1998,31 @@ function DiagramContent() {
             strokeWidth: isActive ? 2.5 : 1.5,
           },
         };
-      })
-    );
+      });
+      
+      return [...pathTitleEdges, ...updatedEdges];
+    });
+    
+    setTimeout(() => {
+      fitView({ 
+        duration: 500,
+        padding: 0.2,
+      });
+    }, 100);
   };
 
   const resetView = () => {
     setActivePath(null);
     setActivePathId(null);
-    setTempPathId(null); // Clear temp path so new selections start fresh
-    setTempPathName(null);
     setManualHighlights(new Set());
     setSidebarNodeContent({});
     setPathName(''); // Clear path name input
-    setPathNotesBoxPos(null); // Reset path notes box position
+    setPathNotes(''); // Clear path notes
+    setEditingPathNotes(false);
     
     setNodes((nds) =>
-      enforceRootHidden(nds).map((n) => ({
+      // Remove path title nodes and reset all other nodes
+      enforceRootHidden(nds.filter(n => n.type !== 'pathTitle')).map((n) => ({
         ...n,
         data: {
           ...n.data,
@@ -1896,9 +2031,9 @@ function DiagramContent() {
       }))
     );
 
-    // Reset edge styles
+    // Reset edge styles and remove path title edges
     setEdges((eds: Edge[]) =>
-      eds.map((e: Edge) => ({
+      eds.filter(e => !e.id.startsWith('__path_title_edge')).map((e: Edge) => ({
         ...e,
         style: {
           stroke: EDGE_COLOR,
@@ -1939,140 +2074,6 @@ function DiagramContent() {
       >
         <Controls />
         {/* <Background color="#222" gap={16} /> */}
-
-        {/* Path notes box - draggable and resizable, above first node */}
-        {(activePath || tempPathId) && manualHighlights.size > 0 && (() => {
-          // Get bounds of highlighted nodes
-          const highlightedNodes = nodes.filter(n => manualHighlights.has(n.id) && !n.hidden);
-          if (highlightedNodes.length === 0) return null;
-          
-          // Find the topmost node (first in the path visually)
-          const topNode = highlightedNodes.reduce((top, n) => n.position.y < top.position.y ? n : top, highlightedNodes[0]);
-          const nodeWidth = 180; // approximate node width
-          
-          // Default position: centered above the first/top node
-          const defaultX = topNode.position.x + (nodeWidth / 2) - (pathNotesBoxSize.width / 2);
-          const defaultY = topNode.position.y - pathNotesBoxSize.height - 20;
-          
-          // Use stored position or default
-          const boxX = pathNotesBoxPos?.x ?? defaultX;
-          const boxY = pathNotesBoxPos?.y ?? defaultY;
-          
-          const currentPathId = activePathId || tempPathId;
-          const currentNotes = pathNotes[currentPathId || ''] || '';
-          const previewText = currentNotes.split('\n').slice(0, 2).join('\n') || 'Click to add path notes...';
-          const isEditing = editingPathNotes === 'top';
-          
-          // When editing, expand width to 3x (600px)
-          const currentWidth = isEditing ? Math.max(pathNotesBoxSize.width, 500) : pathNotesBoxSize.width;
-          const currentHeight = isEditing ? Math.max(pathNotesBoxSize.height, 120) : pathNotesBoxSize.height;
-          
-          return (
-            <div
-              dir="ltr"
-              style={{
-                position: 'absolute',
-                left: boxX,
-                top: boxY,
-                width: currentWidth,
-                height: currentHeight,
-                padding: '8px 10px',
-                background: 'rgba(248, 250, 252, 0.95)',
-                border: '1px solid rgba(203, 213, 225, 0.5)',
-                borderRadius: '8px',
-                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
-                backdropFilter: 'blur(4px)',
-                zIndex: 5,
-                textAlign: 'left',
-                boxSizing: 'border-box',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Drag handle */}
-              <div
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // Initialize position if not set
-                  if (!pathNotesBoxPos) {
-                    setPathNotesBoxPos({ x: boxX, y: boxY });
-                  }
-                  setIsDraggingPanel('pathNotesBox');
-                  setDragOffset({ x: e.clientX - boxX, y: e.clientY - boxY });
-                }}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 20,
-                  cursor: 'grab',
-                  background: 'transparent',
-                  borderRadius: '8px 8px 0 0',
-                }}
-              />
-              
-              {/* Content */}
-              <div style={{ paddingTop: 8 }}>
-                {isEditing ? (
-                  <textarea
-                    dir="ltr"
-                    autoFocus
-                    value={currentNotes}
-                    onChange={(e) => handlePathNotesChange(e.target.value)}
-                    onBlur={() => setEditingPathNotes(null)}
-                    placeholder="Add path notes..."
-                    style={{
-                      width: '100%',
-                      height: currentHeight - 30,
-                      padding: '4px',
-                      fontSize: '11px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: '#334155',
-                      resize: 'none',
-                      fontFamily: 'inherit',
-                      lineHeight: 1.4,
-                      outline: 'none',
-                      textAlign: 'left',
-                      direction: 'ltr',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                ) : (
-                  <div
-                    onClick={() => setEditingPathNotes('top')}
-                    style={{
-                      fontSize: '10px',
-                      color: currentNotes ? '#334155' : '#94a3b8',
-                      fontStyle: currentNotes ? 'normal' : 'italic',
-                      cursor: 'text',
-                      overflow: 'hidden',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      lineHeight: 1.4,
-                      minHeight: '28px',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {previewText}
-                  </div>
-                )}
-              </div>
-              
-              {/* Resize handles - all edges */}
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 4, cursor: 'ns-resize' }} />
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 4, cursor: 'ns-resize' }} />
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', left: 0, top: 8, bottom: 8, width: 4, cursor: 'ew-resize' }} />
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', right: 0, top: 8, bottom: 8, width: 4, cursor: 'ew-resize' }} />
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', top: 0, left: 0, width: 8, height: 8, cursor: 'nwse-resize' }} />
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, cursor: 'nesw-resize' }} />
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 8, height: 8, cursor: 'nesw-resize' }} />
-              <div onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (!pathNotesBoxPos) setPathNotesBoxPos({ x: boxX, y: boxY }); setResizeEdge({ panel: 'pathNotesBox', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: currentWidth, height: currentHeight, x: boxX, y: boxY }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, cursor: 'nwse-resize' }} />
-            </div>
-          );
-        })()}
 
         {/* Left sidebar - draggable and resizable */}
         <div
@@ -3208,7 +3209,7 @@ function DiagramContent() {
         </div>
 
         {/* Notes Panel - shows when clicking info button on a path */}
-        {showNotesPanel && notesPathName && (activePathId || tempPathId) && (
+        {showNotesPanel && notesPathName && activePathId && (
           <div
             style={{
               position: 'absolute',
@@ -3309,12 +3310,10 @@ function DiagramContent() {
                     );
                   }
                   
-                  const currentPathIdForPanel = activePathId || tempPathId;
-                  
                   return sortedNodeIds.map((nodeId) => {
                     const node = nodes.find(n => n.id === nodeId);
                     const nodeData = node?.data as NodeData | undefined;
-                    const content = sidebarNodeContent[nodeId] ?? (currentPathIdForPanel ? nodePathMap[currentPathIdForPanel]?.[nodeId] || '' : '');
+                    const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
                     
                     return (
                       <div key={nodeId} style={{ marginBottom: '12px' }}>
@@ -3336,15 +3335,13 @@ function DiagramContent() {
                             const newContent = e.target.value;
                             setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
                             
-                            if (currentPathIdForPanel) {
-                              setNodePathMap(prev => ({
-                                ...prev,
-                                [currentPathIdForPanel]: {
-                                  ...(prev[currentPathIdForPanel] || {}),
-                                  [nodeId]: newContent,
-                                },
-                              }));
-                            }
+                            setNodePathMap(prev => ({
+                              ...prev,
+                              [activePathId]: {
+                                ...(prev[activePathId] || {}),
+                                [nodeId]: newContent,
+                              },
+                            }));
                             
                             if (debounceTimerRef.current[nodeId]) {
                               clearTimeout(debounceTimerRef.current[nodeId]);
@@ -3357,7 +3354,7 @@ function DiagramContent() {
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({
                                     action: 'saveNodeContent',
-                                    pathId: currentPathIdForPanel,
+                                    pathId: activePathId,
                                     nodeId: nodeId,
                                     content: newContent,
                                   }),
@@ -3367,6 +3364,8 @@ function DiagramContent() {
                               }
                             }, 1000);
                           }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="nodrag"
                           style={{
                             width: '100%',
                             minHeight: '60px',
@@ -3376,52 +3375,17 @@ function DiagramContent() {
                             borderRadius: '8px',
                             background: 'white',
                             color: '#334155',
-                            resize: 'vertical',
+                            resize: 'both',
                             fontFamily: 'inherit',
                             lineHeight: 1.4,
                             boxSizing: 'border-box',
+                            overflow: 'auto',
                           }}
                         />
                       </div>
                     );
                   });
                 })()}
-              </div>
-              
-              {/* Path-level notes section */}
-              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
-                <div style={{ 
-                  fontSize: '10px', 
-                  fontWeight: '600', 
-                  color: '#64748b',
-                  marginBottom: '6px',
-                }}>
-                  📋 Path Notes
-                </div>
-                <textarea
-                  dir="ltr"
-                  placeholder="Add path-level notes..."
-                  value={pathNotes[activePathId || tempPathId || ''] || ''}
-                  onClick={() => setEditingPathNotes('panel')}
-                  onBlur={() => setEditingPathNotes(null)}
-                  onChange={(e) => handlePathNotesChange(e.target.value)}
-                  style={{
-                    width: '100%',
-                    minHeight: editingPathNotes === 'panel' ? '100px' : '50px',
-                    padding: '8px 10px',
-                    fontSize: '11px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    background: 'white',
-                    color: '#334155',
-                    resize: 'vertical',
-                    fontFamily: 'inherit',
-                    lineHeight: 1.4,
-                    boxSizing: 'border-box',
-                    textAlign: 'left',
-                    direction: 'ltr',
-                  }}
-                />
               </div>
             </div>
           </div>
@@ -3654,6 +3618,8 @@ function DiagramContent() {
                 }
               }, 1000);
             }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="nodrag"
             style={{
               width: '100%',
               minHeight: '80px',
@@ -3663,10 +3629,11 @@ function DiagramContent() {
               borderRadius: '8px',
               background: 'white',
               color: '#334155',
-              resize: 'vertical',
+              resize: 'both',
               fontFamily: 'inherit',
               lineHeight: 1.5,
               boxSizing: 'border-box',
+              overflow: 'auto',
             }}
           />
         </div>
