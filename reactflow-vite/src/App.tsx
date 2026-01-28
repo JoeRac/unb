@@ -8,7 +8,6 @@ import {
   addSyncStatusListener,
   type SyncStatus,
   type PathRecord,
-  type NodePathRecord,
 } from './services/notion';
 
 // Dagre layout helper
@@ -52,8 +51,6 @@ function getLayoutedNodes(
 }
 import { useCallback, useEffect, useState, useRef } from 'react';
 import Papa from 'papaparse';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import {
   ReactFlow,
   Controls,
@@ -685,8 +682,8 @@ function DiagramContent() {
   const [nodePathMap, setNodePathMap] = useState<Record<string, Record<string, string>>>({});
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
-  const [pathName, setPathName] = useState('');
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [, setPathName] = useState('');
+  const [, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [sidebarNodeContent, setSidebarNodeContent] = useState<Record<string, string>>({});
   
   // Notion sync status (prefixed with _ since we're setting up the listener but UI not implemented yet)
@@ -697,9 +694,9 @@ function DiagramContent() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [selectedSubsubcategory, setSelectedSubsubcategory] = useState<string | null>(null);
-  const [saveCategory, setSaveCategory] = useState('');
-  const [saveSubcategory, setSaveSubcategory] = useState('');
-  const [saveSubsubcategory, setSaveSubsubcategory] = useState('');
+  const [, setSaveCategory] = useState('');
+  const [, setSaveSubcategory] = useState('');
+  const [, setSaveSubsubcategory] = useState('');
   const [draggedPath, setDraggedPath] = useState<string | null>(null);
   const [draggedCategory, setDraggedCategory] = useState<{name: string; level: 'category' | 'subcategory'} | null>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -738,6 +735,8 @@ function DiagramContent() {
   // Path-level notes state
   const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
   const [editingPathNotes, setEditingPathNotes] = useState<'panel' | 'node' | null>(null);
+  const [editingPathName, setEditingPathName] = useState<string | null>(null);
+  const [editingPathValue, setEditingPathValue] = useState('');
   
   // Path notes node ID (for the node that appears above the first node in a path)
   const PATH_NOTES_NODE_ID = '__path_notes__';
@@ -750,6 +749,8 @@ function DiagramContent() {
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const nodeFilterRef = useRef<HTMLDivElement>(null);
+  const notesPanelRef = useRef<HTMLDivElement>(null);
+  const infoPanelRef = useRef<HTMLDivElement>(null);
   
   // Subscribe to sync status updates from Notion service
   useEffect(() => {
@@ -772,6 +773,22 @@ function DiagramContent() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Close panels when clicking outside
+  useEffect(() => {
+    const handleOutsidePanels = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (showNotesPanel && notesPanelRef.current && !notesPanelRef.current.contains(target)) {
+        setShowNotesPanel(false);
+      }
+      if (selectedNode && infoPanelRef.current && !infoPanelRef.current.contains(target)) {
+        setSelectedNode(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsidePanels);
+    return () => document.removeEventListener('mousedown', handleOutsidePanels);
+  }, [showNotesPanel, selectedNode]);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -1054,43 +1071,6 @@ function DiagramContent() {
     }, 1000);
   }, [activePathId, tempPathId, manualHighlights, createTempPathIfNeeded, GOOGLE_SCRIPT_URL]);
 
-  // Delete temp path (called when user manually saves)
-  const deleteTempPath = useCallback(async () => {
-    if (!tempPathId || !tempPathName) return;
-    
-    try {
-      if (DATA_SOURCE === 'notion') {
-        // Delete from Notion
-        await notionService.deletePath(tempPathId);
-      } else {
-        // Legacy: Delete from Google Sheets
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'deletePath',
-            pathId: tempPathId,
-            pathName: tempPathName,
-          }),
-        });
-      }
-      
-      // Remove from local state
-      setPathsList(prev => prev.filter(p => p.name !== tempPathName));
-      setPathsMap(prev => {
-        const newMap = { ...prev };
-        delete newMap[tempPathName];
-        return newMap;
-      });
-      
-      setTempPathId(null);
-      setTempPathName(null);
-    } catch (error) {
-      console.error('Error deleting temp path:', error);
-    }
-  }, [tempPathId, tempPathName, GOOGLE_SCRIPT_URL]);
-
   // Handler for inline node note changes with debounced auto-save
   const handleInlineNoteChange = useCallback(async (nodeId: string, note: string) => {
     // Update sidebar content state
@@ -1212,241 +1192,6 @@ function DiagramContent() {
     });
   }, [editingPathNotes, pathNotes, activePathId, tempPathId, activePath, handlePathNotesStartEdit, handlePathNotesStopEdit, handlePathNotesChange]);
 
-  // Save path to storage (Notion or Google Sheets)
-  const savePath = async () => {
-    if (!pathName.trim()) {
-      alert('Please enter a path name');
-      return;
-    }
-    if (manualHighlights.size === 0) {
-      alert('No nodes selected');
-      return;
-    }
-
-    const pathId = generatePathId(pathName.trim());
-    const nodeIdsArray = Array.from(manualHighlights);
-    setSaveStatus('saving');
-
-    try {
-      // Get the old temp path ID before deleting (for transferring notes)
-      const oldTempPathId = tempPathId;
-      
-      // Delete temp path if it exists (user is manually saving)
-      if (tempPathId) {
-        await deleteTempPath();
-      }
-      
-      const pathNoteContent = pathNotes[oldTempPathId || ''] || pathNotes[activePathId || ''] || '';
-      
-      if (DATA_SOURCE === 'notion') {
-        // Save to Notion
-        await notionService.savePath({
-          id: pathId,
-          name: pathName.trim(),
-          nodeIds: nodeIdsArray,
-          category: saveCategory.trim() || undefined,
-          subcategory: saveSubcategory.trim() || undefined,
-          subsubcategory: saveSubsubcategory.trim() || undefined,
-          notes: pathNoteContent,
-        });
-        
-        // Transfer node notes from temp path to new path
-        const sourcePathId = oldTempPathId || activePathId;
-        if (sourcePathId && (nodePathMap[sourcePathId] || Object.keys(sidebarNodeContent).length > 0)) {
-          const sourceContent = nodePathMap[sourcePathId] || {};
-          const nodeContentBatch: NodePathRecord[] = [];
-          
-          for (const nodeId of manualHighlights) {
-            const content = sidebarNodeContent[nodeId] ?? sourceContent[nodeId];
-            if (content) {
-              nodeContentBatch.push({
-                id: `${pathId}_${nodeId}`,
-                pathId: pathId,
-                nodeId: nodeId,
-                content: content,
-              });
-            }
-          }
-          
-          if (nodeContentBatch.length > 0) {
-            await notionService.batchSaveNodePaths(nodeContentBatch);
-            
-            const copiedContent: Record<string, string> = {};
-            nodeContentBatch.forEach(({ nodeId, content }) => {
-              copiedContent[nodeId] = content;
-            });
-            setNodePathMap(prev => ({
-              ...prev,
-              [pathId]: copiedContent,
-            }));
-          }
-        }
-      } else {
-        // Legacy: Save to Google Sheets
-        const nodeIds = formatNodeIdsForSheet(manualHighlights);
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'savePath',
-            pathId: forceTextForSheet(pathId),
-            pathName: forceTextForSheet(pathName.trim()),
-            nodeIds: nodeIds,
-            category: saveCategory.trim() || '',
-            subcategory: saveSubcategory.trim() || '',
-            subsubcategory: saveSubsubcategory.trim() || '',
-            notes: pathNoteContent,
-          }),
-        });
-
-        // Transfer node notes from temp path to new path
-        const sourcePathId = oldTempPathId || activePathId;
-        if (sourcePathId && (nodePathMap[sourcePathId] || Object.keys(sidebarNodeContent).length > 0)) {
-          const sourceContent = nodePathMap[sourcePathId] || {};
-          const nodeContentBatch: Array<{nodeId: string; content: string}> = [];
-          
-          for (const nodeId of manualHighlights) {
-            const content = sidebarNodeContent[nodeId] ?? sourceContent[nodeId];
-            if (content) {
-              nodeContentBatch.push({ nodeId, content });
-            }
-          }
-          
-          if (nodeContentBatch.length > 0) {
-            await fetch(GOOGLE_SCRIPT_URL, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'batchSaveNodeContent',
-                pathId: forceTextForSheet(pathId),
-                nodeContents: nodeContentBatch,
-              }),
-            });
-            
-            const copiedContent: Record<string, string> = {};
-            nodeContentBatch.forEach(({ nodeId, content }) => {
-              copiedContent[nodeId] = content;
-            });
-            setNodePathMap(prev => ({
-              ...prev,
-              [pathId]: copiedContent,
-            }));
-          }
-        }
-      }
-      
-      // Transfer path notes from temp path to new path
-      const sourcePathId = oldTempPathId || activePathId;
-      if (sourcePathId && pathNotes[sourcePathId]) {
-        setPathNotes(prev => ({
-          ...prev,
-          [pathId]: prev[sourcePathId] || '',
-        }));
-      }
-
-      setSaveStatus('success');
-      
-      // Add the new path to local state immediately
-      const updatedAt = new Date().toISOString();
-      const newPathRow: PathRow = {
-        id: pathId,
-        name: pathName.trim(),
-        nodeIds: nodeIdsArray,
-        category: saveCategory.trim() || undefined,
-        subcategory: saveSubcategory.trim() || undefined,
-        subsubcategory: saveSubsubcategory.trim() || undefined,
-        dateUpdated: updatedAt,
-      };
-      setPathsList(prev => [...prev, newPathRow]);
-      setPathsMap(prev => ({
-        ...prev,
-        [pathName.trim()]: nodeIdsArray,
-      }));
-      setPathLastUpdated(prev => ({
-        ...prev,
-        [pathId]: Date.parse(updatedAt),
-      }));
-      
-      // Update the active path to the newly saved one
-      setActivePath(pathName.trim());
-      setActivePathId(pathId);
-      
-      // Reset status after 3 seconds
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch (error) {
-      console.error('Error saving path:', error);
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    }
-  };
-
-  // Delete path from storage (Notion or Google Sheets)
-  const deletePath = async () => {
-    if (!activePath) return;
-    
-    // Find the path ID for the active path
-    const pathRow = pathsList.find(p => p.name === activePath);
-    if (!pathRow) {
-      alert('Path not found');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to delete the path "${activePath}"?`)) {
-      return;
-    }
-
-    // Use id if available, otherwise use name as identifier
-    const pathIdToDelete = pathRow.id || pathRow.name;
-
-    setSaveStatus('saving');
-
-    try {
-      if (DATA_SOURCE === 'notion') {
-        await notionService.deletePath(pathIdToDelete);
-      } else {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'deletePath',
-            pathId: pathIdToDelete,
-            pathName: pathRow.name,
-          }),
-        });
-      }
-
-      setSaveStatus('success');
-      setActivePath(null);
-      setActivePathId(null);
-      setSidebarNodeContent({});
-      setManualHighlights(new Set());
-      
-      // Also remove from local state immediately
-      setPathsList(prev => prev.filter(p => p.name !== activePath));
-      setPathsMap(prev => {
-        const newMap = { ...prev };
-        delete newMap[activePath];
-        return newMap;
-      });
-      
-      // Clear highlighting
-      setNodes((nds) =>
-        enforceRootHidden(nds).map((n) => ({
-          ...n,
-          data: { ...n.data, isHighlighted: false },
-        }))
-      );
-      
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch (error) {
-      console.error('Error deleting path:', error);
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    }
-  };
 
   // Rename a path (with debounced auto-save)
   const renamePath = useCallback(async (oldName: string, newName: string) => {
@@ -1477,7 +1222,7 @@ function DiagramContent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'renamePath',
-              pathId: pathRow.id,
+              pathId: pathRow.id || oldName,
               oldName: oldName,
               newName: newName,
             }),
@@ -1508,6 +1253,101 @@ function DiagramContent() {
         console.error('Error renaming path:', error);
       }
     }, 1000);
+  }, [pathsList, activePath, notesPathName, GOOGLE_SCRIPT_URL]);
+
+  const startEditingPath = useCallback((pathName: string) => {
+    setEditingPathName(pathName);
+    setEditingPathValue(pathName);
+  }, []);
+
+  const commitPathRename = useCallback(() => {
+    if (!editingPathName) return;
+    const trimmed = editingPathValue.trim();
+    if (trimmed && trimmed !== editingPathName) {
+      renamePath(editingPathName, trimmed);
+    }
+    setEditingPathName(null);
+    setEditingPathValue('');
+  }, [editingPathName, editingPathValue, renamePath]);
+
+  const cancelPathRename = useCallback(() => {
+    setEditingPathName(null);
+    setEditingPathValue('');
+  }, []);
+
+  const deletePathByName = useCallback(async (pathNameToDelete: string) => {
+    const pathRow = pathsList.find(p => p.name === pathNameToDelete);
+    if (!pathRow) return;
+
+    if (!confirm(`Are you sure you want to delete the path "${pathNameToDelete}"?`)) {
+      return;
+    }
+
+    const pathIdToDelete = pathRow.id || pathRow.name;
+    setSaveStatus('saving');
+
+    try {
+      if (DATA_SOURCE === 'notion') {
+        await notionService.deletePath(pathIdToDelete);
+      } else {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'deletePath',
+            pathId: pathIdToDelete,
+            pathName: pathRow.name,
+          }),
+        });
+      }
+
+      setSaveStatus('success');
+      setPathsList(prev => prev.filter(p => p.name !== pathNameToDelete));
+      setPathsMap(prev => {
+        const newMap = { ...prev };
+        delete newMap[pathNameToDelete];
+        return newMap;
+      });
+      setPathNotes(prev => {
+        const next = { ...prev };
+        delete next[pathIdToDelete];
+        return next;
+      });
+      setNodePathMap(prev => {
+        const next = { ...prev };
+        delete next[pathIdToDelete];
+        return next;
+      });
+      setPathLastUpdated(prev => {
+        const next = { ...prev };
+        delete next[pathIdToDelete];
+        return next;
+      });
+
+      if (activePath === pathNameToDelete) {
+        setActivePath(null);
+        setActivePathId(null);
+        setSidebarNodeContent({});
+        setManualHighlights(new Set());
+        setNodes((nds) =>
+          enforceRootHidden(nds).map((n) => ({
+            ...n,
+            data: { ...n.data, isHighlighted: false },
+          }))
+        );
+      }
+      if (notesPathName === pathNameToDelete) {
+        setShowNotesPanel(false);
+        setNotesPathName(null);
+      }
+
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (error) {
+      console.error('Error deleting path:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
   }, [pathsList, activePath, notesPathName, GOOGLE_SCRIPT_URL]);
 
   // Update path category (for drag and drop)
@@ -1599,44 +1439,6 @@ function DiagramContent() {
       setPathsList(prev => [...prev, newPlaceholder]);
     } catch (error) {
       console.error('Error saving category:', error);
-    }
-  };
-
-  const exportToPDF = async () => {
-    if (!flowRef.current) return;
-    
-    try {
-      // Find the viewport element for better capture
-      const viewport = flowRef.current.querySelector('.react-flow__viewport') as HTMLElement;
-      const targetElement = viewport || flowRef.current;
-      
-      const canvas = await html2canvas(targetElement, {
-        backgroundColor: '#fafbfc',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        onclone: (clonedDoc) => {
-          // Ensure styles are preserved in the clone
-          const clonedNodes = clonedDoc.querySelectorAll('.react-flow__node');
-          clonedNodes.forEach((node) => {
-            const el = node as HTMLElement;
-            el.style.opacity = '1';
-          });
-        },
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-        unit: 'px',
-        format: [canvas.width, canvas.height],
-      });
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      pdf.save('diagram-export.pdf');
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
     }
   };
 
@@ -3239,40 +3041,109 @@ function DiagramContent() {
                           marginBottom: '5px',
                         }}
                       >
-                        <button
-                          draggable
-                          onDragStart={() => setDraggedPath(path.name)}
-                          onDragEnd={() => setDraggedPath(null)}
-                          onClick={() => showPath(path.name)}
-                          style={{
-                            flex: 1,
-                            padding: '9px 10px',
-                            background: activePath === path.name 
-                              ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                              : 'rgba(255,255,255,0.6)',
-                            color: activePath === path.name ? '#1d4ed8' : '#475569',
-                            border: activePath === path.name 
-                              ? '1px solid rgba(59, 130, 246, 0.3)' 
-                              : '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            cursor: 'grab',
-                            fontSize: '11px',
-                            textAlign: 'left',
-                            fontWeight: activePath === path.name ? '600' : '500',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                          }}
-                        >
-                          {/* Drag handle */}
-                          <span style={{ 
-                            color: '#94a3b8', 
-                            fontSize: '10px',
-                            lineHeight: 1,
-                            cursor: 'grab',
-                          }}>⋮⋮</span>
-                          <span style={{ flex: 1 }}>{path.name}</span>
-                        </button>
+                        {editingPathName === path.name ? (
+                          <div
+                            style={{
+                              flex: 1,
+                              padding: '7px 10px',
+                              background: 'rgba(255,255,255,0.9)',
+                              border: '1px solid rgba(59, 130, 246, 0.35)',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <span style={{ color: '#94a3b8', fontSize: '10px', lineHeight: 1 }}>⋮⋮</span>
+                            <input
+                              type="text"
+                              value={editingPathValue}
+                              onChange={(e) => setEditingPathValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  commitPathRename();
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  cancelPathRename();
+                                }
+                              }}
+                              onBlur={commitPathRename}
+                              autoFocus
+                              style={{
+                                flex: 1,
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                color: '#1e293b',
+                                border: 'none',
+                                outline: 'none',
+                                background: 'transparent',
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            draggable
+                            onDragStart={() => setDraggedPath(path.name)}
+                            onDragEnd={() => setDraggedPath(null)}
+                            onClick={() => showPath(path.name)}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              startEditingPath(path.name);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '9px 10px',
+                              background: activePath === path.name 
+                                ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                                : 'rgba(255,255,255,0.6)',
+                              color: activePath === path.name ? '#1d4ed8' : '#475569',
+                              border: activePath === path.name 
+                                ? '1px solid rgba(59, 130, 246, 0.3)' 
+                                : '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              cursor: 'grab',
+                              fontSize: '11px',
+                              textAlign: 'left',
+                              fontWeight: activePath === path.name ? '600' : '500',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                          >
+                            {/* Drag handle */}
+                            <span style={{ 
+                              color: '#94a3b8', 
+                              fontSize: '10px',
+                              lineHeight: 1,
+                              cursor: 'grab',
+                            }}>⋮⋮</span>
+                            <span style={{ flex: 1 }}>{path.name}</span>
+                          </button>
+                        )}
+                        {editingPathName === path.name && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePathByName(path.name);
+                            }}
+                            style={{
+                              padding: '6px 8px',
+                              background: 'rgba(254, 226, 226, 0.9)',
+                              color: '#dc2626',
+                              border: '1px solid rgba(220, 38, 38, 0.3)',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              lineHeight: 1,
+                            }}
+                            title="Delete path"
+                          >
+                            🗑
+                          </button>
+                        )}
                         {/* Info button for notes */}
                         <button
                           onClick={(e) => {
@@ -3283,10 +3154,6 @@ function DiagramContent() {
                             }
                             setNotesPathName(path.name);
                             setShowNotesPanel(true);
-                            // Pre-populate category fields from path
-                            setSaveCategory(path.category || '');
-                            setSaveSubcategory(path.subcategory || '');
-                            setSaveSubsubcategory(path.subsubcategory || '');
                             // Position notes panel next to left panel
                             setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
                           }}
@@ -3326,40 +3193,109 @@ function DiagramContent() {
                       marginBottom: '5px',
                     }}
                   >
-                    <button
-                      draggable
-                      onDragStart={() => setDraggedPath(path.name)}
-                      onDragEnd={() => setDraggedPath(null)}
-                      onClick={() => showPath(path.name)}
-                      style={{
-                        flex: 1,
-                        padding: '9px 10px',
-                        background: activePath === path.name 
-                          ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                          : 'rgba(255,255,255,0.6)',
-                        color: activePath === path.name ? '#1d4ed8' : '#475569',
-                        border: activePath === path.name 
-                          ? '1px solid rgba(59, 130, 246, 0.3)' 
-                          : '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        cursor: 'grab',
-                        fontSize: '11px',
-                        textAlign: 'left',
-                        fontWeight: activePath === path.name ? '600' : '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                      }}
-                    >
-                      {/* Drag handle */}
-                      <span style={{ 
-                        color: '#94a3b8', 
-                        fontSize: '10px',
-                        lineHeight: 1,
-                        cursor: 'grab',
-                      }}>⋮⋮</span>
-                      <span style={{ flex: 1 }}>{path.name}</span>
-                    </button>
+                    {editingPathName === path.name ? (
+                      <div
+                        style={{
+                          flex: 1,
+                          padding: '7px 10px',
+                          background: 'rgba(255,255,255,0.9)',
+                          border: '1px solid rgba(59, 130, 246, 0.35)',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <span style={{ color: '#94a3b8', fontSize: '10px', lineHeight: 1 }}>⋮⋮</span>
+                        <input
+                          type="text"
+                          value={editingPathValue}
+                          onChange={(e) => setEditingPathValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              commitPathRename();
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              cancelPathRename();
+                            }
+                          }}
+                          onBlur={commitPathRename}
+                          autoFocus
+                          style={{
+                            flex: 1,
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            color: '#1e293b',
+                            border: 'none',
+                            outline: 'none',
+                            background: 'transparent',
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        draggable
+                        onDragStart={() => setDraggedPath(path.name)}
+                        onDragEnd={() => setDraggedPath(null)}
+                        onClick={() => showPath(path.name)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          startEditingPath(path.name);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '9px 10px',
+                          background: activePath === path.name 
+                            ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                            : 'rgba(255,255,255,0.6)',
+                          color: activePath === path.name ? '#1d4ed8' : '#475569',
+                          border: activePath === path.name 
+                            ? '1px solid rgba(59, 130, 246, 0.3)' 
+                            : '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          cursor: 'grab',
+                          fontSize: '11px',
+                          textAlign: 'left',
+                          fontWeight: activePath === path.name ? '600' : '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        {/* Drag handle */}
+                        <span style={{ 
+                          color: '#94a3b8', 
+                          fontSize: '10px',
+                          lineHeight: 1,
+                          cursor: 'grab',
+                        }}>⋮⋮</span>
+                        <span style={{ flex: 1 }}>{path.name}</span>
+                      </button>
+                    )}
+                    {editingPathName === path.name && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deletePathByName(path.name);
+                        }}
+                        style={{
+                          padding: '6px 8px',
+                          background: 'rgba(254, 226, 226, 0.9)',
+                          color: '#dc2626',
+                          border: '1px solid rgba(220, 38, 38, 0.3)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          lineHeight: 1,
+                        }}
+                        title="Delete path"
+                      >
+                        🗑
+                      </button>
+                    )}
                     {/* Info button for notes */}
                     <button
                       onClick={(e) => {
@@ -3370,10 +3306,6 @@ function DiagramContent() {
                         }
                         setNotesPathName(path.name);
                         setShowNotesPanel(true);
-                        // Pre-populate category fields from path
-                        setSaveCategory(path.category || '');
-                        setSaveSubcategory(path.subcategory || '');
-                        setSaveSubsubcategory(path.subsubcategory || '');
                         // Position notes panel next to left panel
                         setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
                       }}
@@ -3409,6 +3341,7 @@ function DiagramContent() {
         {/* Notes Panel - shows when clicking info button on a path */}
         {showNotesPanel && notesPathName && (activePathId || tempPathId) && (
           <div
+            ref={notesPanelRef}
             style={{
               position: 'absolute',
               left: notesPanelPos.x,
@@ -3482,46 +3415,6 @@ function DiagramContent() {
             
             {/* Panel content */}
             <div style={{ marginTop: '14px' }}>
-              {/* Editable path name */}
-              <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                📝 
-                {activePath ? (
-                  <input
-                    type="text"
-                    value={notesPathName}
-                    onChange={(e) => {
-                      const newName = e.target.value;
-                      const oldName = notesPathName;
-                      setNotesPathName(newName);
-                      if (newName.trim() && newName !== oldName) {
-                        renamePath(oldName, newName.trim());
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      color: '#1e293b',
-                      border: '1px solid transparent',
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      background: 'transparent',
-                      outline: 'none',
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.border = '1px solid #e2e8f0';
-                      e.target.style.background = 'white';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.border = '1px solid transparent';
-                      e.target.style.background = 'transparent';
-                    }}
-                  />
-                ) : (
-                  <span>{notesPathName}</span>
-                )}
-              </div>
-              
               {/* Path-level notes section - FIRST */}
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ 
@@ -3578,252 +3471,6 @@ function DiagramContent() {
                     overflow: 'auto',
                   }}
                 />
-              </div>
-              
-              {/* Controls section - Save, Delete, Export */}
-              <div style={{ marginBottom: '16px', paddingTop: '12px', paddingBottom: '12px', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-                {/* Category selection - show for both new paths AND existing paths */}
-                {(manualHighlights.size > 0 || activePath) && (
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}>Category {activePath ? '' : '(optional)'}</div>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                      <input
-                        type="text"
-                        list="panel-category-list"
-                        placeholder="Category..."
-                        value={saveCategory}
-                        onChange={(e) => {
-                          setSaveCategory(e.target.value);
-                          setSaveSubcategory('');
-                          setSaveSubsubcategory('');
-                        }}
-                        onBlur={() => {
-                          // For existing paths, save the category change on blur
-                          if (activePath && notesPathName) {
-                            updatePathCategory(notesPathName, saveCategory, saveSubcategory);
-                          }
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '6px 8px',
-                          fontSize: '10px',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '6px',
-                          background: 'white',
-                          color: '#334155',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                      <datalist id="panel-category-list">
-                        {getUniqueCategories(pathsList).map(cat => (
-                          <option key={cat} value={cat} />
-                        ))}
-                      </datalist>
-                      {saveCategory && (
-                        <>
-                          <input
-                            type="text"
-                            list="panel-subcategory-list"
-                            placeholder="Sub..."
-                            value={saveSubcategory}
-                            onChange={(e) => {
-                              setSaveSubcategory(e.target.value);
-                              setSaveSubsubcategory('');
-                            }}
-                            onBlur={() => {
-                              // For existing paths, save the category change on blur
-                              if (activePath && notesPathName) {
-                                updatePathCategory(notesPathName, saveCategory, saveSubcategory);
-                              }
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: '6px 8px',
-                              fontSize: '10px',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: '6px',
-                              background: 'white',
-                              color: '#334155',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                          <datalist id="panel-subcategory-list">
-                            {getSubcategories(pathsList, saveCategory).map(sub => (
-                              <option key={sub} value={sub} />
-                            ))}
-                          </datalist>
-                        </>
-                      )}
-                      {saveSubcategory && (
-                        <>
-                          <input
-                            type="text"
-                            list="panel-subsubcategory-list"
-                            placeholder="Sub-sub..."
-                            value={saveSubsubcategory}
-                            onChange={(e) => setSaveSubsubcategory(e.target.value)}
-                            onBlur={() => {
-                              // For existing paths, save the category change on blur
-                              if (activePath && notesPathName) {
-                                // Need to also update subsubcategory
-                                const pathRow = pathsList.find(p => p.name === notesPathName);
-                                if (pathRow) {
-                                  fetch(GOOGLE_SCRIPT_URL, {
-                                    method: 'POST',
-                                    mode: 'no-cors',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      action: 'updatePathCategory',
-                                      pathId: pathRow.id,
-                                      pathName: notesPathName,
-                                      category: saveCategory,
-                                      subcategory: saveSubcategory,
-                                      subsubcategory: saveSubsubcategory,
-                                    }),
-                                  });
-                                  // Update local state
-                                  setPathsList(prev => prev.map(p => 
-                                    p.name === notesPathName 
-                                      ? { ...p, category: saveCategory || undefined, subcategory: saveSubcategory || undefined, subsubcategory: saveSubsubcategory || undefined }
-                                      : p
-                                  ));
-                                }
-                              }
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: '6px 8px',
-                              fontSize: '10px',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: '6px',
-                              background: 'white',
-                              color: '#334155',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                          <datalist id="panel-subsubcategory-list">
-                            {getSubsubcategories(pathsList, saveCategory, saveSubcategory).map(subsub => (
-                              <option key={subsub} value={subsub} />
-                            ))}
-                          </datalist>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Path name input */}
-                {manualHighlights.size > 0 && (
-                  <input
-                    type="text"
-                    placeholder="Enter path name..."
-                    value={pathName}
-                    onChange={(e) => setPathName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      marginBottom: '8px',
-                      fontSize: '11px',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      background: 'white',
-                      color: '#334155',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                )}
-                
-                {/* Button row */}
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {/* Save Path button */}
-                  {manualHighlights.size > 0 && (() => {
-                    const pathExists = pathsList.some(p => p.name === pathName.trim());
-                    const isDisabled = saveStatus === 'saving' || !pathName.trim() || pathExists;
-                    return (
-                      <button
-                        onClick={savePath}
-                        disabled={isDisabled}
-                        style={{
-                          flex: 1,
-                          minWidth: '80px',
-                          padding: '8px 12px',
-                          background: saveStatus === 'success' 
-                            ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
-                            : saveStatus === 'error'
-                            ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
-                            : pathExists
-                            ? '#f1f5f9'
-                            : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                          color: saveStatus === 'success' 
-                            ? '#047857'
-                            : saveStatus === 'error'
-                            ? '#b91c1c'
-                            : pathExists
-                            ? '#94a3b8'
-                            : '#1d4ed8',
-                          border: saveStatus === 'success'
-                            ? '1px solid rgba(16, 185, 129, 0.3)'
-                            : saveStatus === 'error'
-                            ? '1px solid rgba(239, 68, 68, 0.3)'
-                            : pathExists
-                            ? '1px solid #e2e8f0'
-                            : '1px solid rgba(59, 130, 246, 0.3)',
-                          borderRadius: '8px',
-                          cursor: isDisabled ? 'not-allowed' : 'pointer',
-                          fontSize: '10px',
-                          fontWeight: '600',
-                          opacity: !pathName.trim() ? 0.6 : 1,
-                        }}
-                      >
-                        {saveStatus === 'saving' ? '⏳...' 
-                          : saveStatus === 'success' ? '✓' 
-                          : saveStatus === 'error' ? '✕' 
-                          : pathExists ? '✓ Exists'
-                          : '💾 Save'}
-                      </button>
-                    );
-                  })()}
-                  
-                  {/* Delete Path button */}
-                  {activePath && (
-                    <button
-                      onClick={deletePath}
-                      style={{
-                        flex: 1,
-                        minWidth: '80px',
-                        padding: '8px 12px',
-                        background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                        color: '#dc2626',
-                        border: '1px solid rgba(220, 38, 38, 0.3)',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '10px',
-                        fontWeight: '600',
-                      }}
-                    >
-                      🗑 Delete
-                    </button>
-                  )}
-                  
-                  {/* Export PDF button */}
-                  <button
-                    onClick={exportToPDF}
-                    style={{
-                      flex: 1,
-                      minWidth: '80px',
-                      padding: '8px 12px',
-                      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                      color: '#475569',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '10px',
-                      fontWeight: '600',
-                    }}
-                  >
-                    ↓ PDF
-                  </button>
-                </div>
               </div>
               
               {/* Node notes section - LAST */}
@@ -3977,6 +3624,7 @@ function DiagramContent() {
 
         {selectedNode && selectedNodeData && (
   <div
+    ref={infoPanelRef}
     style={{
       position: 'absolute',
       left: infoPanelPos.x,
