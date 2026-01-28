@@ -618,7 +618,6 @@ function DiagramContent() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [activePathId, setActivePathId] = useState<string | null>(null);
   const [manualHighlights, setManualHighlights] = useState<Set<string>>(new Set());
-  const [personalizedNodes, setPersonalizedNodes] = useState<Node[]>([]);
   const [, setBaseNodes] = useState<Node[]>([]);
   const [, setBaseEdges] = useState<Edge[]>([]);
   const [rootIds, setRootIds] = useState<string[]>([]);
@@ -649,6 +648,9 @@ function DiagramContent() {
   const [nodeFilterQuery, setNodeFilterQuery] = useState('');
   const [selectedNodeFilter, setSelectedNodeFilter] = useState<string | null>(null);
   const [showNodeFilterDropdown, setShowNodeFilterDropdown] = useState(false);
+  
+  // Path sort order: 'latest' (default - spreadsheet order) or 'alpha' (alphabetical)
+  const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha'>('latest');
   
   // Panel position and size state for draggable/resizable panels
   const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
@@ -842,21 +844,6 @@ function DiagramContent() {
   const handleNotesChange = useCallback((nodeId: string, notes: string) => {
     setNodes((nds) =>
       nds.map((n) => {
-        if (n.id === nodeId) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              userNotes: notes,
-            },
-          };
-        }
-        return n;
-      })
-    );
-    // Also update personalizedNodes state
-    setPersonalizedNodes((prev) =>
-      prev.map((n) => {
         if (n.id === nodeId) {
           return {
             ...n,
@@ -1910,87 +1897,6 @@ function DiagramContent() {
     [setNodes, enforceRootHidden, activePath, activePathId, updatePathNodes]
   );
 
-  const personalizeSelection = () => {
-    if (manualHighlights.size === 0) return;
-
-    // Get the rightmost position of current visible nodes
-    const visibleNodes = nodes.filter((n) => !n.hidden && !n.id.startsWith('personalized-'));
-    const maxX = Math.max(...visibleNodes.map((n) => n.position.x + nodeWidth), 0);
-    const startX = maxX + 200; // Gap between original diagram and personalized section
-    const startY = 50; // Starting vertical position
-    const verticalSpacing = 160; // Vertical spacing between nodes
-
-    // Get selected nodes data
-    const selectedNodeIds = Array.from(manualHighlights);
-    const selectedNodesData = nodes.filter((n) => selectedNodeIds.includes(n.id));
-
-    // Get content from node-path if a path is active
-    const pathContent = activePathId ? nodePathMap[activePathId] || {} : {};
-
-    // Create duplicated nodes with unique IDs - straight vertical line
-    const duplicatedNodes: Node[] = selectedNodesData.map((n, index) => {
-      const nodeData = n.data as NodeData;
-      const xPos = startX; // Same X for all (vertical line)
-      const yPos = startY + (index * verticalSpacing); // Stacked vertically
-      
-      // Load content from node-path sheet if available
-      const savedContent = pathContent[n.id] || '';
-      
-      return {
-        id: `personalized-${n.id}`,
-        type: 'personalizedNode',
-        position: { x: xPos, y: yPos },
-        data: {
-          label: nodeData.label,
-          color: nodeData.color,
-          category: nodeData.category,
-          description: nodeData.description,
-          details: nodeData.details,
-          longDescription: nodeData.longDescription,
-          wikiUrl: nodeData.wikiUrl,
-          externalLinks: nodeData.externalLinks,
-          images: nodeData.images,
-          video: nodeData.video,
-          onInfoClick: handleInfoClick,
-          userNotes: savedContent,
-          onNotesChange: handleNotesChange,
-        },
-        draggable: true,
-        selectable: false,
-        hidden: false,
-      };
-    });
-
-    // Set all nodes at once, including the new personalized ones
-    setNodes((nds) => {
-      // Filter out any existing personalized versions of the same nodes
-      const existingPersonalizedIds = duplicatedNodes.map(dn => dn.id);
-      const filteredNodes = nds.filter(n => !existingPersonalizedIds.includes(n.id));
-      return [...filteredNodes, ...duplicatedNodes];
-    });
-    setPersonalizedNodes((prev) => [...prev, ...duplicatedNodes]);
-
-    // Fit view to the personalized nodes only, with proper centering
-    setTimeout(() => {
-      fitView({
-        duration: 800,
-        padding: 0.3, // More padding to center properly
-        nodes: duplicatedNodes.map(n => ({ id: n.id })), // Focus on personalized nodes
-      });
-    }, 100);
-  };
-
-  const clearPersonalized = () => {
-    // Remove personalized nodes but keep highlights on original nodes
-    setNodes((nds) => nds.filter((n) => !n.id.startsWith('personalized-')));
-    setPersonalizedNodes([]);
-    // Don't clear manualHighlights - keep the original boxes highlighted
-    // Fit view back to the diagram
-    setTimeout(() => {
-      fitView({ duration: 400, padding: 0.15 });
-    }, 50);
-  };
-
   const showPath = (pathName: string) => {
     const pathRow = pathsList.find(p => p.name === pathName);
     const pathNodes = pathsMap[pathName];
@@ -2233,26 +2139,6 @@ function DiagramContent() {
             >
               {dataError ? `Sheet error: ${dataError}` : 'Loading sheet data…'}
             </div>
-          )}
-
-          {personalizedNodes.length > 0 && (
-            <button
-              onClick={clearPersonalized}
-              style={{
-                width: '100%',
-                padding: '8px',
-                marginBottom: '12px',
-                background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                color: '#b91c1c',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '10px',
-                fontWeight: '600',
-              }}
-            >
-              ✕ Clear Built ({personalizedNodes.length})
-            </button>
           )}
 
           {/* Paths section */}
@@ -2912,7 +2798,7 @@ function DiagramContent() {
                 style={{
                   width: '100%',
                   padding: '9px',
-                  marginBottom: '10px',
+                  marginBottom: '8px',
                   background: activePath !== null 
                     ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
                     : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
@@ -2929,9 +2815,51 @@ function DiagramContent() {
                 Clear View
               </button>
 
-              {/* Filtered paths list */}
-              {pathsList
-                .filter(path => {
+              {/* Sort control */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                marginBottom: '10px',
+                padding: '4px 0',
+              }}>
+                <span style={{ fontSize: '9px', color: '#94a3b8' }}>Sort:</span>
+                <button
+                  onClick={() => setPathSortOrder('latest')}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '9px',
+                    fontWeight: pathSortOrder === 'latest' ? '600' : '400',
+                    background: pathSortOrder === 'latest' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                    color: pathSortOrder === 'latest' ? '#1d4ed8' : '#64748b',
+                    border: pathSortOrder === 'latest' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Latest
+                </button>
+                <button
+                  onClick={() => setPathSortOrder('alpha')}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '9px',
+                    fontWeight: pathSortOrder === 'alpha' ? '600' : '400',
+                    background: pathSortOrder === 'alpha' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                    color: pathSortOrder === 'alpha' ? '#1d4ed8' : '#64748b',
+                    border: pathSortOrder === 'alpha' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  A-Z
+                </button>
+              </div>
+
+              {/* Filtered and grouped paths list */}
+              {(() => {
+                // Filter paths first
+                const filteredPaths = pathsList.filter(path => {
                   // Filter out category placeholders (empty names)
                   if (!path.name) return false;
                   
@@ -2958,318 +2886,130 @@ function DiagramContent() {
                   if (selectedCategory) {
                     return path.category === selectedCategory;
                   }
-                  return true; // Show all when no filter
-                })
-                .map((path) => (
-                <div
-                  key={path.name}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    marginBottom: '5px',
-                  }}
-                >
-                  <button
-                    draggable
-                    onDragStart={() => setDraggedPath(path.name)}
-                    onDragEnd={() => setDraggedPath(null)}
-                    onClick={() => showPath(path.name)}
-                    style={{
-                      flex: 1,
-                      padding: '9px 10px',
-                      background: activePath === path.name 
-                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                        : 'rgba(255,255,255,0.6)',
-                      color: activePath === path.name ? '#1d4ed8' : '#475569',
-                      border: activePath === path.name 
-                        ? '1px solid rgba(59, 130, 246, 0.3)' 
-                        : '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      cursor: 'grab',
-                      fontSize: '11px',
-                      textAlign: 'left',
-                      fontWeight: activePath === path.name ? '600' : '500',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    {/* Drag handle */}
-                    <span style={{ 
-                      color: '#94a3b8', 
-                      fontSize: '10px',
-                      lineHeight: 1,
-                      cursor: 'grab',
-                    }}>⋮⋮</span>
-                    <span style={{ flex: 1 }}>{path.name}</span>
-                  </button>
-                  {/* Info button for notes */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Load the path first if not already loaded
-                      if (activePath !== path.name) {
-                        showPath(path.name);
-                      }
-                      setNotesPathName(path.name);
-                      setShowNotesPanel(true);
-                      // Position notes panel next to left panel
-                      setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
-                    }}
-                    style={{
-                      padding: '6px 8px',
-                      background: (showNotesPanel && notesPathName === path.name)
-                        ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
-                        : 'rgba(255,255,255,0.8)',
-                      color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
-                      border: (showNotesPanel && notesPathName === path.name)
-                        ? '1px solid rgba(59, 130, 246, 0.4)'
-                        : '1px solid #e2e8f0',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      lineHeight: 1,
-                    }}
-                    title="View notes"
-                  >
-                    ℹ
-                  </button>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* Bottom section with Build, Export, and Save */}
-          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '14px' }}>
-            {/* Build button - only for manual selections, not loaded paths */}
-            {!activePath && (
-              <button
-                onClick={personalizeSelection}
-                disabled={manualHighlights.size === 0}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginBottom: '8px',
-                  background: manualHighlights.size > 0 
-                    ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
-                    : '#f8fafc',
-                  color: manualHighlights.size > 0 ? '#047857' : '#94a3b8',
-                  border: manualHighlights.size > 0 
-                    ? '1px solid rgba(16, 185, 129, 0.3)' 
-                    : '1px solid #e2e8f0',
-                  borderRadius: '10px',
-                  cursor: manualHighlights.size > 0 ? 'pointer' : 'not-allowed',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  boxShadow: manualHighlights.size > 0 
-                    ? '0 2px 8px rgba(16, 185, 129, 0.08)' 
-                    : 'none',
-                }}
-              >
-                Create ({manualHighlights.size})
-              </button>
-            )}
-
-            {/* Export PDF button */}
-            <button
-              onClick={exportToPDF}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginBottom: '8px',
-                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                color: '#475569',
-                border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: '600',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              }}
-            >
-              ↓ Export PDF
-            </button>
-
-            {/* Delete Path button - only visible when a path is loaded */}
-            {activePath && (
-              <button
-                onClick={deletePath}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginBottom: '8px',
-                  background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                  color: '#dc2626',
-                  border: '1px solid rgba(220, 38, 38, 0.3)',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                }}
-              >
-                🗑 Delete Path
-              </button>
-            )}
-
-            {/* Save section - path name input and save button */}
-            {manualHighlights.size > 0 && (
-              <div style={{ marginBottom: '12px' }}>
-                {/* Category selection */}
-                <div style={{ marginBottom: '8px' }}>
-                  <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}>Category (optional)</div>
-                  <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                    <input
-                      type="text"
-                      list="category-list"
-                      placeholder="Category..."
-                      value={saveCategory}
-                      onChange={(e) => {
-                        setSaveCategory(e.target.value);
-                        setSaveSubcategory('');
-                        setSaveSubsubcategory('');
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '6px 8px',
-                        fontSize: '10px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        background: 'white',
-                        color: '#334155',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                    <datalist id="category-list">
-                      {getUniqueCategories(pathsList).map(cat => (
-                        <option key={cat} value={cat} />
-                      ))}
-                    </datalist>
-                    {saveCategory && (
-                      <>
-                        <input
-                          type="text"
-                          list="subcategory-list"
-                          placeholder="Sub..."
-                          value={saveSubcategory}
-                          onChange={(e) => {
-                            setSaveSubcategory(e.target.value);
-                            setSaveSubsubcategory('');
-                          }}
-                          style={{
-                            flex: 1,
-                            padding: '6px 8px',
-                            fontSize: '10px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            background: 'white',
-                            color: '#334155',
-                            boxSizing: 'border-box',
-                          }}
-                        />
-                        <datalist id="subcategory-list">
-                          {getSubcategories(pathsList, saveCategory).map(sub => (
-                            <option key={sub} value={sub} />
-                          ))}
-                        </datalist>
-                      </>
+                  return true;
+                });
+                
+                // Sort if alphabetical is selected
+                const sortedPaths = pathSortOrder === 'alpha' 
+                  ? [...filteredPaths].sort((a, b) => a.name.localeCompare(b.name))
+                  : filteredPaths; // Keep original order (latest first from spreadsheet)
+                
+                // Group by category (alphabetically sorted categories)
+                const groupedPaths: Record<string, PathRow[]> = {};
+                sortedPaths.forEach(path => {
+                  const cat = path.category || '__uncategorized__';
+                  if (!groupedPaths[cat]) groupedPaths[cat] = [];
+                  groupedPaths[cat].push(path);
+                });
+                
+                // Sort category keys alphabetically, with uncategorized at the end
+                const sortedCategories = Object.keys(groupedPaths).sort((a, b) => {
+                  if (a === '__uncategorized__') return 1;
+                  if (b === '__uncategorized__') return -1;
+                  return a.localeCompare(b);
+                });
+                
+                return sortedCategories.map(cat => (
+                  <div key={cat}>
+                    {/* Category header - only show if not filtering by specific category */}
+                    {!selectedCategory && sortedCategories.length > 1 && (
+                      <div style={{ 
+                        fontSize: '9px', 
+                        fontWeight: '600', 
+                        color: '#94a3b8', 
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginTop: cat === sortedCategories[0] ? 0 : '12px',
+                        marginBottom: '6px',
+                        paddingBottom: '4px',
+                        borderBottom: '1px solid #f1f5f9',
+                      }}>
+                        {cat === '__uncategorized__' ? 'Uncategorized' : cat}
+                      </div>
                     )}
-                    {saveSubcategory && (
-                      <>
-                        <input
-                          type="text"
-                          list="subsubcategory-list"
-                          placeholder="Sub-sub..."
-                          value={saveSubsubcategory}
-                          onChange={(e) => setSaveSubsubcategory(e.target.value)}
-                          style={{
-                            flex: 1,
-                            padding: '6px 8px',
-                            fontSize: '10px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            background: 'white',
-                            color: '#334155',
-                            boxSizing: 'border-box',
-                          }}
-                        />
-                        <datalist id="subsubcategory-list">
-                          {getSubsubcategories(pathsList, saveCategory, saveSubcategory).map(subsub => (
-                            <option key={subsub} value={subsub} />
-                          ))}
-                        </datalist>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Enter path name..."
-                  value={pathName}
-                  onChange={(e) => setPathName(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    marginBottom: '6px',
-                    fontSize: '11px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    background: 'white',
-                    color: '#334155',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                {(() => {
-                  const pathExists = pathsList.some(p => p.name === pathName.trim());
-                  const isDisabled = saveStatus === 'saving' || !pathName.trim() || pathExists;
-                  return (
-                    <button
-                      onClick={savePath}
-                      disabled={isDisabled}
+                    {groupedPaths[cat].map((path) => (
+                    <div
+                      key={path.name}
                       style={{
-                        width: '100%',
-                        padding: '10px',
-                        background: saveStatus === 'success' 
-                          ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
-                          : saveStatus === 'error'
-                          ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
-                          : pathExists
-                          ? '#f1f5f9'
-                          : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                        color: saveStatus === 'success' 
-                          ? '#047857'
-                          : saveStatus === 'error'
-                          ? '#b91c1c'
-                          : pathExists
-                          ? '#94a3b8'
-                          : '#1d4ed8',
-                        border: saveStatus === 'success'
-                          ? '1px solid rgba(16, 185, 129, 0.3)'
-                          : saveStatus === 'error'
-                          ? '1px solid rgba(239, 68, 68, 0.3)'
-                          : pathExists
-                          ? '1px solid #e2e8f0'
-                          : '1px solid rgba(59, 130, 246, 0.3)',
-                        borderRadius: '10px',
-                        cursor: isDisabled ? 'not-allowed' : 'pointer',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        boxShadow: pathExists ? 'none' : '0 2px 8px rgba(59, 130, 246, 0.08)',
-                        opacity: !pathName.trim() ? 0.6 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        marginBottom: '5px',
                       }}
                     >
-                      {saveStatus === 'saving' ? '⏳ Saving...' 
-                        : saveStatus === 'success' ? '✓ Saved!' 
-                        : saveStatus === 'error' ? '✕ Error' 
-                        : pathExists ? '✓ Path exists'
-                        : '💾 Save Path'}
-                    </button>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
+                      <button
+                        draggable
+                        onDragStart={() => setDraggedPath(path.name)}
+                        onDragEnd={() => setDraggedPath(null)}
+                        onClick={() => showPath(path.name)}
+                        style={{
+                          flex: 1,
+                          padding: '9px 10px',
+                          background: activePath === path.name 
+                            ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                            : 'rgba(255,255,255,0.6)',
+                          color: activePath === path.name ? '#1d4ed8' : '#475569',
+                          border: activePath === path.name 
+                            ? '1px solid rgba(59, 130, 246, 0.3)' 
+                            : '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          cursor: 'grab',
+                          fontSize: '11px',
+                          textAlign: 'left',
+                          fontWeight: activePath === path.name ? '600' : '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        {/* Drag handle */}
+                        <span style={{ 
+                          color: '#94a3b8', 
+                          fontSize: '10px',
+                          lineHeight: 1,
+                          cursor: 'grab',
+                        }}>⋮⋮</span>
+                        <span style={{ flex: 1 }}>{path.name}</span>
+                      </button>
+                      {/* Info button for notes */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Load the path first if not already loaded
+                          if (activePath !== path.name) {
+                            showPath(path.name);
+                          }
+                          setNotesPathName(path.name);
+                          setShowNotesPanel(true);
+                          // Position notes panel next to left panel
+                          setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                        }}
+                        style={{
+                          padding: '6px 8px',
+                          background: (showNotesPanel && notesPathName === path.name)
+                            ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
+                            : 'rgba(255,255,255,0.8)',
+                          color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
+                          border: (showNotesPanel && notesPathName === path.name)
+                            ? '1px solid rgba(59, 130, 246, 0.4)'
+                            : '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          lineHeight: 1,
+                        }}
+                        title="View notes"
+                      >
+                        ℹ
+                      </button>
+                    </div>
+                    ))}
+                  </div>
+                ));
+              })()}
+            </>
+          )}
           </div>
         </div>
 
@@ -3350,9 +3090,264 @@ function DiagramContent() {
             {/* Panel content */}
             <div style={{ marginTop: '14px' }}>
               <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', marginBottom: '12px' }}>
-                📝 Notes: {notesPathName}
+                📝 {notesPathName}
               </div>
-              <div style={{ maxHeight: notesPanelSize.height - 80, overflowY: 'auto' }}>
+              
+              {/* Path-level notes section - FIRST */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '600', 
+                  color: '#64748b',
+                  marginBottom: '6px',
+                }}>
+                  📋 Path Notes
+                </div>
+                <textarea
+                  dir="ltr"
+                  placeholder="Add path-level notes..."
+                  value={pathNotes[activePathId || tempPathId || ''] || ''}
+                  onClick={() => setEditingPathNotes('panel')}
+                  onBlur={() => setEditingPathNotes(null)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onWheel={(e) => e.stopPropagation()}
+                  onChange={(e) => handlePathNotesChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    minHeight: editingPathNotes === 'panel' ? '100px' : '50px',
+                    padding: '8px 10px',
+                    fontSize: '11px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    background: 'white',
+                    color: '#334155',
+                    resize: 'both',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.4,
+                    boxSizing: 'border-box',
+                    textAlign: 'left',
+                    direction: 'ltr',
+                  }}
+                />
+              </div>
+              
+              {/* Controls section - Save, Delete, Export */}
+              <div style={{ marginBottom: '16px', paddingTop: '12px', paddingBottom: '12px', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+                {/* Category selection */}
+                {manualHighlights.size > 0 && (
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}>Category (optional)</div>
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                      <input
+                        type="text"
+                        list="panel-category-list"
+                        placeholder="Category..."
+                        value={saveCategory}
+                        onChange={(e) => {
+                          setSaveCategory(e.target.value);
+                          setSaveSubcategory('');
+                          setSaveSubsubcategory('');
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          fontSize: '10px',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          background: 'white',
+                          color: '#334155',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <datalist id="panel-category-list">
+                        {getUniqueCategories(pathsList).map(cat => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
+                      {saveCategory && (
+                        <>
+                          <input
+                            type="text"
+                            list="panel-subcategory-list"
+                            placeholder="Sub..."
+                            value={saveSubcategory}
+                            onChange={(e) => {
+                              setSaveSubcategory(e.target.value);
+                              setSaveSubsubcategory('');
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '6px 8px',
+                              fontSize: '10px',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              background: 'white',
+                              color: '#334155',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                          <datalist id="panel-subcategory-list">
+                            {getSubcategories(pathsList, saveCategory).map(sub => (
+                              <option key={sub} value={sub} />
+                            ))}
+                          </datalist>
+                        </>
+                      )}
+                      {saveSubcategory && (
+                        <>
+                          <input
+                            type="text"
+                            list="panel-subsubcategory-list"
+                            placeholder="Sub-sub..."
+                            value={saveSubsubcategory}
+                            onChange={(e) => setSaveSubsubcategory(e.target.value)}
+                            style={{
+                              flex: 1,
+                              padding: '6px 8px',
+                              fontSize: '10px',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              background: 'white',
+                              color: '#334155',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                          <datalist id="panel-subsubcategory-list">
+                            {getSubsubcategories(pathsList, saveCategory, saveSubcategory).map(subsub => (
+                              <option key={subsub} value={subsub} />
+                            ))}
+                          </datalist>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Path name input */}
+                {manualHighlights.size > 0 && (
+                  <input
+                    type="text"
+                    placeholder="Enter path name..."
+                    value={pathName}
+                    onChange={(e) => setPathName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      marginBottom: '8px',
+                      fontSize: '11px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      background: 'white',
+                      color: '#334155',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                )}
+                
+                {/* Button row */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {/* Save Path button */}
+                  {manualHighlights.size > 0 && (() => {
+                    const pathExists = pathsList.some(p => p.name === pathName.trim());
+                    const isDisabled = saveStatus === 'saving' || !pathName.trim() || pathExists;
+                    return (
+                      <button
+                        onClick={savePath}
+                        disabled={isDisabled}
+                        style={{
+                          flex: 1,
+                          minWidth: '80px',
+                          padding: '8px 12px',
+                          background: saveStatus === 'success' 
+                            ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
+                            : saveStatus === 'error'
+                            ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
+                            : pathExists
+                            ? '#f1f5f9'
+                            : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                          color: saveStatus === 'success' 
+                            ? '#047857'
+                            : saveStatus === 'error'
+                            ? '#b91c1c'
+                            : pathExists
+                            ? '#94a3b8'
+                            : '#1d4ed8',
+                          border: saveStatus === 'success'
+                            ? '1px solid rgba(16, 185, 129, 0.3)'
+                            : saveStatus === 'error'
+                            ? '1px solid rgba(239, 68, 68, 0.3)'
+                            : pathExists
+                            ? '1px solid #e2e8f0'
+                            : '1px solid rgba(59, 130, 246, 0.3)',
+                          borderRadius: '8px',
+                          cursor: isDisabled ? 'not-allowed' : 'pointer',
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          opacity: !pathName.trim() ? 0.6 : 1,
+                        }}
+                      >
+                        {saveStatus === 'saving' ? '⏳...' 
+                          : saveStatus === 'success' ? '✓' 
+                          : saveStatus === 'error' ? '✕' 
+                          : pathExists ? '✓ Exists'
+                          : '💾 Save'}
+                      </button>
+                    );
+                  })()}
+                  
+                  {/* Delete Path button */}
+                  {activePath && (
+                    <button
+                      onClick={deletePath}
+                      style={{
+                        flex: 1,
+                        minWidth: '80px',
+                        padding: '8px 12px',
+                        background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                        color: '#dc2626',
+                        border: '1px solid rgba(220, 38, 38, 0.3)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '10px',
+                        fontWeight: '600',
+                      }}
+                    >
+                      🗑 Delete
+                    </button>
+                  )}
+                  
+                  {/* Export PDF button */}
+                  <button
+                    onClick={exportToPDF}
+                    style={{
+                      flex: 1,
+                      minWidth: '80px',
+                      padding: '8px 12px',
+                      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                      color: '#475569',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                    }}
+                  >
+                    ↓ PDF
+                  </button>
+                </div>
+              </div>
+              
+              {/* Node notes section - LAST */}
+              <div>
+                <div style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '600', 
+                  color: '#64748b',
+                  marginBottom: '8px',
+                }}>
+                  📝 Node Notes
+                </div>
+                <div style={{ maxHeight: notesPanelSize.height - 300, overflowY: 'auto' }}>
                 {(() => {
                   // Sort nodes by hierarchy depth (parents first)
                   const getNodeDepth = (nodeId: string, visited = new Set<string>()): number => {
@@ -3399,6 +3394,7 @@ function DiagramContent() {
                           placeholder="Add notes..."
                           value={content}
                           onMouseDown={(e) => e.stopPropagation()}
+                          onWheel={(e) => e.stopPropagation()}
                           onChange={(e) => {
                             const newContent = e.target.value;
                             setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
@@ -3436,7 +3432,7 @@ function DiagramContent() {
                           }}
                           style={{
                             width: '100%',
-                            minHeight: '60px',
+                            minHeight: '50px',
                             padding: '8px 10px',
                             fontSize: '11px',
                             border: '1px solid #e2e8f0',
@@ -3453,43 +3449,7 @@ function DiagramContent() {
                     );
                   });
                 })()}
-              </div>
-              
-              {/* Path-level notes section */}
-              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
-                <div style={{ 
-                  fontSize: '10px', 
-                  fontWeight: '600', 
-                  color: '#64748b',
-                  marginBottom: '6px',
-                }}>
-                  📋 Path Notes
                 </div>
-                <textarea
-                  dir="ltr"
-                  placeholder="Add path-level notes..."
-                  value={pathNotes[activePathId || tempPathId || ''] || ''}
-                  onClick={() => setEditingPathNotes('panel')}
-                  onBlur={() => setEditingPathNotes(null)}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onChange={(e) => handlePathNotesChange(e.target.value)}
-                  style={{
-                    width: '100%',
-                    minHeight: editingPathNotes === 'panel' ? '100px' : '50px',
-                    padding: '8px 10px',
-                    fontSize: '11px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    background: 'white',
-                    color: '#334155',
-                    resize: 'both',
-                    fontFamily: 'inherit',
-                    lineHeight: 1.4,
-                    boxSizing: 'border-box',
-                    textAlign: 'left',
-                    direction: 'ltr',
-                  }}
-                />
               </div>
             </div>
           </div>
