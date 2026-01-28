@@ -152,6 +152,7 @@ export interface PathRecord {
   subcategory?: string;
   subsubcategory?: string;
   notes?: string;
+  status?: string;
   dateUpdated?: string;
   lastModified?: string;
 }

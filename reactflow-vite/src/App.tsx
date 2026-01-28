@@ -636,6 +636,7 @@ type PathRow = {
   subcategory?: string;
   subsubcategory?: string;
   notes?: string;
+  status?: string;
   dateUpdated?: string;
   lastUpdated?: number; // timestamp for sorting by latest activity
 };
@@ -740,11 +741,6 @@ function DiagramContent() {
   
   // Path notes node ID (for the node that appears above the first node in a path)
   const PATH_NOTES_NODE_ID = '__path_notes__';
-  
-  // Temp path tracking for auto-save
-  const [tempPathId, setTempPathId] = useState<string | null>(null);
-  const tempPathCreatingRef = useRef<boolean>(false); // Prevent multiple temp path creations
-  const [tempPathName, setTempPathName] = useState<string | null>(null);
   
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
@@ -912,8 +908,9 @@ function DiagramContent() {
 
   // Stable callbacks for inline note editing (use refs to avoid recreating)
   const handleStartEditNote = useCallback((nodeId: string) => {
+    if (!activePathId) return;
     setEditingNoteNodeId(nodeId);
-  }, []);
+  }, [activePathId]);
 
   const handleStopEditNote = useCallback(() => {
     setEditingNoteNodeId(null);
@@ -921,16 +918,18 @@ function DiagramContent() {
 
   // Path notes node handlers
   const handlePathNotesStartEdit = useCallback(() => {
+    if (!activePathId) return;
     setEditingPathNotes('node');
-  }, []);
+  }, [activePathId]);
   
   const handlePathNotesStopEdit = useCallback(() => {
     setEditingPathNotes(null);
   }, []);
 
   const handleNodeNoteChange = useCallback((nodeId: string, note: string) => {
+    if (!activePathId) return;
     handleInlineNoteChangeRef.current(nodeId, note);
-  }, []);
+  }, [activePathId]);
 
   // Generate unique path ID: name-YYYYMMDDHHmmss
   const generatePathId = (name: string) => {
@@ -944,97 +943,9 @@ function DiagramContent() {
     return `${name.replace(/\s+/g, '-')}-${timestamp}`;
   };
 
-  // Generate temp path name
-  const generateTempPathName = () => {
-    const now = new Date();
-    const timestamp = now.getFullYear().toString() +
-      (now.getMonth() + 1).toString().padStart(2, '0') +
-      now.getDate().toString().padStart(2, '0') +
-      now.getHours().toString().padStart(2, '0') +
-      now.getMinutes().toString().padStart(2, '0') +
-      now.getSeconds().toString().padStart(2, '0');
-    return `temp_${timestamp}`;
-  };
-
-  // Create temp path when editing notes without an active path
-  const createTempPathIfNeeded = useCallback(async () => {
-    // Only create temp path if no active path and no temp path already exists
-    if (activePathId || tempPathId) return tempPathId;
-    if (manualHighlights.size === 0) return null;
-    
-    // Prevent multiple simultaneous temp path creations
-    if (tempPathCreatingRef.current) return null;
-    tempPathCreatingRef.current = true;
-    
-    const newTempName = generateTempPathName();
-    const newTempId = generatePathId(newTempName);
-    const nodeIdsArray = Array.from(manualHighlights);
-    
-    try {
-      if (DATA_SOURCE === 'notion') {
-        // Save to Notion
-        await notionService.savePath({
-          id: newTempId,
-          name: newTempName,
-          nodeIds: nodeIdsArray,
-          category: '',
-          subcategory: '',
-          subsubcategory: '',
-        });
-      } else {
-        // Legacy: Save to Google Sheets
-        const nodeIds = formatNodeIdsForSheet(manualHighlights);
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'savePath',
-            pathId: forceTextForSheet(newTempId),
-            pathName: forceTextForSheet(newTempName),
-            nodeIds: nodeIds,
-            category: '',
-            subcategory: '',
-            subsubcategory: '',
-          }),
-        });
-      }
-      
-      setTempPathId(newTempId);
-      setTempPathName(newTempName);
-      tempPathCreatingRef.current = false;
-      
-      // Add to local paths list
-      setPathsList(prev => [...prev, {
-        id: newTempId,
-        name: newTempName,
-        nodeIds: nodeIdsArray,
-        category: '',
-        subcategory: '',
-        subsubcategory: '',
-      }]);
-      setPathsMap(prev => ({
-        ...prev,
-        [newTempName]: nodeIdsArray,
-      }));
-      
-      return newTempId;
-    } catch (error) {
-      console.error('Error creating temp path:', error);
-      tempPathCreatingRef.current = false;
-      return null;
-    }
-  }, [activePathId, tempPathId, manualHighlights, GOOGLE_SCRIPT_URL]);
-
   // Handler for path-level notes with debounced auto-save
   const handlePathNotesChange = useCallback(async (notes: string) => {
-    let pathIdToUse = activePathId || tempPathId;
-    
-    // If no path exists, create a temp path first
-    if (!pathIdToUse && manualHighlights.size > 0) {
-      pathIdToUse = await createTempPathIfNeeded();
-    }
-    
+    const pathIdToUse = activePathId;
     if (!pathIdToUse) return;
     
     // Update local state
@@ -1069,7 +980,7 @@ function DiagramContent() {
         console.error('Error saving path notes:', error);
       }
     }, 1000);
-  }, [activePathId, tempPathId, manualHighlights, createTempPathIfNeeded, GOOGLE_SCRIPT_URL]);
+  }, [activePathId, GOOGLE_SCRIPT_URL]);
 
   // Handler for inline node note changes with debounced auto-save
   const handleInlineNoteChange = useCallback(async (nodeId: string, note: string) => {
@@ -1077,13 +988,7 @@ function DiagramContent() {
     setSidebarNodeContent(prev => ({ ...prev, [nodeId]: note }));
     
     // Determine which path ID to use
-    let pathIdToUse = activePathId;
-    
-    // If no active path, create temp path
-    if (!pathIdToUse) {
-      pathIdToUse = tempPathId || await createTempPathIfNeeded();
-    }
-    
+    const pathIdToUse = activePathId;
     if (!pathIdToUse) return;
     
     // Update last updated timestamp
@@ -1130,7 +1035,7 @@ function DiagramContent() {
         console.error('Error saving inline note:', error);
       }
     }, 1000);
-  }, [activePathId, tempPathId, createTempPathIfNeeded, GOOGLE_SCRIPT_URL]);
+  }, [activePathId, GOOGLE_SCRIPT_URL]);
 
   // Keep the ref in sync with the handler
   useEffect(() => {
@@ -1148,9 +1053,9 @@ function DiagramContent() {
         if (n.id.startsWith('personalized-')) return n;
         
         // Get note content from sidebar content or nodePathMap
-        const pathIdForNotes = activePathId || tempPathId;
-        const noteContent = sidebarNodeContent[n.id] ?? 
-          (pathIdForNotes ? nodePathMap[pathIdForNotes]?.[n.id] : undefined) ?? '';
+        const noteContent = activePathId
+          ? (sidebarNodeContent[n.id] ?? nodePathMap[activePathId]?.[n.id] ?? '')
+          : '';
         
         return {
           ...n,
@@ -1165,11 +1070,11 @@ function DiagramContent() {
         };
       });
     });
-  }, [editingNoteNodeId, sidebarNodeContent, activePathId, tempPathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote, dataLoading]);
+  }, [editingNoteNodeId, sidebarNodeContent, activePathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote, dataLoading]);
 
   // Sync path notes node with editing state and path notes content
   useEffect(() => {
-    const currentPathId = activePathId || tempPathId;
+    const currentPathId = activePathId;
     if (!currentPathId || !activePath) return;
     
     setNodes((nds) => {
@@ -1190,7 +1095,7 @@ function DiagramContent() {
         };
       });
     });
-  }, [editingPathNotes, pathNotes, activePathId, tempPathId, activePath, handlePathNotesStartEdit, handlePathNotesStopEdit, handlePathNotesChange]);
+  }, [editingPathNotes, pathNotes, activePathId, activePath, handlePathNotesStartEdit, handlePathNotesStopEdit, handlePathNotesChange]);
 
 
   // Rename a path (with debounced auto-save)
@@ -1721,7 +1626,7 @@ function DiagramContent() {
           // Load from Notion
           const paths = await notionService.fetchPaths();
           const list: PathRow[] = paths
-            .filter((p: PathRecord) => p.name && p.nodeIds.length)
+            .filter((p: PathRecord) => p.name && (p.status ? p.status.toLowerCase() !== 'deleted' : true))
             .map((p: PathRecord) => {
               const lastUpdatedValue = p.dateUpdated || p.lastModified || '';
               const parsedLastUpdated = lastUpdatedValue ? Date.parse(lastUpdatedValue) : 0;
@@ -1733,6 +1638,7 @@ function DiagramContent() {
                 subcategory: p.subcategory,
                 subsubcategory: p.subsubcategory,
                 notes: p.notes,
+                status: p.status,
                 dateUpdated: p.dateUpdated,
                 lastUpdated: Number.isNaN(parsedLastUpdated) ? undefined : parsedLastUpdated,
               };
@@ -1940,7 +1846,7 @@ function DiagramContent() {
           })
         );
         
-        // Auto-save node changes for both saved paths AND temp paths
+        // Auto-save node changes for the active path
         if (activePath && activePathId) {
           // Update last updated timestamp
           setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [activePathId]: Date.now() }));
@@ -1949,25 +1855,18 @@ function DiagramContent() {
           setTimeout(() => {
             updatePathNodes(activePathId, activePath, next);
           }, 0);
-        } else if (tempPathId && tempPathName) {
-          // Also save for temp paths
-          setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [tempPathId]: Date.now() }));
-          
-          setTimeout(() => {
-            updatePathNodes(tempPathId, tempPathName, next);
-          }, 0);
         }
         
         return next;
       });
     },
-    [setNodes, enforceRootHidden, activePath, activePathId, tempPathId, tempPathName, updatePathNodes]
+    [setNodes, enforceRootHidden, activePath, activePathId, updatePathNodes]
   );
 
   const showPath = (pathName: string) => {
     const pathRow = pathsList.find(p => p.name === pathName);
-    const pathNodes = pathsMap[pathName];
-    if (!pathNodes?.length || !pathRow) {
+    const pathNodes = pathsMap[pathName] || [];
+    if (!pathRow) {
       return;
     }
     setActivePath(pathName);
@@ -1997,8 +1896,11 @@ function DiagramContent() {
       
       // Find the topmost highlighted node to position the path notes node above it
       const highlightedNodes = layoutedNodes.filter(n => pathNodes.includes(n.id));
-      if (highlightedNodes.length > 0) {
-        const topNode = highlightedNodes.reduce((top, n) => n.position.y < top.position.y ? n : top, highlightedNodes[0]);
+      const anchorNode = highlightedNodes[0] || layoutedNodes[0];
+      if (anchorNode) {
+        const topNode = highlightedNodes.length > 0
+          ? highlightedNodes.reduce((top, n) => n.position.y < top.position.y ? n : top, highlightedNodes[0])
+          : anchorNode;
         
         // Create the path notes node positioned above the topmost node
         const pathNotesNode: Node = {
@@ -2047,11 +1949,70 @@ function DiagramContent() {
     );
   };
 
+  const createNewPath = useCallback(async () => {
+    const timestamp = new Date();
+    const tempName = `New Path ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const newId = generatePathId('new-path');
+    const updatedAt = new Date().toISOString();
+
+    try {
+      if (DATA_SOURCE === 'notion') {
+        await notionService.savePath({
+          id: newId,
+          name: tempName,
+          nodeIds: [],
+          status: 'active',
+          dateUpdated: updatedAt,
+        });
+      } else {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'savePath',
+            pathId: forceTextForSheet(newId),
+            pathName: forceTextForSheet(tempName),
+            nodeIds: '',
+            category: '',
+            subcategory: '',
+            subsubcategory: '',
+          }),
+        });
+      }
+
+      setPathsList(prev => [...prev, {
+        id: newId,
+        name: tempName,
+        nodeIds: [],
+        status: 'active',
+        dateUpdated: updatedAt,
+      }]);
+      setPathsMap(prev => ({
+        ...prev,
+        [tempName]: [],
+      }));
+      setPathLastUpdated(prev => ({
+        ...prev,
+        [newId]: Date.parse(updatedAt),
+      }));
+
+      setManualHighlights(new Set());
+      setSidebarNodeContent({});
+      setEditingPathNotes(null);
+
+      setTimeout(() => {
+        showPath(tempName);
+        startEditingPath(tempName);
+      }, 0);
+    } catch (error) {
+      console.error('Error creating new path:', error);
+    }
+  }, [startEditingPath, showPath]);
+
   const resetView = () => {
     setActivePath(null);
     setActivePathId(null);
-    setTempPathId(null); // Clear temp path so new selections start fresh
-    setTempPathName(null);
     setManualHighlights(new Set());
     setSidebarNodeContent({});
     setPathName(''); // Clear path name input
@@ -2936,6 +2897,22 @@ function DiagramContent() {
                 >
                   Category
                 </button>
+                <button
+                  onClick={createNewPath}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '9px',
+                    fontWeight: '600',
+                    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                    color: '#1d4ed8',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                  title="Create new path"
+                >
+                  +
+                </button>
               </div>
             </>
           )}
@@ -3339,7 +3316,7 @@ function DiagramContent() {
         </div>
 
         {/* Notes Panel - shows when clicking info button on a path */}
-        {showNotesPanel && notesPathName && (activePathId || tempPathId) && (
+        {showNotesPanel && notesPathName && activePathId && (
           <div
             ref={notesPanelRef}
             style={{
@@ -3428,7 +3405,7 @@ function DiagramContent() {
                 <textarea
                   dir="ltr"
                   placeholder="Add path-level notes..."
-                  value={pathNotes[activePathId || tempPathId || ''] || ''}
+                  value={pathNotes[activePathId || ''] || ''}
                   onClick={() => setEditingPathNotes('panel')}
                   onBlur={() => setEditingPathNotes(null)}
                   onMouseDown={(e) => e.stopPropagation()}
@@ -3506,7 +3483,7 @@ function DiagramContent() {
                     );
                   }
                   
-                  const currentPathIdForPanel = activePathId || tempPathId;
+                  const currentPathIdForPanel = activePathId;
                   
                   return sortedNodeIds.map((nodeId) => {
                     const node = nodes.find(n => n.id === nodeId);

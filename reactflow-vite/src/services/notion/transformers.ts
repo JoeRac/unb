@@ -68,6 +68,15 @@ function extractSelect(property: NotionProperty | undefined): string {
 }
 
 /**
+ * Extract status value
+ */
+function extractStatus(property: NotionProperty | undefined): string {
+  if (!property || property.type !== 'status') return '';
+  const status = (property as { status?: { name: string } | null }).status;
+  return status?.name || '';
+}
+
+/**
  * Extract date value
  */
 function extractDate(property: NotionProperty | undefined): string {
@@ -204,6 +213,7 @@ export function notionPageToPath(page: NotionPage): PathRecord {
     subcategory: extractRichText(props['subcategory']) || extractSelect(props['subcategory']) || undefined,
     subsubcategory: extractRichText(props['subsubcategory']) || extractSelect(props['subsubcategory']) || undefined,
     notes: extractRichText(props['notes']) || extractRichText(props['Notes']) || undefined,
+    status: extractStatus(props['status']) || extractSelect(props['status']) || extractRichText(props['status']) || undefined,
     dateUpdated: extractDate(props['date_updated']) || extractDate(props['dateUpdated']) || undefined,
     lastModified: page.last_edited_time,
   };
@@ -255,6 +265,13 @@ function createTitleProperty(value: string): { title: Array<{ text: { content: s
  */
 function createCheckboxProperty(value: boolean): { checkbox: boolean } {
   return { checkbox: value };
+}
+
+/**
+ * Create Notion status property
+ */
+function createStatusProperty(value: string): { status: { name: string } } {
+  return { status: { name: value || 'active' } };
 }
 
 /**
@@ -344,6 +361,9 @@ export function pathToNotionProperties(path: Partial<PathRecord>): Record<string
   }
   if (path.notes !== undefined) {
     props['notes'] = createRichTextProperty(path.notes || '');
+  }
+  if (path.status !== undefined) {
+    props['status'] = createStatusProperty(path.status || 'active');
   }
   if (path.dateUpdated !== undefined) {
     props['date_updated'] = createDateProperty(path.dateUpdated || new Date().toISOString());

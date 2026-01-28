@@ -7,7 +7,6 @@ import {
   queryAllDatabasePages,
   createPage,
   updatePage,
-  archivePage,
   NotionAPIError,
 } from './client';
 import {
@@ -306,8 +305,10 @@ export async function deletePath(pathId: string): Promise<void> {
     return;
   }
   
-  await archivePage(existingPage.id);
-  cache.pathPageIds.delete(pathId);
+  await updatePage(existingPage.id, {
+    status: { status: { name: 'deleted' } },
+    date_updated: { date: { start: new Date().toISOString() } },
+  });
   
   // Invalidate cache
   cache.paths = null;
