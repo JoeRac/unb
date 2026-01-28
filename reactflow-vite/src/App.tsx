@@ -840,56 +840,6 @@ function DiagramContent() {
     handleInlineNoteChangeRef.current(nodeId, note);
   }, []);
 
-  // Handler for notes change in personalized nodes with debounced auto-save
-  const handleNotesChange = useCallback((nodeId: string, notes: string) => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === nodeId) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              userNotes: notes,
-            },
-          };
-        }
-        return n;
-      })
-    );
-
-    // Auto-save with debounce (only if a path is loaded)
-    const currentPathId = activePathIdRef.current;
-    if (currentPathId) {
-      // Clear existing timer for this node
-      if (debounceTimerRef.current[nodeId]) {
-        clearTimeout(debounceTimerRef.current[nodeId]);
-      }
-      
-      // Set new debounced save
-      debounceTimerRef.current[nodeId] = setTimeout(async () => {
-        // Extract the original node ID (remove personalized- prefix)
-        const originalNodeId = nodeId.replace('personalized-', '');
-        try {
-          await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: 'saveNodeContent',
-              pathId: currentPathId,
-              nodeId: originalNodeId,
-              content: notes,
-            }),
-          });
-        } catch (error) {
-          console.error('Error saving node content:', error);
-        }
-      }, 1000); // 1 second debounce
-    }
-  }, [setNodes, GOOGLE_SCRIPT_URL]);
-
   // Generate unique path ID: name-YYYYMMDDHHmmss
   const generatePathId = (name: string) => {
     const now = new Date();
