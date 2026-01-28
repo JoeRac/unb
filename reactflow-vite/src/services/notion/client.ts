@@ -6,7 +6,6 @@ import { NOTION_CONFIG } from './config';
 import type { 
   NotionQueryResponse, 
   NotionPage, 
-  NotionProxyRequest,
   SyncStatus 
 } from './types';
 
@@ -138,7 +137,10 @@ async function executeRequest<T>(options: RequestOptions): Promise<T> {
   let url: string;
   let fetchOptions: RequestInit;
   
-  if (isDevelopment()) {
+  const isDev = isDevelopment();
+  console.log(`[Notion API] ${method} ${path} (${isDev ? 'development' : 'production'})`);
+  
+  if (isDev) {
     // Development: Direct Notion API calls via Vite proxy
     // Vite proxy at /notion-api -> https://api.notion.com, handles auth headers
     url = `/notion-api/v1${path}`;
@@ -151,22 +153,22 @@ async function executeRequest<T>(options: RequestOptions): Promise<T> {
     };
   } else {
     // Production: Use Vercel serverless proxy
-    url = `${NOTION_CONFIG.BASE_URL}?path=${encodeURIComponent(path)}`;
+    url = `/api/notion?path=${encodeURIComponent(path)}`;
+    
+    // Always use POST for the proxy, sending method and body in the request body
     fetchOptions = {
-      method: method === 'GET' ? 'GET' : 'POST',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-    };
-    
-    // For the proxy, we send the actual method in the body for non-GET requests
-    if (method !== 'GET') {
-      fetchOptions.body = JSON.stringify({
+      body: JSON.stringify({
         method,
-        body,
-      } as NotionProxyRequest);
-    }
+        body: body || {},
+      }),
+    };
   }
+  
+  console.log(`[Notion API] Fetching: ${url}`);
   
   let lastError: Error | null = null;
   
@@ -174,8 +176,11 @@ async function executeRequest<T>(options: RequestOptions): Promise<T> {
     try {
       const response = await fetch(url, fetchOptions);
       
+      console.log(`[Notion API] Response status: ${response.status}`);
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[Notion API] Error response:`, errorText);
         let errorMessage: string;
         
         try {
