@@ -1,5 +1,16 @@
 import dagre from 'dagre';
 import type { Node as FlowNode, Edge as FlowEdge } from '@xyflow/react';
+
+// Import Notion service
+import {
+  DATA_SOURCE,
+  notionService,
+  addSyncStatusListener,
+  type SyncStatus,
+  type PathRecord,
+  type NodePathRecord,
+} from './services/notion';
+
 // Dagre layout helper
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -677,6 +688,10 @@ function DiagramContent() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [sidebarNodeContent, setSidebarNodeContent] = useState<Record<string, string>>({});
   
+  // Notion sync status (prefixed with _ since we're setting up the listener but UI not implemented yet)
+  const [_syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [_syncMessage, setSyncMessage] = useState<string | undefined>();
+  
   // Category filter state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
@@ -734,6 +749,15 @@ function DiagramContent() {
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const nodeFilterRef = useRef<HTMLDivElement>(null);
+  
+  // Subscribe to sync status updates from Notion service
+  useEffect(() => {
+    const unsubscribe = addSyncStatusListener((status, message) => {
+      setSyncStatus(status);
+      setSyncMessage(message);
+    });
+    return unsubscribe;
+  }, []);
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
   const activePathIdRef = useRef<string | null>(null);
   
@@ -926,24 +950,37 @@ function DiagramContent() {
     
     const newTempName = generateTempPathName();
     const newTempId = generatePathId(newTempName);
-    const nodeIds = formatNodeIdsForSheet(manualHighlights);
+    const nodeIdsArray = Array.from(manualHighlights);
     
     try {
-      // Save temp path to Google Sheets - use forceTextForSheet to prevent date/number interpretation
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'savePath',
-          pathId: forceTextForSheet(newTempId),
-          pathName: forceTextForSheet(newTempName),
-          nodeIds: nodeIds,
+      if (DATA_SOURCE === 'notion') {
+        // Save to Notion
+        await notionService.savePath({
+          id: newTempId,
+          name: newTempName,
+          nodeIds: nodeIdsArray,
           category: '',
           subcategory: '',
           subsubcategory: '',
-        }),
-      });
+        });
+      } else {
+        // Legacy: Save to Google Sheets
+        const nodeIds = formatNodeIdsForSheet(manualHighlights);
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'savePath',
+            pathId: forceTextForSheet(newTempId),
+            pathName: forceTextForSheet(newTempName),
+            nodeIds: nodeIds,
+            category: '',
+            subcategory: '',
+            subsubcategory: '',
+          }),
+        });
+      }
       
       setTempPathId(newTempId);
       setTempPathName(newTempName);
@@ -953,14 +990,14 @@ function DiagramContent() {
       setPathsList(prev => [...prev, {
         id: newTempId,
         name: newTempName,
-        nodeIds: Array.from(manualHighlights),
+        nodeIds: nodeIdsArray,
         category: '',
         subcategory: '',
         subsubcategory: '',
       }]);
       setPathsMap(prev => ({
         ...prev,
-        [newTempName]: Array.from(manualHighlights),
+        [newTempName]: nodeIdsArray,
       }));
       
       return newTempId;
@@ -994,16 +1031,22 @@ function DiagramContent() {
     }
     debounceTimerRef.current['pathNotes'] = setTimeout(async () => {
       try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'savePathNotes',
-            pathId: pathIdToUse,
-            notes: notes,
-          }),
-        });
+        if (DATA_SOURCE === 'notion') {
+          // Save to Notion
+          await notionService.savePathNotes(pathIdToUse!, notes);
+        } else {
+          // Legacy: Save to Google Sheets
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'savePathNotes',
+              pathId: pathIdToUse,
+              notes: notes,
+            }),
+          });
+        }
       } catch (error) {
         console.error('Error saving path notes:', error);
       }
@@ -1015,16 +1058,22 @@ function DiagramContent() {
     if (!tempPathId || !tempPathName) return;
     
     try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'deletePath',
-          pathId: tempPathId,
-          pathName: tempPathName,
-        }),
-      });
+      if (DATA_SOURCE === 'notion') {
+        // Delete from Notion
+        await notionService.deletePath(tempPathId);
+      } else {
+        // Legacy: Delete from Google Sheets
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'deletePath',
+            pathId: tempPathId,
+            pathName: tempPathName,
+          }),
+        });
+      }
       
       // Remove from local state
       setPathsList(prev => prev.filter(p => p.name !== tempPathName));
@@ -1074,17 +1123,28 @@ function DiagramContent() {
     }
     debounceTimerRef.current[`inline-${nodeId}`] = setTimeout(async () => {
       try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'saveNodeContent',
-            pathId: pathIdToUse,
+        if (DATA_SOURCE === 'notion') {
+          // Save to Notion
+          await notionService.saveNodePath({
+            id: `${pathIdToUse}_${nodeId}`,
+            pathId: pathIdToUse!,
             nodeId: nodeId,
             content: note,
-          }),
-        });
+          });
+        } else {
+          // Legacy: Save to Google Sheets
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'saveNodeContent',
+              pathId: pathIdToUse,
+              nodeId: nodeId,
+              content: note,
+            }),
+          });
+        }
       } catch (error) {
         console.error('Error saving inline note:', error);
       }
@@ -1151,7 +1211,7 @@ function DiagramContent() {
     });
   }, [editingPathNotes, pathNotes, activePathId, tempPathId, activePath, handlePathNotesStartEdit, handlePathNotesStopEdit, handlePathNotesChange]);
 
-  // Save path to Google Sheets via Google Apps Script
+  // Save path to storage (Notion or Google Sheets)
   const savePath = async () => {
     if (!pathName.trim()) {
       alert('Please enter a path name');
@@ -1163,7 +1223,7 @@ function DiagramContent() {
     }
 
     const pathId = generatePathId(pathName.trim());
-    const nodeIds = formatNodeIdsForSheet(manualHighlights);
+    const nodeIdsArray = Array.from(manualHighlights);
     setSaveStatus('saving');
 
     try {
@@ -1175,67 +1235,109 @@ function DiagramContent() {
         await deleteTempPath();
       }
       
-      // Save the path with category info - use forceTextForSheet for pathName to prevent date interpretation
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors', // Google Apps Script requires no-cors
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'savePath',
-          pathId: forceTextForSheet(pathId),
-          pathName: forceTextForSheet(pathName.trim()),
-          nodeIds: nodeIds,
-          category: saveCategory.trim() || '',
-          subcategory: saveSubcategory.trim() || '',
-          subsubcategory: saveSubsubcategory.trim() || '',
-          notes: pathNotes[oldTempPathId || ''] || pathNotes[activePathId || ''] || '',
-        }),
-      });
-
-      // Transfer node notes from temp path to new path
-      const sourcePathId = oldTempPathId || activePathId;
-      if (sourcePathId && (nodePathMap[sourcePathId] || Object.keys(sidebarNodeContent).length > 0)) {
-        const sourceContent = nodePathMap[sourcePathId] || {};
+      const pathNoteContent = pathNotes[oldTempPathId || ''] || pathNotes[activePathId || ''] || '';
+      
+      if (DATA_SOURCE === 'notion') {
+        // Save to Notion
+        await notionService.savePath({
+          id: pathId,
+          name: pathName.trim(),
+          nodeIds: nodeIdsArray,
+          category: saveCategory.trim() || undefined,
+          subcategory: saveSubcategory.trim() || undefined,
+          subsubcategory: saveSubsubcategory.trim() || undefined,
+          notes: pathNoteContent,
+        });
         
-        // Build a batch of all node content to copy in a single request
-        const nodeContentBatch: Array<{nodeId: string; content: string}> = [];
-        
-        // Collect content from source path and sidebar edits
-        for (const nodeId of manualHighlights) {
-          const content = sidebarNodeContent[nodeId] ?? sourceContent[nodeId];
-          if (content) {
-            nodeContentBatch.push({ nodeId, content });
+        // Transfer node notes from temp path to new path
+        const sourcePathId = oldTempPathId || activePathId;
+        if (sourcePathId && (nodePathMap[sourcePathId] || Object.keys(sidebarNodeContent).length > 0)) {
+          const sourceContent = nodePathMap[sourcePathId] || {};
+          const nodeContentBatch: NodePathRecord[] = [];
+          
+          for (const nodeId of manualHighlights) {
+            const content = sidebarNodeContent[nodeId] ?? sourceContent[nodeId];
+            if (content) {
+              nodeContentBatch.push({
+                id: `${pathId}_${nodeId}`,
+                pathId: pathId,
+                nodeId: nodeId,
+                content: content,
+              });
+            }
+          }
+          
+          if (nodeContentBatch.length > 0) {
+            await notionService.batchSaveNodePaths(nodeContentBatch);
+            
+            const copiedContent: Record<string, string> = {};
+            nodeContentBatch.forEach(({ nodeId, content }) => {
+              copiedContent[nodeId] = content;
+            });
+            setNodePathMap(prev => ({
+              ...prev,
+              [pathId]: copiedContent,
+            }));
           }
         }
-        
-        // Send all content in a single batch request
-        if (nodeContentBatch.length > 0) {
-          await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'batchSaveNodeContent',
-              pathId: forceTextForSheet(pathId),
-              nodeContents: nodeContentBatch,
-            }),
-          });
+      } else {
+        // Legacy: Save to Google Sheets
+        const nodeIds = formatNodeIdsForSheet(manualHighlights);
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'savePath',
+            pathId: forceTextForSheet(pathId),
+            pathName: forceTextForSheet(pathName.trim()),
+            nodeIds: nodeIds,
+            category: saveCategory.trim() || '',
+            subcategory: saveSubcategory.trim() || '',
+            subsubcategory: saveSubsubcategory.trim() || '',
+            notes: pathNoteContent,
+          }),
+        });
+
+        // Transfer node notes from temp path to new path
+        const sourcePathId = oldTempPathId || activePathId;
+        if (sourcePathId && (nodePathMap[sourcePathId] || Object.keys(sidebarNodeContent).length > 0)) {
+          const sourceContent = nodePathMap[sourcePathId] || {};
+          const nodeContentBatch: Array<{nodeId: string; content: string}> = [];
           
-          // Update local nodePathMap with copied content
-          const copiedContent: Record<string, string> = {};
-          nodeContentBatch.forEach(({ nodeId, content }) => {
-            copiedContent[nodeId] = content;
-          });
-          setNodePathMap(prev => ({
-            ...prev,
-            [pathId]: copiedContent,
-          }));
+          for (const nodeId of manualHighlights) {
+            const content = sidebarNodeContent[nodeId] ?? sourceContent[nodeId];
+            if (content) {
+              nodeContentBatch.push({ nodeId, content });
+            }
+          }
+          
+          if (nodeContentBatch.length > 0) {
+            await fetch(GOOGLE_SCRIPT_URL, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'batchSaveNodeContent',
+                pathId: forceTextForSheet(pathId),
+                nodeContents: nodeContentBatch,
+              }),
+            });
+            
+            const copiedContent: Record<string, string> = {};
+            nodeContentBatch.forEach(({ nodeId, content }) => {
+              copiedContent[nodeId] = content;
+            });
+            setNodePathMap(prev => ({
+              ...prev,
+              [pathId]: copiedContent,
+            }));
+          }
         }
       }
       
       // Transfer path notes from temp path to new path
+      const sourcePathId = oldTempPathId || activePathId;
       if (sourcePathId && pathNotes[sourcePathId]) {
         setPathNotes(prev => ({
           ...prev,
@@ -1243,11 +1345,9 @@ function DiagramContent() {
         }));
       }
 
-      // With no-cors, we can't read the response, so we assume success
       setSaveStatus('success');
       
-      // Add the new path to local state immediately so it appears in the list
-      const nodeIdsArray = Array.from(manualHighlights);
+      // Add the new path to local state immediately
       const newPathRow: PathRow = {
         id: pathId,
         name: pathName.trim(),
@@ -1275,7 +1375,7 @@ function DiagramContent() {
     }
   };
 
-  // Delete path from Google Sheets
+  // Delete path from storage (Notion or Google Sheets)
   const deletePath = async () => {
     if (!activePath) return;
     
@@ -1296,18 +1396,20 @@ function DiagramContent() {
     setSaveStatus('saving');
 
     try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'deletePath',
-          pathId: pathIdToDelete,
-          pathName: pathRow.name, // Also send name for fallback matching
-        }),
-      });
+      if (DATA_SOURCE === 'notion') {
+        await notionService.deletePath(pathIdToDelete);
+      } else {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'deletePath',
+            pathId: pathIdToDelete,
+            pathName: pathRow.name,
+          }),
+        });
+      }
 
       setSaveStatus('success');
       setActivePath(null);
@@ -1359,17 +1461,21 @@ function DiagramContent() {
     
     debounceTimerRef.current['renamePath'] = setTimeout(async () => {
       try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'renamePath',
-            pathId: pathRow.id,
-            oldName: oldName,
-            newName: newName,
-          }),
-        });
+        if (DATA_SOURCE === 'notion') {
+          await notionService.renamePath(pathRow.id || oldName, newName);
+        } else {
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'renamePath',
+              pathId: pathRow.id,
+              oldName: oldName,
+              newName: newName,
+            }),
+          });
+        }
         
         // Update local state
         setPathsList(prev => prev.map(p => 
@@ -1403,19 +1509,28 @@ function DiagramContent() {
     if (!pathRow) return;
 
     try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'updatePathCategory',
-          pathId: pathRow.id,
-          pathName: pathName,
-          category: newCategory,
-          subcategory: newSubcategory || '',
-          subsubcategory: '',
-        }),
-      });
+      if (DATA_SOURCE === 'notion') {
+        await notionService.updatePathCategory(
+          pathRow.id || pathName,
+          newCategory,
+          newSubcategory || '',
+          '' // subsubcategory
+        );
+      } else {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'updatePathCategory',
+            pathId: pathRow.id,
+            pathName: pathName,
+            category: newCategory,
+            subcategory: newSubcategory || '',
+            subsubcategory: '',
+          }),
+        });
+      }
 
       // Update local state
       setPathsList(prev => prev.map(p => 
@@ -1438,20 +1553,32 @@ function DiagramContent() {
     }
 
     try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'savePath',
-          pathId: forceTextForSheet(placeholderId),
-          pathName: '', // Empty name indicates placeholder
-          nodeIds: '',
+      if (DATA_SOURCE === 'notion') {
+        // For Notion, save as an empty path with just category info
+        await notionService.savePath({
+          id: placeholderId,
+          name: '',
+          nodeIds: [],
           category: category,
-          subcategory: subcategory || '',
-          subsubcategory: subsubcategory || '',
-        }),
-      });
+          subcategory: subcategory,
+          subsubcategory: subsubcategory,
+        });
+      } else {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'savePath',
+            pathId: forceTextForSheet(placeholderId),
+            pathName: '', // Empty name indicates placeholder
+            nodeIds: '',
+            category: category,
+            subcategory: subcategory || '',
+            subsubcategory: subsubcategory || '',
+          }),
+        });
+      }
 
       // Add to local state
       const newPlaceholder: PathRow = {
@@ -1781,49 +1908,79 @@ function DiagramContent() {
   useEffect(() => {
     const loadPaths = async () => {
       try {
-        const response = await fetch(PATHS_CSV_URL);
-        if (!response.ok) {
-          setPathsList([]);
-          setPathsMap({});
-          return;
-        }
-        const text = await response.text();
-        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
-        const rows = parsed.data as Array<Record<string, string>>;
-        
-        const list: PathRow[] = rows
-          .map((row) => {
-            // Handle various column name possibilities
-            let id = (row['id'] || row['Id'] || row['ID'] || '').toString().trim();
-            let name = (row['name'] || row['Name'] || row['NAME'] || '').toString().trim();
-            // Remove leading single quote if present (from forceTextForSheet)
-            if (id.startsWith("'")) id = id.slice(1);
-            if (name.startsWith("'")) name = name.slice(1);
-            const nodeIdsRaw = (row['nodeIds'] || row['NodeIds'] || row['nodeids'] || row['node_ids'] || '').toString();
-            const nodeIds = nodeIdsRaw
-              .split(',')
-              .map((v: string) => v.trim())
-              .filter(Boolean);
-            const category = (row['category'] || row['Category'] || '').toString().trim() || undefined;
-            const subcategory = (row['subcategory'] || row['Subcategory'] || row['subCategory'] || '').toString().trim() || undefined;
-            const subsubcategory = (row['subsubcategory'] || row['Subsubcategory'] || row['subSubcategory'] || '').toString().trim() || undefined;
-            const notes = (row['notes'] || row['Notes'] || '').toString().trim() || undefined;
-            return { id, name, nodeIds, category, subcategory, subsubcategory, notes };
-          })
-          .filter((row) => row.name && row.nodeIds.length); // Only require name and nodeIds, id can be empty for legacy rows
-        
-        const map: Record<string, string[]> = {};
-        const notesMap: Record<string, string> = {};
-        list.forEach((row) => {
-          map[row.name] = row.nodeIds;
-          if (row.notes && row.id) {
-            notesMap[row.id] = row.notes;
+        if (DATA_SOURCE === 'notion') {
+          // Load from Notion
+          const paths = await notionService.fetchPaths();
+          const list: PathRow[] = paths
+            .filter((p: PathRecord) => p.name && p.nodeIds.length)
+            .map((p: PathRecord) => ({
+              id: p.id,
+              name: p.name,
+              nodeIds: p.nodeIds,
+              category: p.category,
+              subcategory: p.subcategory,
+              subsubcategory: p.subsubcategory,
+              notes: p.notes,
+            }));
+          
+          const map: Record<string, string[]> = {};
+          const notesMap: Record<string, string> = {};
+          list.forEach((row) => {
+            map[row.name] = row.nodeIds;
+            if (row.notes && row.id) {
+              notesMap[row.id] = row.notes;
+            }
+          });
+          setPathsList(list);
+          setPathsMap(map);
+          setPathNotes(notesMap);
+        } else {
+          // Load from Google Sheets (legacy)
+          const response = await fetch(PATHS_CSV_URL);
+          if (!response.ok) {
+            setPathsList([]);
+            setPathsMap({});
+            return;
           }
-        });
-        setPathsList(list);
-        setPathsMap(map);
-        setPathNotes(notesMap);
-      } catch {
+          const text = await response.text();
+          const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+          const rows = parsed.data as Array<Record<string, string>>;
+          
+          const list: PathRow[] = rows
+            .map((row) => {
+              // Handle various column name possibilities
+              let id = (row['id'] || row['Id'] || row['ID'] || '').toString().trim();
+              let name = (row['name'] || row['Name'] || row['NAME'] || '').toString().trim();
+              // Remove leading single quote if present (from forceTextForSheet)
+              if (id.startsWith("'")) id = id.slice(1);
+              if (name.startsWith("'")) name = name.slice(1);
+              const nodeIdsRaw = (row['nodeIds'] || row['NodeIds'] || row['nodeids'] || row['node_ids'] || '').toString();
+              const nodeIds = nodeIdsRaw
+                .split(',')
+                .map((v: string) => v.trim())
+                .filter(Boolean);
+              const category = (row['category'] || row['Category'] || '').toString().trim() || undefined;
+              const subcategory = (row['subcategory'] || row['Subcategory'] || row['subCategory'] || '').toString().trim() || undefined;
+              const subsubcategory = (row['subsubcategory'] || row['Subsubcategory'] || row['subSubcategory'] || '').toString().trim() || undefined;
+              const notes = (row['notes'] || row['Notes'] || '').toString().trim() || undefined;
+              return { id, name, nodeIds, category, subcategory, subsubcategory, notes };
+            })
+            .filter((row) => row.name && row.nodeIds.length);
+          
+          const map: Record<string, string[]> = {};
+          const notesMap: Record<string, string> = {};
+          list.forEach((row) => {
+            map[row.name] = row.nodeIds;
+            if (row.notes && row.id) {
+              notesMap[row.id] = row.notes;
+            }
+          });
+          setPathsList(list);
+          setPathsMap(map);
+          setPathNotes(notesMap);
+        }
+      } catch (error) {
+        console.error('Error loading paths:', error);
         setPathsList([]);
         setPathsMap({});
       }
@@ -1831,42 +1988,51 @@ function DiagramContent() {
 
     const loadNodePaths = async () => {
       try {
-        const response = await fetch(NODE_PATH_GVIZ_URL);
-        if (!response.ok) {
-          setNodePathMap({});
-          return;
-        }
-        const rawText = await response.text();
-        const jsonMatch = rawText.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
-        const jsonText = jsonMatch?.[1];
-        if (!jsonText) {
-          setNodePathMap({});
-          return;
-        }
-        const parsedJson = JSON.parse(jsonText);
-        const rows: any[] = parsedJson?.table?.rows || [];
-        // Columns: pathId, nodeId, content
-        const values: Array<[string | null | undefined, string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v, row.c?.[2]?.v]);
-        const isHeaderRow = (row: Array<string | null | undefined>) => {
-          const first = (row?.[0] || '').toString().toLowerCase();
-          return first.includes('pathid') || first.includes('path');
-        };
-        const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 2 && row[0]);
-        const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
-        
-        // Build nested map: { pathId: { nodeId: content } }
-        const map: Record<string, Record<string, string>> = {};
-        effectiveRows.forEach((row) => {
-          const pathId = (row[0] || '').toString().trim();
-          const nodeId = (row[1] || '').toString().trim();
-          const content = (row[2] || '').toString();
-          if (pathId && nodeId) {
-            if (!map[pathId]) map[pathId] = {};
-            map[pathId][nodeId] = content;
+        if (DATA_SOURCE === 'notion') {
+          // Load from Notion
+          const nodePaths = await notionService.fetchNodePaths();
+          const map = notionService.buildNodePathMap(nodePaths);
+          setNodePathMap(map);
+        } else {
+          // Load from Google Sheets (legacy)
+          const response = await fetch(NODE_PATH_GVIZ_URL);
+          if (!response.ok) {
+            setNodePathMap({});
+            return;
           }
-        });
-        setNodePathMap(map);
-      } catch {
+          const rawText = await response.text();
+          const jsonMatch = rawText.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
+          const jsonText = jsonMatch?.[1];
+          if (!jsonText) {
+            setNodePathMap({});
+            return;
+          }
+          const parsedJson = JSON.parse(jsonText);
+          const rows: any[] = parsedJson?.table?.rows || [];
+          // Columns: pathId, nodeId, content
+          const values: Array<[string | null | undefined, string | null | undefined, string | null | undefined]> = rows.map((row: any) => [row.c?.[0]?.v, row.c?.[1]?.v, row.c?.[2]?.v]);
+          const isHeaderRow = (row: Array<string | null | undefined>) => {
+            const first = (row?.[0] || '').toString().toLowerCase();
+            return first.includes('pathid') || first.includes('path');
+          };
+          const filtered = values.filter((row: Array<string | null | undefined>) => row && row.length >= 2 && row[0]);
+          const effectiveRows = filtered.length && isHeaderRow(filtered[0]) ? filtered.slice(1) : filtered;
+          
+          // Build nested map: { pathId: { nodeId: content } }
+          const map: Record<string, Record<string, string>> = {};
+          effectiveRows.forEach((row) => {
+            const pathId = (row[0] || '').toString().trim();
+            const nodeId = (row[1] || '').toString().trim();
+            const content = (row[2] || '').toString();
+            if (pathId && nodeId) {
+              if (!map[pathId]) map[pathId] = {};
+              map[pathId][nodeId] = content;
+            }
+          });
+          setNodePathMap(map);
+        }
+      } catch (error) {
+        console.error('Error loading node paths:', error);
         setNodePathMap({});
       }
     };
@@ -1887,23 +2053,29 @@ function DiagramContent() {
     }
     
     updatePathNodesRef.current = setTimeout(async () => {
-      const nodeIdsStr = formatNodeIdsForSheet(nodeIds);
+      const nodeIdsArray = Array.from(nodeIds);
       
       try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'updatePathNodes',
-            pathId: forceTextForSheet(pathId),
-            pathName: forceTextForSheet(pathName),
-            nodeIds: nodeIdsStr,
-          }),
-        });
+        if (DATA_SOURCE === 'notion') {
+          // Save to Notion
+          await notionService.updatePathNodes(pathId, pathName, nodeIdsArray);
+        } else {
+          // Legacy: Save to Google Sheets
+          const nodeIdsStr = formatNodeIdsForSheet(nodeIds);
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'updatePathNodes',
+              pathId: forceTextForSheet(pathId),
+              pathName: forceTextForSheet(pathName),
+              nodeIds: nodeIdsStr,
+            }),
+          });
+        }
         
         // Update local state
-        const nodeIdsArray = Array.from(nodeIds);
         setPathsList(prev => prev.map(p => 
           p.id === pathId ? { ...p, nodeIds: nodeIdsArray } : p
         ));
@@ -3723,18 +3895,28 @@ function DiagramContent() {
                               clearTimeout(debounceTimerRef.current[nodeId]);
                             }
                             debounceTimerRef.current[nodeId] = setTimeout(async () => {
+                              if (!currentPathIdForPanel) return;
                               try {
-                                await fetch(GOOGLE_SCRIPT_URL, {
-                                  method: 'POST',
-                                  mode: 'no-cors',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    action: 'saveNodeContent',
+                                if (DATA_SOURCE === 'notion') {
+                                  await notionService.saveNodePath({
+                                    id: `${currentPathIdForPanel}_${nodeId}`,
                                     pathId: currentPathIdForPanel,
                                     nodeId: nodeId,
                                     content: newContent,
-                                  }),
-                                });
+                                  });
+                                } else {
+                                  await fetch(GOOGLE_SCRIPT_URL, {
+                                    method: 'POST',
+                                    mode: 'no-cors',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      action: 'saveNodeContent',
+                                      pathId: currentPathIdForPanel,
+                                      nodeId: nodeId,
+                                      content: newContent,
+                                    }),
+                                  });
+                                }
                               } catch (error) {
                                 console.error('Error saving node content:', error);
                               }
@@ -4000,17 +4182,26 @@ function DiagramContent() {
               }
               debounceTimerRef.current[nodeId] = setTimeout(async () => {
                 try {
-                  await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      action: 'saveNodeContent',
-                      pathId: activePathId,
+                  if (DATA_SOURCE === 'notion') {
+                    await notionService.saveNodePath({
+                      id: `${activePathId}_${nodeId}`,
+                      pathId: activePathId!,
                       nodeId: nodeId,
                       content: newContent,
-                    }),
-                  });
+                    });
+                  } else {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                      method: 'POST',
+                      mode: 'no-cors',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        action: 'saveNodeContent',
+                        pathId: activePathId,
+                        nodeId: nodeId,
+                        content: newContent,
+                      }),
+                    });
+                  }
                 } catch (error) {
                   console.error('Error saving node content:', error);
                 }
