@@ -128,24 +128,44 @@ async function processQueue(): Promise<void> {
 // Core Request Execution
 // ============================================
 
+function isDevelopment(): boolean {
+  return typeof window !== 'undefined' && window.location.hostname === 'localhost';
+}
+
 async function executeRequest<T>(options: RequestOptions): Promise<T> {
   const { method, path, body, retries = NOTION_CONFIG.SYNC.MAX_RETRIES } = options;
   
-  const url = `${NOTION_CONFIG.BASE_URL}?path=${encodeURIComponent(path)}`;
+  let url: string;
+  let fetchOptions: RequestInit;
   
-  const fetchOptions: RequestInit = {
-    method: method === 'GET' ? 'GET' : 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  };
-  
-  // For the proxy, we send the actual method in the body for non-GET requests
-  if (method !== 'GET') {
-    fetchOptions.body = JSON.stringify({
+  if (isDevelopment()) {
+    // Development: Direct Notion API calls via Vite proxy
+    // Vite proxy at /notion-api -> https://api.notion.com, handles auth headers
+    url = `/notion-api/v1${path}`;
+    fetchOptions = {
       method,
-      body,
-    } as NotionProxyRequest);
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    };
+  } else {
+    // Production: Use Vercel serverless proxy
+    url = `${NOTION_CONFIG.BASE_URL}?path=${encodeURIComponent(path)}`;
+    fetchOptions = {
+      method: method === 'GET' ? 'GET' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+    
+    // For the proxy, we send the actual method in the body for non-GET requests
+    if (method !== 'GET') {
+      fetchOptions.body = JSON.stringify({
+        method,
+        body,
+      } as NotionProxyRequest);
+    }
   }
   
   let lastError: Error | null = null;
