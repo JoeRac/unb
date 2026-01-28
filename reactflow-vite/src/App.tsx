@@ -1961,7 +1961,6 @@ function DiagramContent() {
           id: newId,
           name: tempName,
           nodeIds: [],
-          status: 'active',
           dateUpdated: updatedAt,
         });
       } else {

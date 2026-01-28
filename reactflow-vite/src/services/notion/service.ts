@@ -304,11 +304,28 @@ export async function deletePath(pathId: string): Promise<void> {
     console.warn('Path not found for deletion:', pathId);
     return;
   }
-  
-  await updatePage(existingPage.id, {
-    status: { status: { name: 'deleted' } },
-    date_updated: { date: { start: new Date().toISOString() } },
-  });
+
+  const deletedAt = new Date().toISOString();
+  const statusUpdates = [
+    { status: { status: { name: 'deleted' } }, date_updated: { date: { start: deletedAt } } },
+    { status: { select: { name: 'deleted' } }, date_updated: { date: { start: deletedAt } } },
+    { status: { rich_text: [{ text: { content: 'deleted' } }] }, date_updated: { date: { start: deletedAt } } },
+  ];
+
+  let lastError: unknown = null;
+  for (const props of statusUpdates) {
+    try {
+      await updatePage(existingPage.id, props);
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
   
   // Invalidate cache
   cache.paths = null;
