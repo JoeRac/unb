@@ -295,7 +295,16 @@ function MethodNode(props: any) {
               onBlur={handleNoteBlur}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
-              onWheel={(e) => e.stopPropagation()}
+              onWheel={(e) => {
+                e.stopPropagation();
+                // Prevent ReactFlow zoom when scrolling in textarea
+                const textarea = e.currentTarget;
+                const isScrollable = textarea.scrollHeight > textarea.clientHeight;
+                if (isScrollable) {
+                  e.preventDefault();
+                  textarea.scrollTop += e.deltaY;
+                }
+              }}
               placeholder="Add note..."
               style={{
                 width: '100%',
@@ -431,7 +440,16 @@ function PersonalizedNode(props: any) {
         onChange={handleNotesChange}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
+        onWheel={(e) => {
+          e.stopPropagation();
+          // Prevent ReactFlow zoom when scrolling in textarea
+          const textarea = e.currentTarget;
+          const isScrollable = textarea.scrollHeight > textarea.clientHeight;
+          if (isScrollable) {
+            e.preventDefault();
+            textarea.scrollTop += e.deltaY;
+          }
+        }}
         style={{
           width: 240,
           minHeight: 90,
@@ -462,11 +480,25 @@ function PathNotesNode(props: any) {
     onNotesChange: (notes: string) => void;
   };
   const [localNotes, setLocalNotes] = useState(data.pathNotes || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Sync local notes with prop when it changes externally
   useEffect(() => {
     setLocalNotes(data.pathNotes || '');
   }, [data.pathNotes]);
+  
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    if (textareaRef.current && data.isEditing) {
+      const textarea = textareaRef.current;
+      textarea.style.height = 'auto';
+      const lineHeight = 15; // ~11px font * 1.4 line-height
+      const maxRows = 15;
+      const maxHeight = lineHeight * maxRows;
+      const scrollHeight = textarea.scrollHeight;
+      textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+    }
+  }, [localNotes, data.isEditing]);
   
   const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     e.stopPropagation();
@@ -528,6 +560,7 @@ function PathNotesNode(props: any) {
       >
         {data.isEditing ? (
           <textarea
+            ref={textareaRef}
             dir="ltr"
             autoFocus
             value={localNotes}
@@ -535,11 +568,21 @@ function PathNotesNode(props: any) {
             onBlur={() => data.onStopEdit && data.onStopEdit()}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            onWheel={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              e.stopPropagation();
+              // Prevent ReactFlow zoom when scrolling in textarea
+              const textarea = e.currentTarget;
+              const isScrollable = textarea.scrollHeight > textarea.clientHeight;
+              if (isScrollable) {
+                e.preventDefault();
+                textarea.scrollTop += e.deltaY;
+              }
+            }}
             placeholder="Add path notes..."
             style={{
               width: '100%',
               minHeight: '80px',
+              maxHeight: '225px', // ~15 rows at 15px line height
               padding: '8px 10px',
               fontSize: 11,
               border: '1px solid rgba(59, 130, 246, 0.3)',
@@ -553,6 +596,7 @@ function PathNotesNode(props: any) {
               outline: 'none',
               textAlign: 'left',
               direction: 'ltr',
+              overflow: 'auto',
             }}
           />
         ) : (
@@ -2998,6 +3042,10 @@ function DiagramContent() {
                             }
                             setNotesPathName(path.name);
                             setShowNotesPanel(true);
+                            // Pre-populate category fields from path
+                            setSaveCategory(path.category || '');
+                            setSaveSubcategory(path.subcategory || '');
+                            setSaveSubsubcategory(path.subsubcategory || '');
                             // Position notes panel next to left panel
                             setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
                           }}
@@ -3081,6 +3129,10 @@ function DiagramContent() {
                         }
                         setNotesPathName(path.name);
                         setShowNotesPanel(true);
+                        // Pre-populate category fields from path
+                        setSaveCategory(path.category || '');
+                        setSaveSubcategory(path.subcategory || '');
+                        setSaveSubsubcategory(path.subsubcategory || '');
                         // Position notes panel next to left panel
                         setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
                       }}
@@ -3210,11 +3262,35 @@ function DiagramContent() {
                   onClick={() => setEditingPathNotes('panel')}
                   onBlur={() => setEditingPathNotes(null)}
                   onMouseDown={(e) => e.stopPropagation()}
-                  onWheel={(e) => e.stopPropagation()}
-                  onChange={(e) => handlePathNotesChange(e.target.value)}
+                  onWheel={(e) => {
+                    e.stopPropagation();
+                    // Prevent ReactFlow zoom when scrolling in textarea
+                    const textarea = e.currentTarget;
+                    const isScrollable = textarea.scrollHeight > textarea.clientHeight;
+                    if (isScrollable) {
+                      e.preventDefault();
+                      textarea.scrollTop += e.deltaY;
+                    }
+                  }}
+                  onChange={(e) => {
+                    handlePathNotesChange(e.target.value);
+                    // Auto-resize
+                    const textarea = e.target;
+                    textarea.style.height = 'auto';
+                    const maxHeight = 225; // ~15 rows
+                    textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                  }}
+                  onFocus={(e) => {
+                    // Auto-resize on focus
+                    const textarea = e.target;
+                    textarea.style.height = 'auto';
+                    const maxHeight = 225;
+                    textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                  }}
                   style={{
                     width: '100%',
                     minHeight: editingPathNotes === 'panel' ? '100px' : '50px',
+                    maxHeight: '225px',
                     padding: '8px 10px',
                     fontSize: '11px',
                     border: '1px solid #e2e8f0',
@@ -3227,16 +3303,17 @@ function DiagramContent() {
                     boxSizing: 'border-box',
                     textAlign: 'left',
                     direction: 'ltr',
+                    overflow: 'auto',
                   }}
                 />
               </div>
               
               {/* Controls section - Save, Delete, Export */}
               <div style={{ marginBottom: '16px', paddingTop: '12px', paddingBottom: '12px', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-                {/* Category selection */}
-                {manualHighlights.size > 0 && (
+                {/* Category selection - show for both new paths AND existing paths */}
+                {(manualHighlights.size > 0 || activePath) && (
                   <div style={{ marginBottom: '10px' }}>
-                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}>Category (optional)</div>
+                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}>Category {activePath ? '' : '(optional)'}</div>
                     <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
                       <input
                         type="text"
@@ -3247,6 +3324,12 @@ function DiagramContent() {
                           setSaveCategory(e.target.value);
                           setSaveSubcategory('');
                           setSaveSubsubcategory('');
+                        }}
+                        onBlur={() => {
+                          // For existing paths, save the category change on blur
+                          if (activePath && notesPathName) {
+                            updatePathCategory(notesPathName, saveCategory, saveSubcategory);
+                          }
                         }}
                         style={{
                           flex: 1,
@@ -3275,6 +3358,12 @@ function DiagramContent() {
                               setSaveSubcategory(e.target.value);
                               setSaveSubsubcategory('');
                             }}
+                            onBlur={() => {
+                              // For existing paths, save the category change on blur
+                              if (activePath && notesPathName) {
+                                updatePathCategory(notesPathName, saveCategory, saveSubcategory);
+                              }
+                            }}
                             style={{
                               flex: 1,
                               padding: '6px 8px',
@@ -3301,6 +3390,34 @@ function DiagramContent() {
                             placeholder="Sub-sub..."
                             value={saveSubsubcategory}
                             onChange={(e) => setSaveSubsubcategory(e.target.value)}
+                            onBlur={() => {
+                              // For existing paths, save the category change on blur
+                              if (activePath && notesPathName) {
+                                // Need to also update subsubcategory
+                                const pathRow = pathsList.find(p => p.name === notesPathName);
+                                if (pathRow) {
+                                  fetch(GOOGLE_SCRIPT_URL, {
+                                    method: 'POST',
+                                    mode: 'no-cors',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      action: 'updatePathCategory',
+                                      pathId: pathRow.id,
+                                      pathName: notesPathName,
+                                      category: saveCategory,
+                                      subcategory: saveSubcategory,
+                                      subsubcategory: saveSubsubcategory,
+                                    }),
+                                  });
+                                  // Update local state
+                                  setPathsList(prev => prev.map(p => 
+                                    p.name === notesPathName 
+                                      ? { ...p, category: saveCategory || undefined, subcategory: saveSubcategory || undefined, subsubcategory: saveSubsubcategory || undefined }
+                                      : p
+                                  ));
+                                }
+                              }
+                            }}
                             style={{
                               flex: 1,
                               padding: '6px 8px',
@@ -3494,7 +3611,16 @@ function DiagramContent() {
                           placeholder="Add notes..."
                           value={content}
                           onMouseDown={(e) => e.stopPropagation()}
-                          onWheel={(e) => e.stopPropagation()}
+                          onWheel={(e) => {
+                            e.stopPropagation();
+                            // Prevent ReactFlow zoom when scrolling in textarea
+                            const textarea = e.currentTarget;
+                            const isScrollable = textarea.scrollHeight > textarea.clientHeight;
+                            if (isScrollable) {
+                              e.preventDefault();
+                              textarea.scrollTop += e.deltaY;
+                            }
+                          }}
                           onChange={(e) => {
                             const newContent = e.target.value;
                             setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
@@ -3507,7 +3633,15 @@ function DiagramContent() {
                                   [nodeId]: newContent,
                                 },
                               }));
+                              // Update last updated timestamp
+                              setPathLastUpdated(prev => ({ ...prev, [currentPathIdForPanel]: Date.now() }));
                             }
+                            
+                            // Auto-resize
+                            const textarea = e.target;
+                            textarea.style.height = 'auto';
+                            const maxHeight = 225;
+                            textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
                             
                             if (debounceTimerRef.current[nodeId]) {
                               clearTimeout(debounceTimerRef.current[nodeId]);
@@ -3530,9 +3664,17 @@ function DiagramContent() {
                               }
                             }, 1000);
                           }}
+                          onFocus={(e) => {
+                            // Auto-resize on focus
+                            const textarea = e.target;
+                            textarea.style.height = 'auto';
+                            const maxHeight = 225;
+                            textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                          }}
                           style={{
                             width: '100%',
                             minHeight: '50px',
+                            maxHeight: '225px',
                             padding: '8px 10px',
                             fontSize: '11px',
                             border: '1px solid #e2e8f0',
@@ -3543,6 +3685,7 @@ function DiagramContent() {
                             fontFamily: 'inherit',
                             lineHeight: 1.4,
                             boxSizing: 'border-box',
+                            overflow: 'auto',
                           }}
                         />
                       </div>
@@ -3748,6 +3891,16 @@ function DiagramContent() {
             placeholder="Add your notes for this node..."
             value={content}
             onMouseDown={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              e.stopPropagation();
+              // Prevent ReactFlow zoom when scrolling in textarea
+              const textarea = e.currentTarget;
+              const isScrollable = textarea.scrollHeight > textarea.clientHeight;
+              if (isScrollable) {
+                e.preventDefault();
+                textarea.scrollTop += e.deltaY;
+              }
+            }}
             onChange={(e) => {
               const newContent = e.target.value;
               setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
@@ -3760,6 +3913,15 @@ function DiagramContent() {
                   [nodeId]: newContent,
                 },
               }));
+              
+              // Update last updated timestamp
+              setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
+              
+              // Auto-resize
+              const textarea = e.target;
+              textarea.style.height = 'auto';
+              const maxHeight = 225;
+              textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
               
               // Debounced auto-save
               if (debounceTimerRef.current[nodeId]) {
@@ -3783,9 +3945,17 @@ function DiagramContent() {
                 }
               }, 1000);
             }}
+            onFocus={(e) => {
+              // Auto-resize on focus
+              const textarea = e.target;
+              textarea.style.height = 'auto';
+              const maxHeight = 225;
+              textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+            }}
             style={{
               width: '100%',
               minHeight: '80px',
+              maxHeight: '225px',
               padding: '10px 12px',
               fontSize: '13px',
               border: '1px solid #e2e8f0',
@@ -3796,6 +3966,7 @@ function DiagramContent() {
               fontFamily: 'inherit',
               lineHeight: 1.5,
               boxSizing: 'border-box',
+              overflow: 'auto',
             }}
           />
         </div>
