@@ -295,15 +295,10 @@ function MethodNode(props: any) {
               onBlur={handleNoteBlur}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
-              onWheel={(e) => {
+              onWheelCapture={(e) => {
+                // Stop the wheel event from reaching ReactFlow
                 e.stopPropagation();
-                // Prevent ReactFlow zoom when scrolling in textarea
-                const textarea = e.currentTarget;
-                const isScrollable = textarea.scrollHeight > textarea.clientHeight;
-                if (isScrollable) {
-                  e.preventDefault();
-                  textarea.scrollTop += e.deltaY;
-                }
+                e.nativeEvent.stopImmediatePropagation();
               }}
               placeholder="Add note..."
               style={{
@@ -440,15 +435,10 @@ function PersonalizedNode(props: any) {
         onChange={handleNotesChange}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        onWheel={(e) => {
+        onWheelCapture={(e) => {
+          // Stop the wheel event from reaching ReactFlow
           e.stopPropagation();
-          // Prevent ReactFlow zoom when scrolling in textarea
-          const textarea = e.currentTarget;
-          const isScrollable = textarea.scrollHeight > textarea.clientHeight;
-          if (isScrollable) {
-            e.preventDefault();
-            textarea.scrollTop += e.deltaY;
-          }
+          e.nativeEvent.stopImmediatePropagation();
         }}
         style={{
           width: 240,
@@ -568,15 +558,10 @@ function PathNotesNode(props: any) {
             onBlur={() => data.onStopEdit && data.onStopEdit()}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            onWheel={(e) => {
+            onWheelCapture={(e) => {
+              // Stop the wheel event from reaching ReactFlow
               e.stopPropagation();
-              // Prevent ReactFlow zoom when scrolling in textarea
-              const textarea = e.currentTarget;
-              const isScrollable = textarea.scrollHeight > textarea.clientHeight;
-              if (isScrollable) {
-                e.preventDefault();
-                textarea.scrollTop += e.deltaY;
-              }
+              e.nativeEvent.stopImmediatePropagation();
             }}
             placeholder="Add path notes..."
             style={{
@@ -1354,6 +1339,64 @@ function DiagramContent() {
     }
   };
 
+  // Rename a path (with debounced auto-save)
+  const renamePath = useCallback(async (oldName: string, newName: string) => {
+    if (!oldName || !newName || oldName === newName) return;
+    
+    const pathRow = pathsList.find(p => p.name === oldName);
+    if (!pathRow) return;
+    
+    // Check if new name already exists
+    if (pathsList.some(p => p.name === newName && p.name !== oldName)) {
+      console.error('Path name already exists');
+      return;
+    }
+    
+    // Clear existing debounce timer
+    if (debounceTimerRef.current['renamePath']) {
+      clearTimeout(debounceTimerRef.current['renamePath']);
+    }
+    
+    debounceTimerRef.current['renamePath'] = setTimeout(async () => {
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'renamePath',
+            pathId: pathRow.id,
+            oldName: oldName,
+            newName: newName,
+          }),
+        });
+        
+        // Update local state
+        setPathsList(prev => prev.map(p => 
+          p.name === oldName ? { ...p, name: newName } : p
+        ));
+        setPathsMap(prev => {
+          const newMap = { ...prev };
+          if (newMap[oldName]) {
+            newMap[newName] = newMap[oldName];
+            delete newMap[oldName];
+          }
+          return newMap;
+        });
+        
+        // Update active path if it's the renamed one
+        if (activePath === oldName) {
+          setActivePath(newName);
+        }
+        if (notesPathName === oldName) {
+          setNotesPathName(newName);
+        }
+      } catch (error) {
+        console.error('Error renaming path:', error);
+      }
+    }, 1000);
+  }, [pathsList, activePath, notesPathName, GOOGLE_SCRIPT_URL]);
+
   // Update path category (for drag and drop)
   const updatePathCategory = async (pathName: string, newCategory: string, newSubcategory?: string) => {
     const pathRow = pathsList.find(p => p.name === pathName);
@@ -1904,8 +1947,8 @@ function DiagramContent() {
           })
         );
         
-        // Auto-save node changes if an active saved path is loaded (not a temp path)
-        if (activePath && activePathId && !activePathId.startsWith('temp_')) {
+        // Auto-save node changes for both saved paths AND temp paths
+        if (activePath && activePathId) {
           // Update last updated timestamp
           setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [activePathId]: Date.now() }));
           
@@ -1913,12 +1956,19 @@ function DiagramContent() {
           setTimeout(() => {
             updatePathNodes(activePathId, activePath, next);
           }, 0);
+        } else if (tempPathId && tempPathName) {
+          // Also save for temp paths
+          setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [tempPathId]: Date.now() }));
+          
+          setTimeout(() => {
+            updatePathNodes(tempPathId, tempPathName, next);
+          }, 0);
         }
         
         return next;
       });
     },
-    [setNodes, enforceRootHidden, activePath, activePathId, updatePathNodes]
+    [setNodes, enforceRootHidden, activePath, activePathId, tempPathId, tempPathName, updatePathNodes]
   );
 
   const showPath = (pathName: string) => {
@@ -3241,8 +3291,44 @@ function DiagramContent() {
             
             {/* Panel content */}
             <div style={{ marginTop: '14px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', marginBottom: '12px' }}>
-                📝 {notesPathName}
+              {/* Editable path name */}
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📝 
+                {activePath ? (
+                  <input
+                    type="text"
+                    value={notesPathName}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      const oldName = notesPathName;
+                      setNotesPathName(newName);
+                      if (newName.trim() && newName !== oldName) {
+                        renamePath(oldName, newName.trim());
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#1e293b',
+                      border: '1px solid transparent',
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      background: 'transparent',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.border = '1px solid #e2e8f0';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.border = '1px solid transparent';
+                      e.target.style.background = 'transparent';
+                    }}
+                  />
+                ) : (
+                  <span>{notesPathName}</span>
+                )}
               </div>
               
               {/* Path-level notes section - FIRST */}
@@ -3262,15 +3348,10 @@ function DiagramContent() {
                   onClick={() => setEditingPathNotes('panel')}
                   onBlur={() => setEditingPathNotes(null)}
                   onMouseDown={(e) => e.stopPropagation()}
-                  onWheel={(e) => {
+                  onWheelCapture={(e) => {
+                    // Stop the wheel event from reaching ReactFlow
                     e.stopPropagation();
-                    // Prevent ReactFlow zoom when scrolling in textarea
-                    const textarea = e.currentTarget;
-                    const isScrollable = textarea.scrollHeight > textarea.clientHeight;
-                    if (isScrollable) {
-                      e.preventDefault();
-                      textarea.scrollTop += e.deltaY;
-                    }
+                    e.nativeEvent.stopImmediatePropagation();
                   }}
                   onChange={(e) => {
                     handlePathNotesChange(e.target.value);
@@ -3611,15 +3692,10 @@ function DiagramContent() {
                           placeholder="Add notes..."
                           value={content}
                           onMouseDown={(e) => e.stopPropagation()}
-                          onWheel={(e) => {
+                          onWheelCapture={(e) => {
+                            // Stop the wheel event from reaching ReactFlow
                             e.stopPropagation();
-                            // Prevent ReactFlow zoom when scrolling in textarea
-                            const textarea = e.currentTarget;
-                            const isScrollable = textarea.scrollHeight > textarea.clientHeight;
-                            if (isScrollable) {
-                              e.preventDefault();
-                              textarea.scrollTop += e.deltaY;
-                            }
+                            e.nativeEvent.stopImmediatePropagation();
                           }}
                           onChange={(e) => {
                             const newContent = e.target.value;
@@ -3891,15 +3967,10 @@ function DiagramContent() {
             placeholder="Add your notes for this node..."
             value={content}
             onMouseDown={(e) => e.stopPropagation()}
-            onWheel={(e) => {
+            onWheelCapture={(e) => {
+              // Stop the wheel event from reaching ReactFlow
               e.stopPropagation();
-              // Prevent ReactFlow zoom when scrolling in textarea
-              const textarea = e.currentTarget;
-              const isScrollable = textarea.scrollHeight > textarea.clientHeight;
-              if (isScrollable) {
-                e.preventDefault();
-                textarea.scrollTop += e.deltaY;
-              }
+              e.nativeEvent.stopImmediatePropagation();
             }}
             onChange={(e) => {
               const newContent = e.target.value;
