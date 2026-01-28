@@ -9,17 +9,20 @@ const NOTION_API_SECRET = 'ntn_Y4956693031esIvt8ydLIJtlx7QozKmnTq7sBV4YO4c2XJ';
 const NOTION_API_BASE = 'https://api.notion.com/v1';
 const NOTION_API_VERSION = '2022-06-28';
 
-// CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// Helper to set CORS headers
+function setCorsHeaders(res: VercelResponse): void {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers for all responses
+  setCorsHeaders(res);
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).set(corsHeaders).end();
+    res.status(200).end();
     return;
   }
 
@@ -27,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { path } = req.query;
   
   if (!path || typeof path !== 'string') {
-    res.status(400).set(corsHeaders).json({
+    res.status(400).json({
       error: 'Missing path parameter',
       usage: 'Include ?path=/databases/{id}/query',
     });
@@ -36,6 +39,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const notionUrl = `${NOTION_API_BASE}${path.startsWith('/') ? path : '/' + path}`;
+    
+    console.log('[Notion Proxy] URL:', notionUrl);
+    console.log('[Notion Proxy] Request method:', req.method);
+    console.log('[Notion Proxy] Request body:', JSON.stringify(req.body));
     
     // Determine the actual HTTP method
     // For GET requests, use GET
@@ -54,6 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    console.log('[Notion Proxy] Actual method:', actualMethod);
+    console.log('[Notion Proxy] Notion body:', notionBody);
+
     const notionResponse = await fetch(notionUrl, {
       method: actualMethod,
       headers: {
@@ -64,7 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: notionBody,
     });
 
+    console.log('[Notion Proxy] Notion response status:', notionResponse.status);
+
     const responseText = await notionResponse.text();
+    
+    console.log('[Notion Proxy] Response text length:', responseText.length);
+    
     let responseData: unknown;
     
     try {
@@ -73,18 +88,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       responseData = { raw: responseText };
     }
 
-    // Forward the response with CORS headers
-    res
-      .status(notionResponse.status)
-      .set(corsHeaders)
-      .json(responseData);
+    // Forward the response
+    res.status(notionResponse.status).json(responseData);
       
   } catch (error) {
-    console.error('Notion API proxy error:', error);
+    console.error('[Notion Proxy] Error:', error);
     
-    res.status(500).set(corsHeaders).json({
+    res.status(500).json({
       error: 'Proxy error',
       message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
     });
   }
 }
