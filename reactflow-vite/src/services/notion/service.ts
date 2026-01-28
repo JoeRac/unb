@@ -7,6 +7,7 @@ import {
   queryAllDatabasePages,
   createPage,
   updatePage,
+  archivePage,
   NotionAPIError,
 } from './client';
 import {
@@ -295,7 +296,7 @@ export async function savePathNotes(
 }
 
 /**
- * Delete a path
+ * Delete a path (moves to Notion trash)
  */
 export async function deletePath(pathId: string): Promise<void> {
   const existingPage = await findPathByAppId(pathId);
@@ -305,30 +306,38 @@ export async function deletePath(pathId: string): Promise<void> {
     return;
   }
 
-  const deletedAt = new Date().toISOString();
-  const statusUpdates = [
-    { status: { status: { name: 'deleted' } }, date_updated: { date: { start: deletedAt } } },
-    { status: { select: { name: 'deleted' } }, date_updated: { date: { start: deletedAt } } },
-    { status: { rich_text: [{ text: { content: 'deleted' } }] }, date_updated: { date: { start: deletedAt } } },
-  ];
-
-  let lastError: unknown = null;
-  for (const props of statusUpdates) {
-    try {
-      await updatePage(existingPage.id, props);
-      lastError = null;
-      break;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
+  // Archive the page (moves to Notion trash)
+  await archivePage(existingPage.id);
   
-  // Invalidate cache
+  // Remove from cache
+  cache.pathPageIds.delete(pathId);
   cache.paths = null;
+}
+
+/**
+ * Delete all node-path records for a given path (moves to Notion trash)
+ */
+export async function deleteNodePathsForPath(pathId: string): Promise<void> {
+  try {
+    // Find all node-path records for this path
+    const pages = await queryAllDatabasePages(
+      NOTION_CONFIG.DATABASES.NODE_PATH,
+      {
+        property: 'pathId',
+        rich_text: { equals: pathId },
+      }
+    );
+    
+    // Archive each one
+    for (const page of pages) {
+      await archivePage(page.id);
+    }
+    
+    // Invalidate cache
+    cache.nodePaths = null;
+  } catch (error) {
+    console.error('Error deleting node-paths for path:', pathId, error);
+  }
 }
 
 // ============================================

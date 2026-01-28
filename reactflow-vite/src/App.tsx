@@ -710,6 +710,10 @@ function DiagramContent() {
   const [selectedNodeFilter, setSelectedNodeFilter] = useState<string | null>(null);
   const [showNodeFilterDropdown, setShowNodeFilterDropdown] = useState(false);
   
+  // Path search state
+  const [pathSearchQuery, setPathSearchQuery] = useState('');
+  const [showPathSearchDropdown, setShowPathSearchDropdown] = useState(false);
+  
   // Path sort order: 'latest' (by last activity), 'alpha' (alphabetical), or 'category' (grouped by category)
   const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha' | 'category'>('latest');
   
@@ -745,6 +749,7 @@ function DiagramContent() {
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const nodeFilterRef = useRef<HTMLDivElement>(null);
+  const pathSearchRef = useRef<HTMLDivElement>(null);
   const notesPanelRef = useRef<HTMLDivElement>(null);
   const infoPanelRef = useRef<HTMLDivElement>(null);
   
@@ -764,6 +769,9 @@ function DiagramContent() {
     const handleClickOutside = (e: MouseEvent) => {
       if (nodeFilterRef.current && !nodeFilterRef.current.contains(e.target as HTMLElement)) {
         setShowNodeFilterDropdown(false);
+      }
+      if (pathSearchRef.current && !pathSearchRef.current.contains(e.target as HTMLElement)) {
+        setShowPathSearchDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1184,7 +1192,7 @@ function DiagramContent() {
     const pathRow = pathsList.find(p => p.name === pathNameToDelete);
     if (!pathRow) return;
 
-    if (!confirm(`Are you sure you want to delete the path "${pathNameToDelete}"?`)) {
+    if (!confirm(`Are you sure you want to delete the path "${pathNameToDelete}"? This will move it to trash in Notion.`)) {
       return;
     }
 
@@ -1193,7 +1201,11 @@ function DiagramContent() {
 
     try {
       if (DATA_SOURCE === 'notion') {
-        await notionService.deletePath(pathIdToDelete);
+        // Delete path and its associated node notes (moves to Notion trash)
+        await Promise.all([
+          notionService.deletePath(pathIdToDelete),
+          notionService.deleteNodePathsForPath(pathIdToDelete),
+        ]);
       } else {
         await fetch(GOOGLE_SCRIPT_URL, {
           method: 'POST',
@@ -1949,64 +1961,67 @@ function DiagramContent() {
     );
   };
 
-  const createNewPath = useCallback(async () => {
+  const createNewPath = useCallback(() => {
     const timestamp = new Date();
     const tempName = `New Path ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const newId = generatePathId('new-path');
     const updatedAt = new Date().toISOString();
 
-    try {
-      if (DATA_SOURCE === 'notion') {
-        await notionService.savePath({
-          id: newId,
-          name: tempName,
-          nodeIds: [],
-          dateUpdated: updatedAt,
-        });
-      } else {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'savePath',
-            pathId: forceTextForSheet(newId),
-            pathName: forceTextForSheet(tempName),
-            nodeIds: '',
-            category: '',
-            subcategory: '',
-            subsubcategory: '',
-          }),
-        });
+    // Optimistic UI update - add to list immediately
+    setPathsList(prev => [...prev, {
+      id: newId,
+      name: tempName,
+      nodeIds: [],
+      status: 'active',
+      dateUpdated: updatedAt,
+    }]);
+    setPathsMap(prev => ({
+      ...prev,
+      [tempName]: [],
+    }));
+    setPathLastUpdated(prev => ({
+      ...prev,
+      [newId]: Date.now(),
+    }));
+
+    setManualHighlights(new Set());
+    setSidebarNodeContent({});
+    setEditingPathNotes(null);
+
+    // Show path and start editing immediately
+    showPath(tempName);
+    startEditingPath(tempName);
+
+    // Save to backend in background
+    (async () => {
+      try {
+        if (DATA_SOURCE === 'notion') {
+          await notionService.savePath({
+            id: newId,
+            name: tempName,
+            nodeIds: [],
+            dateUpdated: updatedAt,
+          });
+        } else {
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'savePath',
+              pathId: forceTextForSheet(newId),
+              pathName: forceTextForSheet(tempName),
+              nodeIds: '',
+              category: '',
+              subcategory: '',
+              subsubcategory: '',
+            }),
+          });
+        }
+      } catch (error) {
+        console.error('Error saving new path to backend:', error);
       }
-
-      setPathsList(prev => [...prev, {
-        id: newId,
-        name: tempName,
-        nodeIds: [],
-        status: 'active',
-        dateUpdated: updatedAt,
-      }]);
-      setPathsMap(prev => ({
-        ...prev,
-        [tempName]: [],
-      }));
-      setPathLastUpdated(prev => ({
-        ...prev,
-        [newId]: Date.parse(updatedAt),
-      }));
-
-      setManualHighlights(new Set());
-      setSidebarNodeContent({});
-      setEditingPathNotes(null);
-
-      setTimeout(() => {
-        showPath(tempName);
-        startEditingPath(tempName);
-      }, 0);
-    } catch (error) {
-      console.error('Error creating new path:', error);
-    }
+    })();
   }, [startEditingPath, showPath]);
 
   const resetView = () => {
@@ -2173,7 +2188,123 @@ function DiagramContent() {
           {/* Paths section */}
           {pathsList.length > 0 && (
             <>
-             
+              {/* Path search dropdown/autocomplete */}
+              <div ref={pathSearchRef} style={{ marginBottom: '8px', position: 'relative' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search paths..."
+                    value={pathSearchQuery}
+                    onChange={(e) => {
+                      setPathSearchQuery(e.target.value);
+                      setShowPathSearchDropdown(true);
+                    }}
+                    onFocus={() => setShowPathSearchDropdown(true)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 28px 8px 10px',
+                      fontSize: '11px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      background: 'white',
+                      color: '#334155',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  {pathSearchQuery && (
+                    <button
+                      onClick={() => {
+                        setPathSearchQuery('');
+                        setShowPathSearchDropdown(false);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '6px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        fontSize: '14px',
+                        padding: '2px',
+                        lineHeight: 1,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {showPathSearchDropdown && pathSearchQuery && (
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      zIndex: 100,
+                      marginTop: '4px',
+                    }}
+                  >
+                    {(() => {
+                      const matchingPaths = pathsList
+                        .filter(p => p.name && p.name.toLowerCase().includes(pathSearchQuery.toLowerCase()))
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                      
+                      if (matchingPaths.length === 0) {
+                        return (
+                          <div style={{ padding: '10px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
+                            No paths found
+                          </div>
+                        );
+                      }
+                      
+                      return matchingPaths.slice(0, 20).map(path => (
+                        <button
+                          key={path.id}
+                          onClick={() => {
+                            showPath(path.name);
+                            setPathSearchQuery('');
+                            setShowPathSearchDropdown(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              showPath(path.name);
+                              setPathSearchQuery('');
+                              setShowPathSearchDropdown(false);
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            fontSize: '11px',
+                            textAlign: 'left',
+                            background: activePath === path.name ? 'rgba(239, 246, 255, 0.8)' : 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#334155',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <span style={{ flex: 1 }}>{path.name}</span>
+                          {path.category && (
+                            <span style={{ fontSize: '9px', color: '#94a3b8' }}>{path.category}</span>
+                          )}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </div>
               
               {/* Node filter dropdown/autocomplete */}
               <div ref={nodeFilterRef} style={{ marginBottom: '12px', position: 'relative' }}>
@@ -2842,6 +2973,52 @@ function DiagramContent() {
                 Clear View
               </button>
 
+              {/* Header with title and add button */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginBottom: '8px',
+              }}>
+                <span style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '600', 
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>Paths</span>
+                <button
+                  onClick={createNewPath}
+                  style={{
+                    width: '22px',
+                    height: '22px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(37, 99, 235, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
+                  }}
+                  title="Create new path"
+                >
+                  +
+                </button>
+              </div>
+
               {/* Sort control */}
               <div style={{ 
                 display: 'flex', 
@@ -2895,22 +3072,6 @@ function DiagramContent() {
                   }}
                 >
                   Category
-                </button>
-                <button
-                  onClick={createNewPath}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '9px',
-                    fontWeight: '600',
-                    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                    color: '#1d4ed8',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                  title="Create new path"
-                >
-                  +
                 </button>
               </div>
             </>
@@ -3046,6 +3207,7 @@ function DiagramContent() {
                                 }
                               }}
                               onBlur={commitPathRename}
+                              onFocus={(e) => e.target.select()}
                               autoFocus
                               style={{
                                 flex: 1,
@@ -3198,6 +3360,7 @@ function DiagramContent() {
                             }
                           }}
                           onBlur={commitPathRename}
+                          onFocus={(e) => e.target.select()}
                           autoFocus
                           style={{
                             flex: 1,

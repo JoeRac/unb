@@ -89,6 +89,7 @@ export {
   renamePath,
   savePathNotes,
   deletePath,
+  deleteNodePathsForPath,
   saveNodePath,
   batchSaveNodePaths,
   refreshAllData,
