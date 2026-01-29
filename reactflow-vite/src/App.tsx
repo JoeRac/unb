@@ -2322,7 +2322,7 @@ function DiagramContent() {
                       transition: 'transform 0.15s ease',
                     }}
                   >
-                    {cat.name} ({pathsList.filter(p => p.name && p.category === cat.id).length})
+                    {cat.name || cat.id} ({pathsList.filter(p => p.name && p.category === cat.id).length})
                   </button>
                 ))}
                 
