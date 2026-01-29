@@ -2276,19 +2276,19 @@ function DiagramContent() {
                   All ({pathsList.filter(p => p.name).length})
                 </button>
                 
-                {/* Category chips - using category IDs */}
-                {getUniqueCategoryIds(pathsList, categoryMap).map(catId => (
+                {/* Category chips - show all categories, even unused */}
+                {categoriesList.map(cat => (
                   <button
                     type="button"
-                    key={catId}
+                    key={cat.id}
                     draggable
-                    onDragStart={() => setDraggedCategory({ name: catId, level: 'category' })}
+                    onDragStart={() => setDraggedCategory({ name: cat.id, level: 'category' })}
                     onDragEnd={() => setDraggedCategory(null)}
                     onClick={() => {
-                      setSelectedCategory(catId);
+                      setSelectedCategory(cat.id);
                       setSelectedSubcategory(null);
                       setSelectedSubsubcategory(null);
-                      setSaveCategory(catId);
+                      setSaveCategory(cat.id);
                       setSaveSubcategory('');
                       setSaveSubsubcategory('');
                     }}
@@ -2303,15 +2303,15 @@ function DiagramContent() {
                       e.preventDefault();
                       e.currentTarget.style.transform = 'scale(1)';
                       if (draggedPath) {
-                        updatePathCategory(draggedPath, catId, '');
+                        updatePathCategory(draggedPath, cat.id, '');
                         setDraggedPath(null);
                       }
                       // Handle dropping a category onto another category to nest it
-                      if (draggedCategory && draggedCategory.name !== catId) {
+                      if (draggedCategory && draggedCategory.name !== cat.id) {
                         // Move all paths from dragged category to be subcategories of target
                         const pathsToMove = pathsList.filter(p => p.category === draggedCategory.name);
                         pathsToMove.forEach(p => {
-                          updatePathCategory(p.name, catId, draggedCategory.name);
+                          updatePathCategory(p.name, cat.id, draggedCategory.name);
                         });
                         setDraggedCategory(null);
                       }
@@ -2319,21 +2319,21 @@ function DiagramContent() {
                     style={{
                       padding: '5px 10px',
                       fontSize: '10px',
-                      fontWeight: selectedCategory === catId ? '600' : '500',
+                      fontWeight: selectedCategory === cat.id ? '600' : '500',
                       borderRadius: '12px',
-                      border: selectedCategory === catId 
+                      border: selectedCategory === cat.id 
                         ? '1px solid rgba(59, 130, 246, 0.5)' 
                         : '1px solid rgba(59, 130, 246, 0.2)',
-                      background: selectedCategory === catId 
+                      background: selectedCategory === cat.id 
                         ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
                         : 'rgba(239, 246, 255, 0.5)',
-                      color: selectedCategory === catId ? '#1d4ed8' : '#3b82f6',
+                      color: selectedCategory === cat.id ? '#1d4ed8' : '#3b82f6',
                       cursor: 'grab',
-                      boxShadow: selectedCategory === catId ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
+                      boxShadow: selectedCategory === cat.id ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
                       transition: 'transform 0.15s ease',
                     }}
                   >
-                    {categoryMap[catId] || catId} ({pathsList.filter(p => p.name && p.category === catId).length})
+                    {cat.name} ({pathsList.filter(p => p.name && p.category === cat.id).length})
                   </button>
                 ))}
                 
