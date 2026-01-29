@@ -720,6 +720,87 @@ function DiagramContent() {
 
   // Build the nested category tree for rendering
   const categoryTree = useMemo(() => buildCategoryTree(categoriesList), [categoriesList]);
+
+  // Modern recursive category tree UI (collapsible, add, delete, nest)
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [addingParentId, setAddingParentId] = useState<string | null>(null);
+  const [newCatName, setNewCatName] = useState('');
+
+  const handleToggleExpand = (id: string) => {
+    setExpandedCategories(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleAddCategory = async (parentId: string | null) => {
+    if (!newCatName.trim()) return;
+    await notionService.createCategory(newCatName.trim(), parentId);
+    setNewCatName('');
+    setAddingParentId(null);
+    // Optionally, reload categories here if not auto-updating
+  };
+
+  const handleDeleteCategory = async (cat: CategoryTreeNode) => {
+    if (!window.confirm(`Delete category "${cat.name}" and all its subcategories?`)) return;
+    // TODO: Implement deleteCategory in notionService (not shown here)
+    // await notionService.deleteCategory(cat.notionPageId || cat.id);
+    alert('Delete not implemented in this demo.');
+  };
+
+  const renderCategoryTree = (nodes: CategoryTreeNode[], level = 0) => (
+    <ul style={{ marginLeft: level * 16, listStyle: 'none', paddingLeft: 0 }}>
+      {nodes.map(node => (
+        <li key={node.id} style={{ marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {node.children.length > 0 && (
+              <button onClick={() => handleToggleExpand(node.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
+                {expandedCategories[node.id] !== false ? '▼' : '▶'}
+              </button>
+            )}
+            <span style={{ fontWeight: 500, fontSize: 13 }}>{node.name}</span>
+            <button onClick={() => { setAddingParentId(node.notionPageId || node.id); setNewCatName(''); }} style={{ border: 'none', background: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: 14, fontWeight: 600, marginLeft: 2 }}>+</button>
+            <button onClick={() => handleDeleteCategory(node)} style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14, fontWeight: 600, marginLeft: 2 }}>🗑️</button>
+          </div>
+          {addingParentId === (node.notionPageId || node.id) && (
+            <div style={{ margin: '4px 0 4px 24px', display: 'flex', gap: 4 }}>
+              <input
+                type="text"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="New subcategory..."
+                style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(node.notionPageId || node.id); if (e.key === 'Escape') setAddingParentId(null); }}
+              />
+              <button onClick={() => handleAddCategory(node.notionPageId || node.id)} style={{ fontSize: 12, color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer' }}>Add</button>
+              <button onClick={() => setAddingParentId(null)} style={{ fontSize: 12, color: '#64748b', border: 'none', background: 'none', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          )}
+          {node.children.length > 0 && expandedCategories[node.id] !== false && renderCategoryTree(node.children, level + 1)}
+        </li>
+      ))}
+      {/* Add root category */}
+      {level === 0 && (
+        <li style={{ marginTop: 6 }}>
+          {addingParentId === null ? (
+            <button onClick={() => { setAddingParentId(null); setNewCatName(''); }} style={{ border: '1px dashed #3b82f6', background: 'none', color: '#3b82f6', borderRadius: 8, fontSize: 13, padding: '2px 10px', cursor: 'pointer' }}>+ Add Category</button>
+          ) : (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input
+                type="text"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="New category..."
+                style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(null); if (e.key === 'Escape') setAddingParentId(null); }}
+              />
+              <button onClick={() => handleAddCategory(null)} style={{ fontSize: 12, color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer' }}>Add</button>
+              <button onClick={() => setAddingParentId(null)} style={{ fontSize: 12, color: '#64748b', border: 'none', background: 'none', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          )}
+        </li>
+      )}
+    </ul>
+  );
   
   // Notion sync status (prefixed with _ since we're setting up the listener but UI not implemented yet)
   const [_syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
