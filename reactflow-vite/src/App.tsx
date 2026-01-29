@@ -1334,27 +1334,27 @@ function DiagramContent() {
     }
   };
 
-  // Save a category placeholder (empty path with just category info)
-  const saveCategoryPlaceholder = async (category: string, subcategory?: string, subsubcategory?: string) => {
-    const placeholderId = `__cat__${category}${subcategory ? `__${subcategory}` : ''}${subsubcategory ? `__${subsubcategory}` : ''}`;
-    
-    // Check if this placeholder already exists
-    if (pathsList.some(p => p.id === placeholderId)) {
+  // Create a new category in the Categories table
+  const addNewCategory = async (categoryName: string) => {
+    // Check if this category name already exists
+    if (categoriesList.some(c => c.name.toLowerCase() === categoryName.toLowerCase())) {
+      console.log('Category already exists:', categoryName);
       return; // Already exists
     }
 
     try {
       if (DATA_SOURCE === 'notion') {
-        // For Notion, save as an empty path with just category info
-        await notionService.savePath({
-          id: placeholderId,
-          name: '',
-          nodeIds: [],
-          category: category,
-          subcategory: subcategory,
-          subsubcategory: subsubcategory,
-        });
+        // Create category in Notion Categories table
+        const newCategory = await notionService.createCategory(categoryName);
+        
+        // Add to local state immediately
+        setCategoriesList(prev => [...prev, newCategory]);
+        
+        // Select the new category
+        setSelectedCategory(newCategory.id);
       } else {
+        // For Google Sheets, use the old placeholder system
+        const placeholderId = `__cat__${categoryName}`;
         await fetch(GOOGLE_SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
@@ -1362,27 +1362,16 @@ function DiagramContent() {
           body: JSON.stringify({
             action: 'savePath',
             pathId: forceTextForSheet(placeholderId),
-            pathName: '', // Empty name indicates placeholder
+            pathName: '',
             nodeIds: '',
-            category: category,
-            subcategory: subcategory || '',
-            subsubcategory: subsubcategory || '',
+            category: categoryName,
+            subcategory: '',
+            subsubcategory: '',
           }),
         });
       }
-
-      // Add to local state
-      const newPlaceholder: PathRow = {
-        id: placeholderId,
-        name: '',
-        nodeIds: [],
-        category: category || undefined,
-        subcategory: subcategory || undefined,
-        subsubcategory: subsubcategory || undefined,
-      };
-      setPathsList(prev => [...prev, newPlaceholder]);
     } catch (error) {
-      console.error('Error saving category:', error);
+      console.error('Error creating category:', error);
     }
   };
 
@@ -2397,12 +2386,8 @@ function DiagramContent() {
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && newCategoryName.trim()) {
-                          // Save category placeholder to Google Sheets
-                          saveCategoryPlaceholder(newCategoryName.trim());
-                          setSaveCategory(newCategoryName.trim());
-                          setSelectedCategory(newCategoryName.trim());
-                          setSelectedSubcategory(null);
-                          setSelectedSubsubcategory(null);
+                          // Create new category in Categories table
+                          addNewCategory(newCategoryName.trim());
                           setNewCategoryName('');
                           setShowAddCategory(false);
                         }
@@ -2427,12 +2412,8 @@ function DiagramContent() {
                       type="button"
                       onClick={() => {
                         if (newCategoryName.trim()) {
-                          // Save category placeholder to Google Sheets
-                          saveCategoryPlaceholder(newCategoryName.trim());
-                          setSaveCategory(newCategoryName.trim());
-                          setSelectedCategory(newCategoryName.trim());
-                          setSelectedSubcategory(null);
-                          setSelectedSubsubcategory(null);
+                          // Create new category in Categories table
+                          addNewCategory(newCategoryName.trim());
                           setNewCategoryName('');
                           setShowAddCategory(false);
                         }
@@ -2551,8 +2532,7 @@ function DiagramContent() {
                         onChange={(e) => setNewCategoryName(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newCategoryName.trim()) {
-                            // Save subcategory placeholder to Google Sheets
-                            saveCategoryPlaceholder(selectedCategory!, newCategoryName.trim());
+                            // Note: subcategories not yet supported in new category system
                             setSaveSubcategory(newCategoryName.trim());
                             setSelectedSubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(null);
@@ -2580,8 +2560,7 @@ function DiagramContent() {
                         type="button"
                         onClick={() => {
                           if (newCategoryName.trim()) {
-                            // Save subcategory placeholder to Google Sheets
-                            saveCategoryPlaceholder(selectedCategory!, newCategoryName.trim());
+                            // Note: subcategories not yet supported in new category system
                             setSaveSubcategory(newCategoryName.trim());
                             setSelectedSubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(null);
@@ -2696,8 +2675,7 @@ function DiagramContent() {
                         onChange={(e) => setNewCategoryName(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newCategoryName.trim()) {
-                            // Save sub-subcategory placeholder to Google Sheets
-                            saveCategoryPlaceholder(selectedCategory!, selectedSubcategory!, newCategoryName.trim());
+                            // Note: sub-subcategories not yet supported in new category system
                             setSaveSubsubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(newCategoryName.trim());
                             setNewCategoryName('');
@@ -2724,8 +2702,7 @@ function DiagramContent() {
                         type="button"
                         onClick={() => {
                           if (newCategoryName.trim()) {
-                            // Save sub-subcategory placeholder to Google Sheets
-                            saveCategoryPlaceholder(selectedCategory!, selectedSubcategory!, newCategoryName.trim());
+                            // Note: sub-subcategories not yet supported in new category system
                             setSaveSubsubcategory(newCategoryName.trim());
                             setSelectedSubsubcategory(newCategoryName.trim());
                             setNewCategoryName('');
@@ -3395,7 +3372,7 @@ function DiagramContent() {
                           style={{
                             flex: 1,
                             fontSize: '11px',
-                            fontWeight: '600',
+                            fontWeight: '500',
                             color: '#1e293b',
                             border: 'none',
                             outline: 'none',

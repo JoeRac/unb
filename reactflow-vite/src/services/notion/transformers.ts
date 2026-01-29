@@ -426,6 +426,22 @@ export function notionPagesToCategories(pages: NotionPage[]): CategoryRecord[] {
   return pages.map(notionPageToCategory);
 }
 
+/**
+ * Transform CategoryRecord to Notion properties for create/update
+ */
+export function categoryToNotionProperties(category: Partial<CategoryRecord>): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  
+  if (category.id !== undefined) {
+    props['id'] = createTitleProperty(category.id);
+  }
+  if (category.name !== undefined) {
+    props['name'] = createRichTextProperty(category.name);
+  }
+  
+  return props;
+}
+
 // ============================================
 // Batch Transformers
 // ============================================

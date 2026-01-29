@@ -17,6 +17,7 @@ import {
   notionPagesToCategories,
   pathToNotionProperties,
   nodePathToNotionProperties,
+  categoryToNotionProperties,
 } from './transformers';
 import type {
   NodeRecord,
@@ -87,6 +88,32 @@ export async function fetchCategories(forceRefresh = false): Promise<CategoryRec
     return categories;
   } catch (error) {
     console.error('Error fetching categories from Notion:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new category in Notion
+ */
+export async function createCategory(name: string): Promise<CategoryRecord> {
+  const id = `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  try {
+    const properties = categoryToNotionProperties({ id, name });
+    const resultPage = await createPage(NOTION_CONFIG.DATABASES.CATEGORIES, properties);
+    
+    const newCategory: CategoryRecord = {
+      id,
+      notionPageId: resultPage.id,
+      name,
+    };
+    
+    // Invalidate cache so next fetch gets the new category
+    cache.categories = null;
+    
+    return newCategory;
+  } catch (error) {
+    console.error('Error creating category in Notion:', error);
     throw error;
   }
 }
