@@ -652,17 +652,6 @@ function buildCategoryMap(categories: CategoryRecord[]): Record<string, string> 
 }
 
 // Helper to get unique category IDs from paths (that still exist in categories list)
-function getUniqueCategoryIds(paths: PathRow[], categoryMap: Record<string, string>): string[] {
-  const catIds = new Set<string>();
-  paths.forEach(p => {
-    if (p.category && categoryMap[p.category]) catIds.add(p.category);
-  });
-  return Array.from(catIds).sort((a, b) => {
-    const nameA = categoryMap[a] || a;
-    const nameB = categoryMap[b] || b;
-    return nameA.localeCompare(nameB);
-  });
-}
 
 function getSubcategories(paths: PathRow[], category: string): string[] {
   const subs = new Set<string>();
