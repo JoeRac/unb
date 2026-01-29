@@ -717,6 +717,9 @@ function DiagramContent() {
   
   // Category ID -> Name map for quick lookups
   const categoryMap = useMemo(() => buildCategoryMap(categoriesList), [categoriesList]);
+
+  // Build the nested category tree for rendering
+  const categoryTree = useMemo(() => buildCategoryTree(categoriesList), [categoriesList]);
   
   // Notion sync status (prefixed with _ since we're setting up the listener but UI not implemented yet)
   const [_syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
