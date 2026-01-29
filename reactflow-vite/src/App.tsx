@@ -1,3 +1,25 @@
+// Utility: Build a nested tree from flat categories list
+export interface CategoryTreeNode extends CategoryRecord {
+  children: CategoryTreeNode[];
+}
+
+function buildCategoryTree(categories: CategoryRecord[]): CategoryTreeNode[] {
+  const nodes: Record<string, CategoryTreeNode> = {};
+  const roots: CategoryTreeNode[] = [];
+  // Create all nodes
+  categories.forEach(cat => {
+    nodes[cat.notionPageId || cat.id] = { ...cat, children: [] };
+  });
+  // Assign children to parents
+  Object.values(nodes).forEach(node => {
+    if (node.parentId && nodes[node.parentId]) {
+      nodes[node.parentId].children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  return roots;
+}
 import dagre from 'dagre';
 import type { Node as FlowNode, Edge as FlowEdge } from '@xyflow/react';
 

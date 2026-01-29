@@ -406,21 +406,29 @@ export function nodePathToNotionProperties(nodePath: Partial<NodePathRecord>): R
  */
 export function notionPageToCategory(page: NotionPage): CategoryRecord {
   const props = page.properties;
-  
+
   // Extract name from title property
   const name = extractTitle(props['name']) || extractTitle(props['Name']) || '';
-  
+
   // Extract id from rich text property, fallback to page id
   let id = extractRichText(props['id']) || extractRichText(props['Id']);
   if (id?.startsWith("'")) id = id.slice(1);
   if (!id) id = page.id;
-  
-  console.log('Parsed category:', { id, name, pageId: page.id });
-  
+
+  // Extract parentId from Notion relation property (should be a single relation)
+  let parentId: string | null = null;
+  const parentProp = props['parent'];
+  if (parentProp && parentProp.type === 'relation' && Array.isArray((parentProp as any).relation) && (parentProp as any).relation.length > 0) {
+    parentId = (parentProp as any).relation[0]?.id || null;
+  }
+
+  console.log('Parsed category:', { id, name, parentId, pageId: page.id });
+
   return {
     id,
     notionPageId: page.id,
     name,
+    parentId,
   };
 }
 
@@ -446,7 +454,12 @@ export function categoryToNotionProperties(category: Partial<CategoryRecord>): R
   if (category.id !== undefined) {
     props['id'] = createRichTextProperty(category.id);
   }
-  
+  // 'parent' is a relation property (array of Notion page IDs)
+  if (category.parentId !== undefined) {
+    props['parent'] = {
+      relation: category.parentId ? [{ id: category.parentId }] : [],
+    };
+  }
   return props;
 }
 

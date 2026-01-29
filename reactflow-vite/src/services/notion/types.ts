@@ -162,6 +162,7 @@ export interface CategoryRecord {
   id: string;
   notionPageId?: string;
   name: string;
+  parentId?: string | null; // Notion page ID of parent category, or null for root
 }
 
 // Node-Path content (user notes)

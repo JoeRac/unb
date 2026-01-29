@@ -100,25 +100,26 @@ export async function fetchCategories(forceRefresh = false): Promise<CategoryRec
 /**
  * Create a new category in Notion
  */
-export async function createCategory(name: string): Promise<CategoryRecord> {
+export async function createCategory(name: string, parentId?: string | null): Promise<CategoryRecord> {
   const id = `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
+
   try {
-    const properties = categoryToNotionProperties({ id, name });
+    const properties = categoryToNotionProperties({ id, name, parentId });
     console.log('Creating category with properties:', properties);
     console.log('Database ID:', NOTION_CONFIG.DATABASES.CATEGORIES);
     const resultPage = await createPage(NOTION_CONFIG.DATABASES.CATEGORIES, properties);
     console.log('Created category page:', resultPage);
-    
+
     const newCategory: CategoryRecord = {
       id,
       notionPageId: resultPage.id,
       name,
+      parentId: parentId || null,
     };
-    
+
     // Invalidate cache so next fetch gets the new category
     cache.categories = null;
-    
+
     return newCategory;
   } catch (error) {
     console.error('Error creating category in Notion:', error);
