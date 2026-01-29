@@ -73,12 +73,16 @@ function clearCache(): void {
  */
 export async function fetchCategories(forceRefresh = false): Promise<CategoryRecord[]> {
   if (!forceRefresh && isCacheValid(cache.categories)) {
+    console.log('Returning cached categories:', cache.categories.data);
     return cache.categories.data;
   }
   
   try {
+    console.log('Fetching categories from Notion database:', NOTION_CONFIG.DATABASES.CATEGORIES);
     const pages = await queryAllDatabasePages(NOTION_CONFIG.DATABASES.CATEGORIES);
+    console.log('Fetched pages:', pages.length, pages);
     const categories = notionPagesToCategories(pages);
+    console.log('Parsed categories:', categories);
     
     cache.categories = {
       data: categories,
@@ -88,7 +92,8 @@ export async function fetchCategories(forceRefresh = false): Promise<CategoryRec
     return categories;
   } catch (error) {
     console.error('Error fetching categories from Notion:', error);
-    throw error;
+    // Return empty array instead of throwing to avoid breaking the UI
+    return [];
   }
 }
 
@@ -100,7 +105,10 @@ export async function createCategory(name: string): Promise<CategoryRecord> {
   
   try {
     const properties = categoryToNotionProperties({ id, name });
+    console.log('Creating category with properties:', properties);
+    console.log('Database ID:', NOTION_CONFIG.DATABASES.CATEGORIES);
     const resultPage = await createPage(NOTION_CONFIG.DATABASES.CATEGORIES, properties);
+    console.log('Created category page:', resultPage);
     
     const newCategory: CategoryRecord = {
       id,

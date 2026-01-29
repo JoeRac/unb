@@ -402,15 +402,20 @@ export function nodePathToNotionProperties(nodePath: Partial<NodePathRecord>): R
 
 /**
  * Transform Notion page to CategoryRecord
+ * Note: 'name' is the title property, 'id' is a rich text property
  */
 export function notionPageToCategory(page: NotionPage): CategoryRecord {
   const props = page.properties;
   
-  let id = extractTitle(props['id']) || extractRichText(props['id']);
+  // Extract name from title property
+  const name = extractTitle(props['name']) || extractTitle(props['Name']) || '';
+  
+  // Extract id from rich text property, fallback to page id
+  let id = extractRichText(props['id']) || extractRichText(props['Id']);
   if (id?.startsWith("'")) id = id.slice(1);
   if (!id) id = page.id;
   
-  const name = extractTitle(props['name']) || extractRichText(props['name']) || extractTitle(props['Name']) || '';
+  console.log('Parsed category:', { id, name, pageId: page.id });
   
   return {
     id,
@@ -428,15 +433,18 @@ export function notionPagesToCategories(pages: NotionPage[]): CategoryRecord[] {
 
 /**
  * Transform CategoryRecord to Notion properties for create/update
+ * Note: In Notion, 'name' is typically the title property for a Categories database
  */
 export function categoryToNotionProperties(category: Partial<CategoryRecord>): Record<string, unknown> {
   const props: Record<string, unknown> = {};
   
-  if (category.id !== undefined) {
-    props['id'] = createTitleProperty(category.id);
-  }
+  // 'name' is the title property (required in Notion)
   if (category.name !== undefined) {
-    props['name'] = createRichTextProperty(category.name);
+    props['name'] = createTitleProperty(category.name);
+  }
+  // 'id' is a rich text property to store our app-generated ID
+  if (category.id !== undefined) {
+    props['id'] = createRichTextProperty(category.id);
   }
   
   return props;

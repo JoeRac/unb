@@ -1336,6 +1336,9 @@ function DiagramContent() {
 
   // Create a new category in the Categories table
   const addNewCategory = async (categoryName: string) => {
+    console.log('addNewCategory called with:', categoryName);
+    console.log('Current categoriesList:', categoriesList);
+    
     // Check if this category name already exists
     if (categoriesList.some(c => c.name.toLowerCase() === categoryName.toLowerCase())) {
       console.log('Category already exists:', categoryName);
@@ -1344,8 +1347,10 @@ function DiagramContent() {
 
     try {
       if (DATA_SOURCE === 'notion') {
+        console.log('Creating category in Notion...');
         // Create category in Notion Categories table
         const newCategory = await notionService.createCategory(categoryName);
+        console.log('Created new category:', newCategory);
         
         // Add to local state immediately
         setCategoriesList(prev => [...prev, newCategory]);
@@ -1793,9 +1798,12 @@ function DiagramContent() {
     };
 
     const loadCategories = async () => {
+      console.log('loadCategories called, DATA_SOURCE:', DATA_SOURCE);
       try {
         if (DATA_SOURCE === 'notion') {
+          console.log('Fetching categories from Notion...');
           const categories = await notionService.fetchCategories();
+          console.log('Loaded categories:', categories);
           setCategoriesList(categories);
         }
       } catch (error) {
