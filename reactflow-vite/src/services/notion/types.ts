@@ -148,13 +148,20 @@ export interface PathRecord {
   notionPageId?: string;
   name: string;
   nodeIds: string[];
-  category?: string;
+  category?: string;  // Now stores category ID
   subcategory?: string;
   subsubcategory?: string;
   notes?: string;
   status?: string;
   dateUpdated?: string;
   lastModified?: string;
+}
+
+// Category data from Notion
+export interface CategoryRecord {
+  id: string;
+  notionPageId?: string;
+  name: string;
 }
 
 // Node-Path content (user notes)

@@ -14,6 +14,7 @@ import {
   notionPagesToNodes,
   notionPagesToPaths,
   notionPagesToNodePaths,
+  notionPagesToCategories,
   pathToNotionProperties,
   nodePathToNotionProperties,
 } from './transformers';
@@ -21,6 +22,7 @@ import type {
   NodeRecord,
   PathRecord,
   NodePathRecord,
+  CategoryRecord,
   NotionPage,
 } from './types';
 
@@ -37,12 +39,14 @@ const cache: {
   nodes: CacheEntry<NodeRecord[]> | null;
   paths: CacheEntry<PathRecord[]> | null;
   nodePaths: CacheEntry<NodePathRecord[]> | null;
+  categories: CacheEntry<CategoryRecord[]> | null;
   pathPageIds: Map<string, string>; // pathId -> notionPageId
   nodePathPageIds: Map<string, string>; // pathId_nodeId -> notionPageId
 } = {
   nodes: null,
   paths: null,
   nodePaths: null,
+  categories: null,
   pathPageIds: new Map(),
   nodePathPageIds: new Map(),
 };
@@ -56,6 +60,35 @@ function clearCache(): void {
   cache.nodes = null;
   cache.paths = null;
   cache.nodePaths = null;
+  cache.categories = null;
+}
+
+// ============================================
+// Category Operations
+// ============================================
+
+/**
+ * Fetch all categories from Notion
+ */
+export async function fetchCategories(forceRefresh = false): Promise<CategoryRecord[]> {
+  if (!forceRefresh && isCacheValid(cache.categories)) {
+    return cache.categories.data;
+  }
+  
+  try {
+    const pages = await queryAllDatabasePages(NOTION_CONFIG.DATABASES.CATEGORIES);
+    const categories = notionPagesToCategories(pages);
+    
+    cache.categories = {
+      data: categories,
+      timestamp: Date.now(),
+    };
+    
+    return categories;
+  } catch (error) {
+    console.error('Error fetching categories from Notion:', error);
+    throw error;
+  }
 }
 
 // ============================================

@@ -8,6 +8,7 @@ import {
   addSyncStatusListener,
   type SyncStatus,
   type PathRecord,
+  type CategoryRecord,
 } from './services/notion';
 
 // Dagre layout helper
@@ -49,7 +50,7 @@ function getLayoutedNodes(
     };
   });
 }
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
 import {
   ReactFlow,
@@ -641,13 +642,26 @@ type PathRow = {
   lastUpdated?: number; // timestamp for sorting by latest activity
 };
 
-// Helper to get unique categories from paths
-function getUniqueCategories(paths: PathRow[]): string[] {
-  const cats = new Set<string>();
-  paths.forEach(p => {
-    if (p.category) cats.add(p.category);
+// Helper to build category ID -> name map
+function buildCategoryMap(categories: CategoryRecord[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  categories.forEach(cat => {
+    map[cat.id] = cat.name;
   });
-  return Array.from(cats).sort();
+  return map;
+}
+
+// Helper to get unique category IDs from paths (that still exist in categories list)
+function getUniqueCategoryIds(paths: PathRow[], categoryMap: Record<string, string>): string[] {
+  const catIds = new Set<string>();
+  paths.forEach(p => {
+    if (p.category && categoryMap[p.category]) catIds.add(p.category);
+  });
+  return Array.from(catIds).sort((a, b) => {
+    const nameA = categoryMap[a] || a;
+    const nameB = categoryMap[b] || b;
+    return nameA.localeCompare(nameB);
+  });
 }
 
 function getSubcategories(paths: PathRow[], category: string): string[] {
@@ -687,6 +701,12 @@ function DiagramContent() {
   const [, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [sidebarNodeContent, setSidebarNodeContent] = useState<Record<string, string>>({});
   
+  // Categories loaded from Notion
+  const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>([]);
+  
+  // Category ID -> Name map for quick lookups
+  const categoryMap = useMemo(() => buildCategoryMap(categoriesList), [categoriesList]);
+  
   // Notion sync status (prefixed with _ since we're setting up the listener but UI not implemented yet)
   const [_syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [_syncMessage, setSyncMessage] = useState<string | undefined>();
@@ -706,12 +726,12 @@ function DiagramContent() {
   const [newCategoryName, setNewCategoryName] = useState('');
   
   // Node filter state for filtering paths by node
-  const [nodeFilterQuery, setNodeFilterQuery] = useState('');
   const [selectedNodeFilter, setSelectedNodeFilter] = useState<string | null>(null);
-  const [showNodeFilterDropdown, setShowNodeFilterDropdown] = useState(false);
+  const [selectedNodeFilterLabel, setSelectedNodeFilterLabel] = useState<string>('');
   
-  // Path search state
+  // Combined search state (paths + nodes autocomplete)
   const [pathSearchQuery, setPathSearchQuery] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   
   // Path sort order: 'latest' (by last activity), 'alpha' (alphabetical), or 'category' (grouped by category)
   const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha' | 'category'>('latest');
@@ -747,8 +767,7 @@ function DiagramContent() {
   
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
-  const nodeFilterRef = useRef<HTMLDivElement>(null);
-  const pathSearchRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
   const notesPanelRef = useRef<HTMLDivElement>(null);
   const infoPanelRef = useRef<HTMLDivElement>(null);
   
@@ -763,11 +782,11 @@ function DiagramContent() {
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
   const activePathIdRef = useRef<string | null>(null);
   
-  // Close node filter dropdown when clicking outside
+  // Close search dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (nodeFilterRef.current && !nodeFilterRef.current.contains(e.target as HTMLElement)) {
-        setShowNodeFilterDropdown(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as HTMLElement)) {
+        setShowSearchDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1784,8 +1803,21 @@ function DiagramContent() {
       }
     };
 
+    const loadCategories = async () => {
+      try {
+        if (DATA_SOURCE === 'notion') {
+          const categories = await notionService.fetchCategories();
+          setCategoriesList(categories);
+        }
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        setCategoriesList([]);
+      }
+    };
+
     loadPaths();
     loadNodePaths();
+    loadCategories();
   }, []);
 
   // Auto-save path nodes when they change (for active saved paths)
@@ -1974,6 +2006,10 @@ function DiagramContent() {
     const tempName = `New Path ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const newId = generatePathId('new-path');
     const updatedAt = new Date().toISOString();
+    
+    // If a category is selected, use that category for the new path
+    // (Skip if it's __uncategorized__ since that means no category)
+    const categoryToAssign = selectedCategory && selectedCategory !== '__uncategorized__' ? selectedCategory : undefined;
 
     // Optimistic UI update - add to list immediately
     setPathsList(prev => [...prev, {
@@ -1982,6 +2018,7 @@ function DiagramContent() {
       nodeIds: [],
       status: 'active',
       dateUpdated: updatedAt,
+      category: categoryToAssign,
     }]);
     setPathsMap(prev => ({
       ...prev,
@@ -2009,6 +2046,7 @@ function DiagramContent() {
             name: tempName,
             nodeIds: [],
             dateUpdated: updatedAt,
+            category: categoryToAssign,
           });
         } else {
           await fetch(GOOGLE_SCRIPT_URL, {
@@ -2030,7 +2068,7 @@ function DiagramContent() {
         console.error('Error saving new path to backend:', error);
       }
     })();
-  }, [startEditingPath, showPath]);
+  }, [startEditingPath, showPath, selectedCategory]);
 
   const resetView = () => {
     setActivePath(null);
@@ -2196,118 +2234,6 @@ function DiagramContent() {
           {/* Paths section */}
           {pathsList.length > 0 && (
             <>
-              {/* Node filter dropdown/autocomplete */}
-              <div ref={nodeFilterRef} style={{ marginBottom: '12px', position: 'relative' }}>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    placeholder="🔍 Filter by node..."
-                    value={nodeFilterQuery}
-                    onChange={(e) => {
-                      setNodeFilterQuery(e.target.value);
-                      setShowNodeFilterDropdown(true);
-                    }}
-                    onFocus={() => setShowNodeFilterDropdown(true)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 28px 8px 10px',
-                      fontSize: '11px',
-                      border: selectedNodeFilter ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      background: selectedNodeFilter ? 'rgba(239, 246, 255, 0.8)' : 'white',
-                      color: '#334155',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  {selectedNodeFilter && (
-                    <button
-                      onClick={() => {
-                        setSelectedNodeFilter(null);
-                        setNodeFilterQuery('');
-                      }}
-                      style={{
-                        position: 'absolute',
-                        right: '6px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: '#64748b',
-                        fontSize: '14px',
-                        padding: '2px',
-                        lineHeight: 1,
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                {showNodeFilterDropdown && (
-                  <div 
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      background: 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                      zIndex: 100,
-                      marginTop: '4px',
-                    }}
-                  >
-                    {(() => {
-                      // Get unique node names from the nodes array
-                      const nodeNames = nodes
-                        .filter(n => !n.id.startsWith('personalized-'))
-                        .map(n => ({ id: n.id, label: (n.data as NodeData)?.label || n.id }))
-                        .filter(n => n.label.toLowerCase().includes(nodeFilterQuery.toLowerCase()))
-                        .sort((a, b) => a.label.localeCompare(b.label));
-                      
-                      if (nodeNames.length === 0) {
-                        return (
-                          <div style={{ padding: '10px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
-                            No nodes found
-                          </div>
-                        );
-                      }
-                      
-                      return nodeNames.slice(0, 50).map(node => (
-                        <button
-                          key={node.id}
-                          onClick={() => {
-                            setSelectedNodeFilter(node.id);
-                            setNodeFilterQuery(node.label);
-                            setShowNodeFilterDropdown(false);
-                          }}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            padding: '8px 10px',
-                            fontSize: '11px',
-                            textAlign: 'left',
-                            border: 'none',
-                            background: selectedNodeFilter === node.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            color: '#334155',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid #f1f5f9',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = selectedNodeFilter === node.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent'}
-                        >
-                          {node.label}
-                        </button>
-                      ));
-                    })()}
-                  </div>
-                )}
-              </div>
-              
               {/* Category chips - always visible */}
               <div style={{ 
                 display: 'flex', 
@@ -2353,19 +2279,19 @@ function DiagramContent() {
                   All ({pathsList.filter(p => p.name).length})
                 </button>
                 
-                {/* Category chips */}
-                {getUniqueCategories(pathsList).map(cat => (
+                {/* Category chips - using category IDs */}
+                {getUniqueCategoryIds(pathsList, categoryMap).map(catId => (
                   <button
                     type="button"
-                    key={cat}
+                    key={catId}
                     draggable
-                    onDragStart={() => setDraggedCategory({ name: cat, level: 'category' })}
+                    onDragStart={() => setDraggedCategory({ name: catId, level: 'category' })}
                     onDragEnd={() => setDraggedCategory(null)}
                     onClick={() => {
-                      setSelectedCategory(cat);
+                      setSelectedCategory(catId);
                       setSelectedSubcategory(null);
                       setSelectedSubsubcategory(null);
-                      setSaveCategory(cat);
+                      setSaveCategory(catId);
                       setSaveSubcategory('');
                       setSaveSubsubcategory('');
                     }}
@@ -2380,15 +2306,15 @@ function DiagramContent() {
                       e.preventDefault();
                       e.currentTarget.style.transform = 'scale(1)';
                       if (draggedPath) {
-                        updatePathCategory(draggedPath, cat, '');
+                        updatePathCategory(draggedPath, catId, '');
                         setDraggedPath(null);
                       }
                       // Handle dropping a category onto another category to nest it
-                      if (draggedCategory && draggedCategory.name !== cat) {
+                      if (draggedCategory && draggedCategory.name !== catId) {
                         // Move all paths from dragged category to be subcategories of target
                         const pathsToMove = pathsList.filter(p => p.category === draggedCategory.name);
                         pathsToMove.forEach(p => {
-                          updatePathCategory(p.name, cat, draggedCategory.name);
+                          updatePathCategory(p.name, catId, draggedCategory.name);
                         });
                         setDraggedCategory(null);
                       }
@@ -2396,21 +2322,21 @@ function DiagramContent() {
                     style={{
                       padding: '5px 10px',
                       fontSize: '10px',
-                      fontWeight: selectedCategory === cat ? '600' : '500',
+                      fontWeight: selectedCategory === catId ? '600' : '500',
                       borderRadius: '12px',
-                      border: selectedCategory === cat 
+                      border: selectedCategory === catId 
                         ? '1px solid rgba(59, 130, 246, 0.5)' 
                         : '1px solid rgba(59, 130, 246, 0.2)',
-                      background: selectedCategory === cat 
+                      background: selectedCategory === catId 
                         ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
                         : 'rgba(239, 246, 255, 0.5)',
-                      color: selectedCategory === cat ? '#1d4ed8' : '#3b82f6',
+                      color: selectedCategory === catId ? '#1d4ed8' : '#3b82f6',
                       cursor: 'grab',
-                      boxShadow: selectedCategory === cat ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
+                      boxShadow: selectedCategory === catId ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
                       transition: 'transform 0.15s ease',
                     }}
                   >
-                    {cat} ({pathsList.filter(p => p.name && p.category === cat).length})
+                    {categoryMap[catId] || catId} ({pathsList.filter(p => p.name && p.category === catId).length})
                   </button>
                 ))}
                 
@@ -2973,44 +2899,208 @@ function DiagramContent() {
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {pathsList.length > 0 && (
             <>
-              {/* Path search filter */}
-              <div ref={pathSearchRef} style={{ marginBottom: '8px', position: 'relative' }}>
-                <input
-                  type="text"
-                  placeholder="🔍 Search paths..."
-                  value={pathSearchQuery}
-                  onChange={(e) => setPathSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 28px 8px 10px',
-                    fontSize: '11px',
-                    border: pathSearchQuery ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    background: pathSearchQuery ? 'rgba(239, 246, 255, 0.5)' : 'white',
-                    color: '#334155',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                {pathSearchQuery && (
-                  <button
-                    onClick={() => setPathSearchQuery('')}
+              {/* Combined search filter (paths + nodes) */}
+              <div ref={searchRef} style={{ marginBottom: '8px', position: 'relative' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder={selectedNodeFilter ? `🔍 Filtering by node: ${selectedNodeFilterLabel}` : "🔍 Search paths or nodes..."}
+                    value={pathSearchQuery}
+                    onChange={(e) => {
+                      setPathSearchQuery(e.target.value);
+                      if (e.target.value) {
+                        setShowSearchDropdown(true);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (pathSearchQuery) {
+                        setShowSearchDropdown(true);
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 28px 8px 10px',
+                      fontSize: '11px',
+                      border: (pathSearchQuery || selectedNodeFilter) ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      background: selectedNodeFilter ? 'rgba(219, 234, 254, 0.8)' : (pathSearchQuery ? 'rgba(239, 246, 255, 0.5)' : 'white'),
+                      color: '#334155',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  {(pathSearchQuery || selectedNodeFilter) && (
+                    <button
+                      onClick={() => {
+                        setPathSearchQuery('');
+                        setSelectedNodeFilter(null);
+                        setSelectedNodeFilterLabel('');
+                        setShowSearchDropdown(false);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '6px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        fontSize: '14px',
+                        padding: '2px',
+                        lineHeight: 1,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                
+                {/* Autocomplete dropdown for nodes */}
+                {showSearchDropdown && pathSearchQuery && !selectedNodeFilter && (
+                  <div 
                     style={{
                       position: 'absolute',
-                      right: '6px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: '#64748b',
-                      fontSize: '14px',
-                      padding: '2px',
-                      lineHeight: 1,
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      maxHeight: '250px',
+                      overflowY: 'auto',
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      zIndex: 100,
+                      marginTop: '4px',
                     }}
                   >
-                    ✕
-                  </button>
+                    {(() => {
+                      const query = pathSearchQuery.toLowerCase();
+                      
+                      // Get matching nodes
+                      const matchingNodes = nodes
+                        .filter(n => !n.id.startsWith('personalized-') && !n.id.startsWith('__'))
+                        .map(n => ({ id: n.id, label: (n.data as NodeData)?.label || n.id }))
+                        .filter(n => n.label.toLowerCase().includes(query))
+                        .sort((a, b) => a.label.localeCompare(b.label))
+                        .slice(0, 10);
+                      
+                      // Get matching paths
+                      const matchingPaths = pathsList
+                        .filter(p => p.name && p.name.toLowerCase().includes(query))
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .slice(0, 10);
+                      
+                      if (matchingNodes.length === 0 && matchingPaths.length === 0) {
+                        return (
+                          <div style={{ padding: '10px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
+                            No matches found
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <>
+                          {/* Nodes section */}
+                          {matchingNodes.length > 0 && (
+                            <>
+                              <div style={{ 
+                                padding: '6px 10px', 
+                                fontSize: '9px', 
+                                fontWeight: '600', 
+                                color: '#94a3b8', 
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                background: '#f8fafc',
+                                borderBottom: '1px solid #e2e8f0',
+                              }}>
+                                🔵 Filter by Node
+                              </div>
+                              {matchingNodes.map(node => (
+                                <button
+                                  key={`node-${node.id}`}
+                                  onClick={() => {
+                                    setSelectedNodeFilter(node.id);
+                                    setSelectedNodeFilterLabel(node.label);
+                                    setPathSearchQuery('');
+                                    setShowSearchDropdown(false);
+                                  }}
+                                  style={{
+                                    display: 'block',
+                                    width: '100%',
+                                    padding: '8px 10px',
+                                    fontSize: '11px',
+                                    textAlign: 'left',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: '#334155',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid #f1f5f9',
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                >
+                                  <span style={{ color: '#3b82f6', marginRight: '6px' }}>●</span>
+                                  {node.label}
+                                </button>
+                              ))}
+                            </>
+                          )}
+                          
+                          {/* Paths section */}
+                          {matchingPaths.length > 0 && (
+                            <>
+                              <div style={{ 
+                                padding: '6px 10px', 
+                                fontSize: '9px', 
+                                fontWeight: '600', 
+                                color: '#94a3b8', 
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                background: '#f8fafc',
+                                borderBottom: '1px solid #e2e8f0',
+                                marginTop: matchingNodes.length > 0 ? '4px' : 0,
+                              }}>
+                                📁 Paths
+                              </div>
+                              {matchingPaths.map(path => (
+                                <button
+                                  key={`path-${path.id}`}
+                                  onClick={() => {
+                                    setPathSearchQuery(path.name);
+                                    setShowSearchDropdown(false);
+                                    showPath(path.name);
+                                  }}
+                                  style={{
+                                    display: 'block',
+                                    width: '100%',
+                                    padding: '8px 10px',
+                                    fontSize: '11px',
+                                    textAlign: 'left',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: '#334155',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid #f1f5f9',
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                >
+                                  <span style={{ color: '#64748b', marginRight: '6px' }}>📄</span>
+                                  {path.name}
+                                  {path.category && categoryMap[path.category] && (
+                                    <span style={{ color: '#94a3b8', fontSize: '9px', marginLeft: '6px' }}>
+                                      ({categoryMap[path.category]})
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 )}
               </div>
               

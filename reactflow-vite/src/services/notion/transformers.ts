@@ -6,6 +6,7 @@ import type {
   NodeRecord,
   PathRecord,
   NodePathRecord,
+  CategoryRecord,
   NotionPage,
   NotionRichText,
   NotionProperty,
@@ -393,6 +394,36 @@ export function nodePathToNotionProperties(nodePath: Partial<NodePathRecord>): R
   }
   
   return props;
+}
+
+// ============================================
+// Category Transformers
+// ============================================
+
+/**
+ * Transform Notion page to CategoryRecord
+ */
+export function notionPageToCategory(page: NotionPage): CategoryRecord {
+  const props = page.properties;
+  
+  let id = extractTitle(props['id']) || extractRichText(props['id']);
+  if (id?.startsWith("'")) id = id.slice(1);
+  if (!id) id = page.id;
+  
+  const name = extractTitle(props['name']) || extractRichText(props['name']) || extractTitle(props['Name']) || '';
+  
+  return {
+    id,
+    notionPageId: page.id,
+    name,
+  };
+}
+
+/**
+ * Transform array of Notion pages to CategoryRecords
+ */
+export function notionPagesToCategories(pages: NotionPage[]): CategoryRecord[] {
+  return pages.map(notionPageToCategory);
 }
 
 // ============================================
