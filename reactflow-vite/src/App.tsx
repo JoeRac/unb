@@ -2323,6 +2323,10 @@ function DiagramContent() {
             </div>
           )}
 
+          {/* --- Nested Category Tree UI --- */}
+          <div style={{ marginBottom: 16 }}>
+            {categoryTreeUI}
+          </div>
           {/* Paths section */}
           {pathsList.length > 0 && (
             <>
