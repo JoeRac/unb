@@ -157,9 +157,10 @@ export async function updateCategory(
       };
     }
     
+    // 'parent' is a rich text property storing the notionPageId of the parent folder
     if (updates.parentId !== undefined) {
       properties.parent = {
-        relation: updates.parentId ? [{ id: updates.parentId }] : [],
+        rich_text: [{ text: { content: updates.parentId || '' } }],
       };
     }
     

@@ -415,11 +415,11 @@ export function notionPageToCategory(page: NotionPage): CategoryRecord {
   if (id?.startsWith("'")) id = id.slice(1);
   if (!id) id = page.id;
 
-  // Extract parentId from Notion relation property (should be a single relation)
+  // Extract parentId from rich text property (stores the notionPageId of the parent folder)
   let parentId: string | null = null;
-  const parentProp = props['parent'];
-  if (parentProp && parentProp.type === 'relation' && Array.isArray((parentProp as any).relation) && (parentProp as any).relation.length > 0) {
-    parentId = (parentProp as any).relation[0]?.id || null;
+  const parentText = extractRichText(props['parent']);
+  if (parentText && parentText.trim()) {
+    parentId = parentText.trim();
   }
 
   console.log('Parsed category:', { id, name, parentId, pageId: page.id });
@@ -454,11 +454,9 @@ export function categoryToNotionProperties(category: Partial<CategoryRecord>): R
   if (category.id !== undefined) {
     props['id'] = createRichTextProperty(category.id);
   }
-  // 'parent' is a relation property (array of Notion page IDs)
+  // 'parent' is a rich text property storing the notionPageId of the parent folder
   if (category.parentId !== undefined) {
-    props['parent'] = {
-      relation: category.parentId ? [{ id: category.parentId }] : [],
-    };
+    props['parent'] = createRichTextProperty(category.parentId || '');
   }
   return props;
 }
