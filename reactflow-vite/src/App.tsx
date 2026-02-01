@@ -1293,19 +1293,26 @@ function DiagramContent() {
 
   // Create a new folder (category) with optional parent
   const handleCreateFolder = async (name: string, parentId: string | null): Promise<void> => {
+    console.log('handleCreateFolder called:', { name, parentId });
+    console.log('Existing categories:', categoriesList.map(c => c.name));
+    
     // Check if this folder name already exists
     if (categoriesList.some(c => c.name.toLowerCase() === name.toLowerCase())) {
       console.log('Folder already exists:', name);
+      alert(`A folder named "${name}" already exists.`);
       return;
     }
 
     try {
       if (DATA_SOURCE === 'notion') {
+        console.log('Creating category in Notion...');
         const newCategory = await notionService.createCategory(name, parentId);
+        console.log('Category created:', newCategory);
         setCategoriesList(prev => [...prev, newCategory]);
       }
     } catch (error) {
       console.error('Error creating folder:', error);
+      alert(`Error creating folder: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -1350,21 +1357,49 @@ function DiagramContent() {
 
   // Move folder to another folder (nest)
   const handleMoveFolderToFolder = async (folderId: string, targetParentId: string | null): Promise<void> => {
-    // Find the folder being moved
+    console.log('handleMoveFolderToFolder called:', { folderId, targetParentId });
+    
+    // Find the folder being moved (by custom ID or notionPageId)
     const folder = categoriesList.find(c => c.id === folderId || c.notionPageId === folderId);
-    if (!folder) return;
+    if (!folder) {
+      console.error('Could not find folder to move:', folderId);
+      return;
+    }
+
+    // Prevent moving a folder into itself
+    if (folderId === targetParentId || folder.notionPageId === targetParentId) {
+      console.log('Cannot move folder into itself');
+      return;
+    }
+
+    // If targetParentId is provided, find the target folder to get its notionPageId
+    let targetNotionPageId: string | null = null;
+    if (targetParentId) {
+      const targetFolder = categoriesList.find(c => 
+        c.id === targetParentId || c.notionPageId === targetParentId
+      );
+      if (targetFolder) {
+        targetNotionPageId = targetFolder.notionPageId || null;
+      } else {
+        console.error('Could not find target folder:', targetParentId);
+        return;
+      }
+    }
 
     try {
       if (DATA_SOURCE === 'notion' && folder.notionPageId) {
-        await notionService.updateCategory(folder.notionPageId, { parentId: targetParentId });
+        console.log('Moving folder', folder.name, 'to parent notionPageId:', targetNotionPageId);
+        await notionService.updateCategory(folder.notionPageId, { parentId: targetNotionPageId });
         setCategoriesList(prev => prev.map(c =>
           c.id === folder.id || c.notionPageId === folder.notionPageId
-            ? { ...c, parentId: targetParentId }
+            ? { ...c, parentId: targetNotionPageId }
             : c
         ));
+        console.log('Folder moved successfully');
       }
     } catch (error) {
       console.error('Error moving folder:', error);
+      alert(`Error moving folder: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

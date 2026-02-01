@@ -255,7 +255,7 @@ interface FolderItemProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSelectPath: (pathName: string) => void;
-  onCreateSubfolder: (name: string) => void;
+  onCreateSubfolder: (name: string) => Promise<void>;
   onDelete: () => void;
   onRename: (newName: string) => void;
   onMovePathToFolder: (pathName: string, folderId: string | null) => void;
@@ -331,11 +331,15 @@ const FolderItem: React.FC<FolderItemProps> = ({
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleAddSubmit = () => {
+  const handleAddSubmit = async () => {
     if (newName.trim()) {
-      onCreateSubfolder(newName.trim());
-      setNewName('');
-      setIsAdding(false);
+      try {
+        await onCreateSubfolder(newName.trim());
+        setNewName('');
+        setIsAdding(false);
+      } catch (error) {
+        console.error('Error creating subfolder:', error);
+      }
     }
   };
 
@@ -458,7 +462,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
               isExpanded={expandedFolders[child.id] !== false}
               onToggle={() => onToggleFolder(child.id)}
               onSelectPath={onSelectPath}
-              onCreateSubfolder={(name) => onCreateSubfolder(name)}
+              onCreateSubfolder={async (name) => await onCreateSubfolder(name)}
               onDelete={onDelete}
               onRename={onRename}
               onMovePathToFolder={onMovePathToFolder}
@@ -650,9 +654,13 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 
   const handleAddRootFolder = async () => {
     if (newFolderName.trim()) {
-      await onCreateFolder(newFolderName.trim(), null);
-      setNewFolderName('');
-      setIsAddingRoot(false);
+      try {
+        await onCreateFolder(newFolderName.trim(), null);
+        setNewFolderName('');
+        setIsAddingRoot(false);
+      } catch (error) {
+        console.error('Error creating root folder:', error);
+      }
     }
   };
 
