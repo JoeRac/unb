@@ -704,19 +704,23 @@ function DiagramContent() {
   const [_syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [_syncMessage, setSyncMessage] = useState<string | undefined>();
   
-  // Node filter state for filtering paths by node (to be integrated with FolderTree later)
-  const [_selectedNodeFilter, _setSelectedNodeFilter] = useState<string | null>(null);
-  const [_selectedNodeFilterLabel, _setSelectedNodeFilterLabel] = useState<string>('');
+  // Node filter state for filtering paths by node
+  const [selectedNodeFilter, setSelectedNodeFilter] = useState<string | null>(null);
+  const [selectedNodeFilterLabel, setSelectedNodeFilterLabel] = useState<string>('');
   
-  // Combined search state (paths + nodes autocomplete) - to be integrated with FolderTree later
-  const [_pathSearchQuery, _setPathSearchQuery] = useState('');
-  const [_showSearchDropdown, _setShowSearchDropdown] = useState(false);
+  // Combined search state (paths + nodes autocomplete)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchFocusIndex, setSearchFocusIndex] = useState(-1);
   
-  // Path sort order: 'latest' (by last activity), 'alpha' (alphabetical)
-  const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha'>('latest');
+  // All loaded nodes for autocomplete (stored when data loads)
+  const [allNodesData, setAllNodesData] = useState<Array<{ id: string; label: string }>>([]);
   
-  // Track last updated timestamps for each path (pathId -> timestamp) - to be integrated with FolderTree sorting later
-  const [_pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
+  // View mode: 'folder' (default, shows nested folders), 'alpha' (A-Z list), 'latest' (by last updated)
+  const [viewMode, setViewMode] = useState<'folder' | 'alpha' | 'latest'>('folder');
+  
+  // Track last updated timestamps for each path (pathId -> timestamp)
+  const [pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
   
   // Panel position and size state for draggable/resizable panels
   const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
@@ -759,11 +763,11 @@ function DiagramContent() {
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
   const activePathIdRef = useRef<string | null>(null);
   
-  // Close search dropdown when clicking outside (for future search implementation)
+  // Close search dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as HTMLElement)) {
-        _setShowSearchDropdown(false);
+        setShowSearchDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1415,6 +1419,56 @@ function DiagramContent() {
     [pathsList]
   );
 
+  // Sorted paths for alpha view (A-Z by name)
+  const alphaSortedPaths: PathItem[] = useMemo(() => {
+    const filtered = selectedNodeFilter
+      ? folderPathItems.filter(p => {
+          const pathRow = pathsList.find(pr => pr.id === p.id);
+          return pathRow?.nodeIds?.includes(selectedNodeFilter);
+        })
+      : folderPathItems;
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  }, [folderPathItems, pathsList, selectedNodeFilter]);
+
+  // Sorted paths for latest view (by last updated timestamp)
+  const latestSortedPaths: PathItem[] = useMemo(() => {
+    const filtered = selectedNodeFilter
+      ? folderPathItems.filter(p => {
+          const pathRow = pathsList.find(pr => pr.id === p.id);
+          return pathRow?.nodeIds?.includes(selectedNodeFilter);
+        })
+      : folderPathItems;
+    return [...filtered].sort((a, b) => {
+      const aTime = pathLastUpdated[a.id] || 0;
+      const bTime = pathLastUpdated[b.id] || 0;
+      return bTime - aTime; // Most recent first
+    });
+  }, [folderPathItems, pathLastUpdated, pathsList, selectedNodeFilter]);
+
+  // Search results for autocomplete
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return { paths: [], nodes: [], folders: [] };
+    
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Search paths
+    const matchingPaths = folderPathItems.filter(p => 
+      p.name.toLowerCase().includes(query)
+    ).slice(0, 5);
+    
+    // Search nodes
+    const matchingNodes = allNodesData.filter(n =>
+      n.label.toLowerCase().includes(query) || n.id.toLowerCase().includes(query)
+    ).slice(0, 5);
+    
+    // Search folders
+    const matchingFolders = categoriesList.filter(c =>
+      c.name.toLowerCase().includes(query)
+    ).slice(0, 5);
+    
+    return { paths: matchingPaths, nodes: matchingNodes, folders: matchingFolders };
+  }, [searchQuery, folderPathItems, allNodesData, categoriesList]);
+
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
       getLayoutedNodes(nodesToLayout, edgesToLayout, 'TB'),
@@ -1661,6 +1715,14 @@ function DiagramContent() {
         setBaseEdges(edgesFromSheet);
         setRootIds(effectiveRoots);
         setEdges(edgesFromSheet);
+        
+        // Store all nodes data for autocomplete search
+        const nodesForAutocomplete = nodesFromSheet.map(n => ({
+          id: n.id,
+          label: (n.data as NodeData).label || n.id,
+        }));
+        setAllNodesData(nodesForAutocomplete);
+        
         // Add onInfoClick to each node's data
         const nodesWithCallback = nodesFromSheet.map(n => ({
           ...n,
@@ -2232,17 +2294,53 @@ function DiagramContent() {
           <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', height: 'calc(100% - 12px)' }}>
           {/* Sticky header section */}
           <div style={{ flexShrink: 0, paddingBottom: '8px', borderBottom: '1px solid #e2e8f0', marginBottom: '8px' }}>
-          {/* App Title */}
-          <h1 style={{ 
-            margin: '0 0 16px 0', 
-            fontSize: '18px', 
-            fontWeight: '700', 
-            color: '#1e293b',
-            letterSpacing: '0.05em',
-            textAlign: 'center',
+          {/* App Title with New Path Button */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '12px',
           }}>
-            UNBURDENED
-          </h1>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: '18px', 
+              fontWeight: '700', 
+              color: '#1e293b',
+              letterSpacing: '0.05em',
+            }}>
+              UNBURDENED
+            </h1>
+            <button
+              onClick={createNewPath}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                fontSize: '11px',
+                fontWeight: '600',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 3px 8px rgba(37, 99, 235, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
+              }}
+              title="Create new path"
+            >
+              <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span>
+              <span>New Path</span>
+            </button>
+          </div>
 
           {(dataLoading || dataError) && (
             <div
@@ -2259,13 +2357,273 @@ function DiagramContent() {
             </div>
           )}
 
+          {/* Advanced Search Box */}
+          <div 
+            ref={searchRef}
+            style={{ 
+              position: 'relative', 
+              marginBottom: '10px',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+              border: showSearchDropdown ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '0 10px',
+              transition: 'all 0.15s ease',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search paths, nodes, folders..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchDropdown(true);
+                  setSearchFocusIndex(-1);
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
+                onKeyDown={(e) => {
+                  const totalResults = searchResults.paths.length + searchResults.nodes.length + searchResults.folders.length;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSearchFocusIndex(prev => Math.min(prev + 1, totalResults - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSearchFocusIndex(prev => Math.max(prev - 1, -1));
+                  } else if (e.key === 'Enter' && searchFocusIndex >= 0) {
+                    e.preventDefault();
+                    let idx = searchFocusIndex;
+                    if (idx < searchResults.paths.length) {
+                      // Select path
+                      showPath(searchResults.paths[idx].name);
+                      setSearchQuery('');
+                      setShowSearchDropdown(false);
+                    } else if (idx < searchResults.paths.length + searchResults.nodes.length) {
+                      // Select node - filter paths
+                      const nodeIdx = idx - searchResults.paths.length;
+                      const node = searchResults.nodes[nodeIdx];
+                      setSelectedNodeFilter(node.id);
+                      setSelectedNodeFilterLabel(node.label);
+                      setViewMode('alpha');
+                      setSearchQuery('');
+                      setShowSearchDropdown(false);
+                    } else {
+                      // Select folder - switch to folder view and expand
+                      const folderIdx = idx - searchResults.paths.length - searchResults.nodes.length;
+                      const folder = searchResults.folders[folderIdx];
+                      setViewMode('folder');
+                      setExpandedFolders(prev => ({ ...prev, [folder.notionPageId || folder.id]: true }));
+                      setSearchQuery('');
+                      setShowSearchDropdown(false);
+                    }
+                  } else if (e.key === 'Escape') {
+                    setShowSearchDropdown(false);
+                    setSearchQuery('');
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: 'transparent',
+                  padding: '9px 8px',
+                  fontSize: '11px',
+                  color: '#334155',
+                  outline: 'none',
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowSearchDropdown(false);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    color: '#94a3b8',
+                    lineHeight: 1,
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Search Dropdown */}
+            {showSearchDropdown && searchQuery.trim() && (searchResults.paths.length > 0 || searchResults.nodes.length > 0 || searchResults.folders.length > 0) && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                marginTop: '4px',
+                background: 'white',
+                borderRadius: '10px',
+                boxShadow: '0 8px 24px rgba(15,23,42,0.15)',
+                border: '1px solid #e2e8f0',
+                zIndex: 100,
+                maxHeight: '300px',
+                overflowY: 'auto',
+              }}>
+                {/* Paths section */}
+                {searchResults.paths.length > 0 && (
+                  <div>
+                    <div style={{ padding: '8px 12px', fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #f1f5f9' }}>
+                      📄 Paths
+                    </div>
+                    {searchResults.paths.map((path, idx) => (
+                      <div
+                        key={path.id}
+                        onClick={() => {
+                          showPath(path.name);
+                          setSearchQuery('');
+                          setShowSearchDropdown(false);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          background: searchFocusIndex === idx ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                          color: searchFocusIndex === idx ? '#1d4ed8' : '#334155',
+                          borderBottom: '1px solid #f8fafc',
+                        }}
+                        onMouseEnter={() => setSearchFocusIndex(idx)}
+                      >
+                        {path.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Nodes section */}
+                {searchResults.nodes.length > 0 && (
+                  <div>
+                    <div style={{ padding: '8px 12px', fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #f1f5f9' }}>
+                      🔷 Nodes (filter paths containing)
+                    </div>
+                    {searchResults.nodes.map((node, idx) => {
+                      const globalIdx = searchResults.paths.length + idx;
+                      return (
+                        <div
+                          key={node.id}
+                          onClick={() => {
+                            setSelectedNodeFilter(node.id);
+                            setSelectedNodeFilterLabel(node.label);
+                            setViewMode('alpha');
+                            setSearchQuery('');
+                            setShowSearchDropdown(false);
+                          }}
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            background: searchFocusIndex === globalIdx ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                            color: searchFocusIndex === globalIdx ? '#1d4ed8' : '#334155',
+                            borderBottom: '1px solid #f8fafc',
+                          }}
+                          onMouseEnter={() => setSearchFocusIndex(globalIdx)}
+                        >
+                          {node.label}
+                          <span style={{ fontSize: '9px', color: '#94a3b8', marginLeft: '6px' }}>({node.id})</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Folders section */}
+                {searchResults.folders.length > 0 && (
+                  <div>
+                    <div style={{ padding: '8px 12px', fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #f1f5f9' }}>
+                      📁 Folders
+                    </div>
+                    {searchResults.folders.map((folder, idx) => {
+                      const globalIdx = searchResults.paths.length + searchResults.nodes.length + idx;
+                      return (
+                        <div
+                          key={folder.id}
+                          onClick={() => {
+                            setViewMode('folder');
+                            setExpandedFolders(prev => ({ ...prev, [folder.notionPageId || folder.id]: true }));
+                            setSearchQuery('');
+                            setShowSearchDropdown(false);
+                          }}
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            background: searchFocusIndex === globalIdx ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                            color: searchFocusIndex === globalIdx ? '#1d4ed8' : '#334155',
+                            borderBottom: '1px solid #f8fafc',
+                          }}
+                          onMouseEnter={() => setSearchFocusIndex(globalIdx)}
+                        >
+                          {folder.name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Node filter indicator */}
+          {selectedNodeFilter && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 10px',
+              marginBottom: '10px',
+              background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+              borderRadius: '8px',
+              fontSize: '10px',
+              color: '#92400e',
+            }}>
+              <span>Filtering by node:</span>
+              <strong>{selectedNodeFilterLabel}</strong>
+              <button
+                onClick={() => {
+                  setSelectedNodeFilter(null);
+                  setSelectedNodeFilterLabel('');
+                }}
+                style={{
+                  marginLeft: 'auto',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#92400e',
+                  padding: '2px',
+                  lineHeight: 1,
+                  fontSize: '12px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Clear View Button */}
           <button
-            onClick={resetView}
+            onClick={() => {
+              resetView();
+              setSelectedNodeFilter(null);
+              setSelectedNodeFilterLabel('');
+            }}
             style={{
               width: '100%',
               padding: '9px',
-              marginBottom: '8px',
+              marginBottom: '10px',
               background: activePath !== null 
                 ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
                 : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
@@ -2282,121 +2640,155 @@ function DiagramContent() {
             Clear View
           </button>
 
-          {/* Header with title and add path button */}
+          {/* View Mode Controls */}
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            justifyContent: 'space-between',
-            marginBottom: '8px',
+            gap: '4px',
+            padding: '4px',
+            background: '#f1f5f9',
+            borderRadius: '10px',
           }}>
-            <span style={{ 
-              fontSize: '10px', 
-              fontWeight: '600', 
-              color: '#64748b',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}>Paths & Folders</span>
             <button
-              onClick={createNewPath}
+              onClick={() => setViewMode('folder')}
               style={{
-                width: '22px',
-                height: '22px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '14px',
-                fontWeight: '500',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                color: 'white',
+                flex: 1,
+                padding: '6px 8px',
+                fontSize: '9px',
+                fontWeight: viewMode === 'folder' ? '600' : '500',
+                background: viewMode === 'folder' ? 'white' : 'transparent',
+                color: viewMode === 'folder' ? '#1d4ed8' : '#64748b',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '7px',
                 cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
+                boxShadow: viewMode === 'folder' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                 transition: 'all 0.15s ease',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.05)';
-                e.currentTarget.style.boxShadow = '0 2px 6px rgba(37, 99, 235, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
-              }}
-              title="Create new path"
             >
-              +
-            </button>
-          </div>
-
-          {/* Sort control */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            marginBottom: '10px',
-            padding: '4px 0',
-          }}>
-            <span style={{ fontSize: '9px', color: '#94a3b8' }}>Sort:</span>
-            <button
-              onClick={() => setPathSortOrder('latest')}
-              style={{
-                padding: '4px 8px',
-                fontSize: '9px',
-                fontWeight: pathSortOrder === 'latest' ? '600' : '400',
-                background: pathSortOrder === 'latest' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
-                color: pathSortOrder === 'latest' ? '#1d4ed8' : '#64748b',
-                border: pathSortOrder === 'latest' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-            >
-              Latest
+              📁 Folders
             </button>
             <button
-              onClick={() => setPathSortOrder('alpha')}
+              onClick={() => setViewMode('alpha')}
               style={{
-                padding: '4px 8px',
+                flex: 1,
+                padding: '6px 8px',
                 fontSize: '9px',
-                fontWeight: pathSortOrder === 'alpha' ? '600' : '400',
-                background: pathSortOrder === 'alpha' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
-                color: pathSortOrder === 'alpha' ? '#1d4ed8' : '#64748b',
-                border: pathSortOrder === 'alpha' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-                borderRadius: '6px',
+                fontWeight: viewMode === 'alpha' ? '600' : '500',
+                background: viewMode === 'alpha' ? 'white' : 'transparent',
+                color: viewMode === 'alpha' ? '#1d4ed8' : '#64748b',
+                border: 'none',
+                borderRadius: '7px',
                 cursor: 'pointer',
+                boxShadow: viewMode === 'alpha' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
               A-Z
+            </button>
+            <button
+              onClick={() => setViewMode('latest')}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                fontSize: '9px',
+                fontWeight: viewMode === 'latest' ? '600' : '500',
+                background: viewMode === 'latest' ? 'white' : 'transparent',
+                color: viewMode === 'latest' ? '#1d4ed8' : '#64748b',
+                border: 'none',
+                borderRadius: '7px',
+                cursor: 'pointer',
+                boxShadow: viewMode === 'latest' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              ⏱ Latest
             </button>
           </div>
           </div>
           {/* End of sticky header */}
 
-          {/* Scrollable FolderTree with paths */}
+          {/* Scrollable content based on view mode */}
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
-            {/* FolderTree - unified folder/path navigation */}
-            <FolderTree
-              folders={folderTree}
-              paths={folderPathItems}
-              activePath={activePath}
-              expandedFolders={expandedFolders}
-              onToggleFolder={handleToggleFolder}
-              onSelectPath={(pathName) => showPath(pathName)}
-              onCreateFolder={handleCreateFolder}
-              onDeleteFolder={handleDeleteFolder}
-              onRenameFolder={handleRenameFolder}
-              onMovePathToFolder={handleMovePathToFolder}
-              onMoveFolderToFolder={handleMoveFolderToFolder}
-              onDeletePath={(pathName) => deletePathByName(pathName)}
-              onRenamePath={renamePath}
-              onShowPathNotes={(pathName) => {
-                if (activePath !== pathName) {
-                  showPath(pathName);
-                }
-                setNotesPathName(pathName);
-                setShowNotesPanel(true);
-                setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
-              }}
-            />
+            {viewMode === 'folder' ? (
+              /* FolderTree - unified folder/path navigation */
+              <FolderTree
+                folders={folderTree}
+                paths={folderPathItems}
+                activePath={activePath}
+                expandedFolders={expandedFolders}
+                onToggleFolder={handleToggleFolder}
+                onSelectPath={(pathName) => showPath(pathName)}
+                onCreateFolder={handleCreateFolder}
+                onDeleteFolder={handleDeleteFolder}
+                onRenameFolder={handleRenameFolder}
+                onMovePathToFolder={handleMovePathToFolder}
+                onMoveFolderToFolder={handleMoveFolderToFolder}
+                onDeletePath={(pathName) => deletePathByName(pathName)}
+                onRenamePath={renamePath}
+                onShowPathNotes={(pathName) => {
+                  if (activePath !== pathName) {
+                    showPath(pathName);
+                  }
+                  setNotesPathName(pathName);
+                  setShowNotesPanel(true);
+                  setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                }}
+              />
+            ) : (
+              /* Plain list view for A-Z and Latest modes */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {(viewMode === 'alpha' ? alphaSortedPaths : latestSortedPaths).map((path) => (
+                  <div
+                    key={path.id}
+                    onClick={() => showPath(path.name)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      background: activePath === path.name 
+                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                        : 'transparent',
+                      color: activePath === path.name ? '#1d4ed8' : '#334155',
+                      border: activePath === path.name 
+                        ? '1px solid rgba(59, 130, 246, 0.3)' 
+                        : '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activePath !== path.name) {
+                        e.currentTarget.style.background = '#f8fafc';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activePath !== path.name) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span style={{ fontSize: '11px', fontWeight: activePath === path.name ? '600' : '500', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {path.name}
+                    </span>
+                    {viewMode === 'latest' && pathLastUpdated[path.id] && (
+                      <span style={{ fontSize: '9px', color: '#94a3b8', flexShrink: 0 }}>
+                        {new Date(pathLastUpdated[path.id]).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {(viewMode === 'alpha' ? alphaSortedPaths : latestSortedPaths).length === 0 && (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
+                    {selectedNodeFilter ? 'No paths contain this node' : 'No paths found'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         </div>
