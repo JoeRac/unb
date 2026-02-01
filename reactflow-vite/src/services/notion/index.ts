@@ -86,6 +86,8 @@ export {
   fetchNodePaths,
   fetchCategories,
   createCategory,
+  deleteCategory,
+  updateCategory,
   buildNodePathMap,
   savePath,
   updatePathNodes,

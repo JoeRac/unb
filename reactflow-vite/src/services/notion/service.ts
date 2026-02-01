@@ -127,6 +127,51 @@ export async function createCategory(name: string, parentId?: string | null): Pr
   }
 }
 
+/**
+ * Delete a category (archive the page in Notion)
+ */
+export async function deleteCategory(notionPageId: string): Promise<void> {
+  try {
+    await archivePage(notionPageId);
+    // Invalidate cache
+    cache.categories = null;
+  } catch (error) {
+    console.error('Error deleting category in Notion:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update a category (name and/or parent)
+ */
+export async function updateCategory(
+  notionPageId: string,
+  updates: { name?: string; parentId?: string | null }
+): Promise<void> {
+  try {
+    const properties: Record<string, unknown> = {};
+    
+    if (updates.name !== undefined) {
+      properties.name = {
+        title: [{ text: { content: updates.name } }],
+      };
+    }
+    
+    if (updates.parentId !== undefined) {
+      properties.parent = {
+        relation: updates.parentId ? [{ id: updates.parentId }] : [],
+      };
+    }
+    
+    await updatePage(notionPageId, properties);
+    // Invalidate cache
+    cache.categories = null;
+  } catch (error) {
+    console.error('Error updating category in Notion:', error);
+    throw error;
+  }
+}
+
 // ============================================
 // Node Operations
 // ============================================

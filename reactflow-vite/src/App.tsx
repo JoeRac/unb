@@ -33,6 +33,9 @@ import {
   type CategoryRecord,
 } from './services/notion';
 
+// Import FolderTree component for unified folder/path navigation
+import { FolderTree, type FolderTreeNode, type PathItem } from './components/FolderTree';
+
 // Dagre layout helper
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -664,35 +667,6 @@ type PathRow = {
   lastUpdated?: number; // timestamp for sorting by latest activity
 };
 
-// Helper to build category ID -> name map
-function buildCategoryMap(categories: CategoryRecord[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  categories.forEach(cat => {
-    map[cat.id] = cat.name;
-  });
-  return map;
-}
-
-// Helper to get unique category IDs from paths (that still exist in categories list)
-
-function getSubcategories(paths: PathRow[], category: string): string[] {
-  const subs = new Set<string>();
-  paths.forEach(p => {
-    if (p.category === category && p.subcategory) subs.add(p.subcategory);
-  });
-  return Array.from(subs).sort();
-}
-
-function getSubsubcategories(paths: PathRow[], category: string, subcategory: string): string[] {
-  const subsubs = new Set<string>();
-  paths.forEach(p => {
-    if (p.category === category && p.subcategory === subcategory && p.subsubcategory) {
-      subsubs.add(p.subsubcategory);
-    }
-  });
-  return Array.from(subsubs).sort();
-}
-
 function DiagramContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -712,134 +686,44 @@ function DiagramContent() {
   const [, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [sidebarNodeContent, setSidebarNodeContent] = useState<Record<string, string>>({});
   
-  // Categories loaded from Notion
+  // Categories loaded from Notion (used as folders)
   const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>([]);
+
+  // Build the nested folder tree for rendering
+  const folderTree: FolderTreeNode[] = useMemo(() => buildCategoryTree(categoriesList) as FolderTreeNode[], [categoriesList]);
+
+  // Folder tree expansion state
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   
-  // Category ID -> Name map for quick lookups
-  const categoryMap = useMemo(() => buildCategoryMap(categoriesList), [categoriesList]);
-
-  // Build the nested category tree for rendering
-  const categoryTree = useMemo(() => buildCategoryTree(categoriesList), [categoriesList]);
-
-  // Modern recursive category tree UI (collapsible, add, delete, nest)
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [addingParentId, setAddingParentId] = useState<string | null>(null);
-  const [newCatName, setNewCatName] = useState('');
-
-  const handleToggleExpand = (id: string) => {
-    setExpandedCategories(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleAddCategory = async (parentId: string | null) => {
-    if (!newCatName.trim()) return;
-    await notionService.createCategory(newCatName.trim(), parentId);
-    setNewCatName('');
-    setAddingParentId(null);
-    // Optionally, reload categories here if not auto-updating
-  };
-
-  const handleDeleteCategory = async (cat: CategoryTreeNode) => {
-    if (!window.confirm(`Delete category "${cat.name}" and all its subcategories?`)) return;
-    // TODO: Implement deleteCategory in notionService (not shown here)
-    // await notionService.deleteCategory(cat.notionPageId || cat.id);
-    alert('Delete not implemented in this demo.');
-  };
-
-  const renderCategoryTree = (nodes: CategoryTreeNode[], level = 0) => (
-    <ul style={{ marginLeft: level * 16, listStyle: 'none', paddingLeft: 0 }}>
-      {nodes.map(node => (
-        <li key={node.id} style={{ marginBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {node.children.length > 0 && (
-              <button onClick={() => handleToggleExpand(node.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
-                {expandedCategories[node.id] !== false ? '▼' : '▶'}
-              </button>
-            )}
-            <span style={{ fontWeight: 500, fontSize: 13 }}>{node.name}</span>
-            <button onClick={() => { setAddingParentId(node.notionPageId || node.id); setNewCatName(''); }} style={{ border: 'none', background: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: 14, fontWeight: 600, marginLeft: 2 }}>+</button>
-            <button onClick={() => handleDeleteCategory(node)} style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14, fontWeight: 600, marginLeft: 2 }}>🗑️</button>
-          </div>
-          {addingParentId === (node.notionPageId || node.id) && (
-            <div style={{ margin: '4px 0 4px 24px', display: 'flex', gap: 4 }}>
-              <input
-                type="text"
-                value={newCatName}
-                onChange={e => setNewCatName(e.target.value)}
-                placeholder="New subcategory..."
-                style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #cbd5e1' }}
-                autoFocus
-                onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(node.notionPageId || node.id); if (e.key === 'Escape') setAddingParentId(null); }}
-              />
-              <button onClick={() => handleAddCategory(node.notionPageId || node.id)} style={{ fontSize: 12, color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer' }}>Add</button>
-              <button onClick={() => setAddingParentId(null)} style={{ fontSize: 12, color: '#64748b', border: 'none', background: 'none', cursor: 'pointer' }}>Cancel</button>
-            </div>
-          )}
-          {node.children.length > 0 && expandedCategories[node.id] !== false && renderCategoryTree(node.children, level + 1)}
-        </li>
-      ))}
-      {/* Add root category */}
-      {level === 0 && (
-        <li style={{ marginTop: 6 }}>
-          {addingParentId === null ? (
-            <button onClick={() => { setAddingParentId(null); setNewCatName(''); }} style={{ border: '1px dashed #3b82f6', background: 'none', color: '#3b82f6', borderRadius: 8, fontSize: 13, padding: '2px 10px', cursor: 'pointer' }}>+ Add Category</button>
-          ) : (
-            <div style={{ display: 'flex', gap: 4 }}>
-              <input
-                type="text"
-                value={newCatName}
-                onChange={e => setNewCatName(e.target.value)}
-                placeholder="New category..."
-                style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #cbd5e1' }}
-                autoFocus
-                onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(null); if (e.key === 'Escape') setAddingParentId(null); }}
-              />
-              <button onClick={() => handleAddCategory(null)} style={{ fontSize: 12, color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer' }}>Add</button>
-              <button onClick={() => setAddingParentId(null)} style={{ fontSize: 12, color: '#64748b', border: 'none', background: 'none', cursor: 'pointer' }}>Cancel</button>
-            </div>
-          )}
-        </li>
-      )}
-    </ul>
-  );
+  // Toggle folder expand/collapse
+  const handleToggleFolder = useCallback((folderId: string) => {
+    setExpandedFolders(prev => ({ ...prev, [folderId]: prev[folderId] === false ? true : false }));
+  }, []);
   
   // Notion sync status (prefixed with _ since we're setting up the listener but UI not implemented yet)
   const [_syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [_syncMessage, setSyncMessage] = useState<string | undefined>();
   
-  // Category filter state
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
-  const [selectedSubsubcategory, setSelectedSubsubcategory] = useState<string | null>(null);
-  const [, setSaveCategory] = useState('');
-  const [, setSaveSubcategory] = useState('');
-  const [, setSaveSubsubcategory] = useState('');
-  const [draggedPath, setDraggedPath] = useState<string | null>(null);
-  const [draggedCategory, setDraggedCategory] = useState<{name: string; level: 'category' | 'subcategory'} | null>(null);
-  const [showAddCategory, setShowAddCategory] = useState(false);
-  const [showAddSubcategory, setShowAddSubcategory] = useState(false);
-  const [showAddSubsubcategory, setShowAddSubsubcategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
+  // Node filter state for filtering paths by node (to be integrated with FolderTree later)
+  const [_selectedNodeFilter, _setSelectedNodeFilter] = useState<string | null>(null);
+  const [_selectedNodeFilterLabel, _setSelectedNodeFilterLabel] = useState<string>('');
   
-  // Node filter state for filtering paths by node
-  const [selectedNodeFilter, setSelectedNodeFilter] = useState<string | null>(null);
-  const [selectedNodeFilterLabel, setSelectedNodeFilterLabel] = useState<string>('');
+  // Combined search state (paths + nodes autocomplete) - to be integrated with FolderTree later
+  const [_pathSearchQuery, _setPathSearchQuery] = useState('');
+  const [_showSearchDropdown, _setShowSearchDropdown] = useState(false);
   
-  // Combined search state (paths + nodes autocomplete)
-  const [pathSearchQuery, setPathSearchQuery] = useState('');
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  // Path sort order: 'latest' (by last activity), 'alpha' (alphabetical)
+  const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha'>('latest');
   
-  // Path sort order: 'latest' (by last activity), 'alpha' (alphabetical), or 'category' (grouped by category)
-  const [pathSortOrder, setPathSortOrder] = useState<'latest' | 'alpha' | 'category'>('latest');
-  
-  // Track last updated timestamps for each path (pathId -> timestamp)
-  const [pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
+  // Track last updated timestamps for each path (pathId -> timestamp) - to be integrated with FolderTree sorting later
+  const [_pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
   
   // Panel position and size state for draggable/resizable panels
   const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
-  const [leftPanelSize, setLeftPanelSize] = useState({ width: 220, height: 600 });
+  const [leftPanelSize, setLeftPanelSize] = useState({ width: 260, height: 600 });
   const [infoPanelPos, setInfoPanelPos] = useState({ x: window.innerWidth - 400, y: 20 });
   const [infoPanelSize, setInfoPanelSize] = useState({ width: 360, height: 500 });
-  const [notesPanelPos, setNotesPanelPos] = useState({ x: 260, y: 20 });
+  const [notesPanelPos, setNotesPanelPos] = useState({ x: 300, y: 20 });
   const [notesPanelSize, setNotesPanelSize] = useState({ width: 280, height: 450 });
   const [showNotesPanel, setShowNotesPanel] = useState(false);
   const [notesPathName, setNotesPathName] = useState<string | null>(null);
@@ -854,8 +738,6 @@ function DiagramContent() {
   // Path-level notes state
   const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
   const [editingPathNotes, setEditingPathNotes] = useState<'panel' | 'node' | null>(null);
-  const [editingPathName, setEditingPathName] = useState<string | null>(null);
-  const [editingPathValue, setEditingPathValue] = useState('');
   
   // Path notes node ID (for the node that appears above the first node in a path)
   const PATH_NOTES_NODE_ID = '__path_notes__';
@@ -877,11 +759,11 @@ function DiagramContent() {
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
   const activePathIdRef = useRef<string | null>(null);
   
-  // Close search dropdown when clicking outside
+  // Close search dropdown when clicking outside (for future search implementation)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as HTMLElement)) {
-        setShowSearchDropdown(false);
+        _setShowSearchDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1290,26 +1172,6 @@ function DiagramContent() {
     }, 500);
   }, [pathsList, activePath, notesPathName, GOOGLE_SCRIPT_URL]);
 
-  const startEditingPath = useCallback((pathName: string) => {
-    setEditingPathName(pathName);
-    setEditingPathValue(pathName);
-  }, []);
-
-  const commitPathRename = useCallback(() => {
-    if (!editingPathName) return;
-    const trimmed = editingPathValue.trim();
-    if (trimmed && trimmed !== editingPathName) {
-      renamePath(editingPathName, trimmed);
-    }
-    setEditingPathName(null);
-    setEditingPathValue('');
-  }, [editingPathName, editingPathValue, renamePath]);
-
-  const cancelPathRename = useCallback(() => {
-    setEditingPathName(null);
-    setEditingPathValue('');
-  }, []);
-
   const deletePathByName = useCallback(async (pathNameToDelete: string) => {
     const pathRow = pathsList.find(p => p.name === pathNameToDelete);
     if (!pathRow) return;
@@ -1389,7 +1251,7 @@ function DiagramContent() {
     }
   }, [pathsList, activePath, notesPathName, GOOGLE_SCRIPT_URL]);
 
-  // Update path category (for drag and drop)
+  // Update path category/folder (for drag and drop)
   const updatePathCategory = async (pathName: string, newCategory: string, newSubcategory?: string) => {
     const pathRow = pathsList.find(p => p.name === pathName);
     if (!pathRow) return;
@@ -1429,51 +1291,94 @@ function DiagramContent() {
     }
   };
 
-  // Create a new category in the Categories table
-  const addNewCategory = async (categoryName: string) => {
-    console.log('addNewCategory called with:', categoryName);
-    console.log('Current categoriesList:', categoriesList);
-    
-    // Check if this category name already exists
-    if (categoriesList.some(c => c.name.toLowerCase() === categoryName.toLowerCase())) {
-      console.log('Category already exists:', categoryName);
-      return; // Already exists
+  // Create a new folder (category) with optional parent
+  const handleCreateFolder = async (name: string, parentId: string | null): Promise<void> => {
+    // Check if this folder name already exists
+    if (categoriesList.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      console.log('Folder already exists:', name);
+      return;
     }
 
     try {
       if (DATA_SOURCE === 'notion') {
-        console.log('Creating category in Notion...');
-        // Create category in Notion Categories table
-        const newCategory = await notionService.createCategory(categoryName);
-        console.log('Created new category:', newCategory);
-        
-        // Add to local state immediately
+        const newCategory = await notionService.createCategory(name, parentId);
         setCategoriesList(prev => [...prev, newCategory]);
-        
-        // Select the new category
-        setSelectedCategory(newCategory.id);
-      } else {
-        // For Google Sheets, use the old placeholder system
-        const placeholderId = `__cat__${categoryName}`;
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'savePath',
-            pathId: forceTextForSheet(placeholderId),
-            pathName: '',
-            nodeIds: '',
-            category: categoryName,
-            subcategory: '',
-            subsubcategory: '',
-          }),
-        });
       }
     } catch (error) {
-      console.error('Error creating category:', error);
+      console.error('Error creating folder:', error);
     }
   };
+
+  // Delete a folder (category)
+  const handleDeleteFolder = async (folder: FolderTreeNode): Promise<void> => {
+    if (!window.confirm(`Delete folder "${folder.name}"? Paths inside will become unfiled.`)) return;
+    
+    try {
+      if (DATA_SOURCE === 'notion' && folder.notionPageId) {
+        await notionService.deleteCategory(folder.notionPageId);
+        setCategoriesList(prev => prev.filter(c => c.id !== folder.id && c.notionPageId !== folder.notionPageId));
+        // Move any paths in this folder to unfiled
+        setPathsList(prev => prev.map(p => 
+          p.category === folder.id ? { ...p, category: undefined } : p
+        ));
+      }
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+    }
+  };
+
+  // Rename a folder
+  const handleRenameFolder = async (folder: FolderTreeNode, newName: string): Promise<void> => {
+    try {
+      if (DATA_SOURCE === 'notion' && folder.notionPageId) {
+        await notionService.updateCategory(folder.notionPageId, { name: newName });
+        setCategoriesList(prev => prev.map(c => 
+          c.id === folder.id || c.notionPageId === folder.notionPageId
+            ? { ...c, name: newName }
+            : c
+        ));
+      }
+    } catch (error) {
+      console.error('Error renaming folder:', error);
+    }
+  };
+
+  // Move path to folder
+  const handleMovePathToFolder = async (pathName: string, folderId: string | null): Promise<void> => {
+    await updatePathCategory(pathName, folderId || '');
+  };
+
+  // Move folder to another folder (nest)
+  const handleMoveFolderToFolder = async (folderId: string, targetParentId: string | null): Promise<void> => {
+    // Find the folder being moved
+    const folder = categoriesList.find(c => c.id === folderId || c.notionPageId === folderId);
+    if (!folder) return;
+
+    try {
+      if (DATA_SOURCE === 'notion' && folder.notionPageId) {
+        await notionService.updateCategory(folder.notionPageId, { parentId: targetParentId });
+        setCategoriesList(prev => prev.map(c =>
+          c.id === folder.id || c.notionPageId === folder.notionPageId
+            ? { ...c, parentId: targetParentId }
+            : c
+        ));
+      }
+    } catch (error) {
+      console.error('Error moving folder:', error);
+    }
+  };
+
+  // Convert paths list to PathItem format for FolderTree
+  const folderPathItems: PathItem[] = useMemo(() => 
+    pathsList
+      .filter(p => p.name) // Filter out empty names
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+      })),
+    [pathsList]
+  );
 
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
@@ -2098,10 +2003,6 @@ function DiagramContent() {
     const tempName = `New Path ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const newId = generatePathId('new-path');
     const updatedAt = new Date().toISOString();
-    
-    // If a category is selected, use that category for the new path
-    // (Skip if it's __uncategorized__ since that means no category)
-    const categoryToAssign = selectedCategory && selectedCategory !== '__uncategorized__' ? selectedCategory : undefined;
 
     // Optimistic UI update - add to list immediately
     setPathsList(prev => [...prev, {
@@ -2110,7 +2011,7 @@ function DiagramContent() {
       nodeIds: [],
       status: 'active',
       dateUpdated: updatedAt,
-      category: categoryToAssign,
+      category: undefined,
     }]);
     setPathsMap(prev => ({
       ...prev,
@@ -2125,9 +2026,9 @@ function DiagramContent() {
     setSidebarNodeContent({});
     setEditingPathNotes(null);
 
-    // Show path and start editing immediately
+    // Show path immediately
     showPath(tempName);
-    startEditingPath(tempName);
+    // Note: auto-edit mode for new paths is handled by FolderTree
 
     // Save to backend in background
     (async () => {
@@ -2138,7 +2039,7 @@ function DiagramContent() {
             name: tempName,
             nodeIds: [],
             dateUpdated: updatedAt,
-            category: categoryToAssign,
+            category: undefined,
           });
         } else {
           await fetch(GOOGLE_SCRIPT_URL, {
@@ -2160,7 +2061,7 @@ function DiagramContent() {
         console.error('Error saving new path to backend:', error);
       }
     })();
-  }, [startEditingPath, showPath, selectedCategory]);
+  }, [showPath]);
 
   const resetView = () => {
     setActivePath(null);
@@ -2323,1273 +2224,144 @@ function DiagramContent() {
             </div>
           )}
 
-          {/* --- Nested Category Tree UI --- */}
-          <div style={{ marginBottom: 16 }}>
-            {renderCategoryTree(categoryTree)}
+          {/* Clear View Button */}
+          <button
+            onClick={resetView}
+            style={{
+              width: '100%',
+              padding: '9px',
+              marginBottom: '8px',
+              background: activePath !== null 
+                ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+                : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+              color: activePath !== null ? '#1d4ed8' : '#64748b',
+              border: activePath !== null 
+                ? '1px solid rgba(59, 130, 246, 0.3)' 
+                : '1px solid #e2e8f0',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: '600',
+            }}
+          >
+            Clear View
+          </button>
+
+          {/* Header with title and add path button */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '8px',
+          }}>
+            <span style={{ 
+              fontSize: '10px', 
+              fontWeight: '600', 
+              color: '#64748b',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>Paths & Folders</span>
+            <button
+              onClick={createNewPath}
+              style={{
+                width: '22px',
+                height: '22px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '14px',
+                fontWeight: '500',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 2px 6px rgba(37, 99, 235, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
+              }}
+              title="Create new path"
+            >
+              +
+            </button>
           </div>
-          {/* Paths section */}
-          {pathsList.length > 0 && (
-            <>
-              {/* Category chips - always visible */}
-              <div style={{ 
-                display: 'flex', 
-                flexWrap: 'wrap', 
-                gap: '6px', 
-                marginBottom: '8px',
-              }}>
-                {/* All chip */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setSelectedSubcategory(null);
-                    setSelectedSubsubcategory(null);
-                    setSaveCategory('');
-                    setSaveSubcategory('');
-                    setSaveSubsubcategory('');
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggedPath) {
-                      updatePathCategory(draggedPath, '', '');
-                      setDraggedPath(null);
-                    }
-                  }}
-                  style={{
-                    padding: '5px 10px',
-                    fontSize: '10px',
-                    fontWeight: selectedCategory === null ? '600' : '500',
-                    borderRadius: '12px',
-                    border: selectedCategory === null 
-                      ? '1px solid rgba(59, 130, 246, 0.5)' 
-                      : '1px solid #e2e8f0',
-                    background: selectedCategory === null 
-                      ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                      : 'rgba(255,255,255,0.6)',
-                    color: selectedCategory === null ? '#1d4ed8' : '#64748b',
-                    cursor: 'pointer',
-                    boxShadow: selectedCategory === null ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
-                  }}
-                >
-                  All ({pathsList.filter(p => p.name).length})
-                </button>
-                
-                {/* Category chips - show all categories, even unused */}
-                {categoriesList.map(cat => (
-                  <button
-                    type="button"
-                    key={cat.id}
-                    draggable
-                    onDragStart={() => setDraggedCategory({ name: cat.id, level: 'category' })}
-                    onDragEnd={() => setDraggedCategory(null)}
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      setSelectedSubcategory(null);
-                      setSelectedSubsubcategory(null);
-                      setSaveCategory(cat.id);
-                      setSaveSubcategory('');
-                      setSaveSubsubcategory('');
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                    }}
-                    onDragLeave={(e) => {
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.style.transform = 'scale(1)';
-                      if (draggedPath) {
-                        updatePathCategory(draggedPath, cat.id, '');
-                        setDraggedPath(null);
-                      }
-                      // Handle dropping a category onto another category to nest it
-                      if (draggedCategory && draggedCategory.name !== cat.id) {
-                        // Move all paths from dragged category to be subcategories of target
-                        const pathsToMove = pathsList.filter(p => p.category === draggedCategory.name);
-                        pathsToMove.forEach(p => {
-                          updatePathCategory(p.name, cat.id, draggedCategory.name);
-                        });
-                        setDraggedCategory(null);
-                      }
-                    }}
-                    style={{
-                      padding: '5px 10px',
-                      fontSize: '10px',
-                      fontWeight: selectedCategory === cat.id ? '600' : '500',
-                      borderRadius: '12px',
-                      border: selectedCategory === cat.id 
-                        ? '1px solid rgba(59, 130, 246, 0.5)' 
-                        : '1px solid rgba(59, 130, 246, 0.2)',
-                      background: selectedCategory === cat.id 
-                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                        : 'rgba(239, 246, 255, 0.5)',
-                      color: selectedCategory === cat.id ? '#1d4ed8' : '#3b82f6',
-                      cursor: 'grab',
-                      boxShadow: selectedCategory === cat.id ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
-                      transition: 'transform 0.15s ease',
-                    }}
-                  >
-                    {cat.name || cat.id} ({pathsList.filter(p => p.name && p.category === cat.id).length})
-                  </button>
-                ))}
-                
-                {/* Uncategorized chip - same style as other categories */}
-                {pathsList.some(p => p.name && !p.category) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory('__uncategorized__');
-                      setSelectedSubcategory(null);
-                      setSelectedSubsubcategory(null);
-                    }}
-                    style={{
-                      padding: '5px 10px',
-                      fontSize: '10px',
-                      fontWeight: selectedCategory === '__uncategorized__' ? '600' : '500',
-                      borderRadius: '12px',
-                      border: selectedCategory === '__uncategorized__' 
-                        ? '1px solid rgba(59, 130, 246, 0.5)' 
-                        : '1px solid rgba(59, 130, 246, 0.2)',
-                      background: selectedCategory === '__uncategorized__' 
-                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                        : 'rgba(239, 246, 255, 0.5)',
-                      color: selectedCategory === '__uncategorized__' ? '#1d4ed8' : '#3b82f6',
-                      cursor: 'pointer',
-                      fontStyle: 'italic',
-                      boxShadow: selectedCategory === '__uncategorized__' ? '0 1px 3px rgba(59, 130, 246, 0.15)' : 'none',
-                    }}
-                  >
-                    Uncategorized ({pathsList.filter(p => p.name && !p.category).length})
-                  </button>
-                )}
-                
-                {/* Add category button or input */}
-                {!showAddCategory ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCategory(true)}
-                    style={{
-                      padding: '5px 10px',
-                      fontSize: '10px',
-                      fontWeight: '500',
-                      borderRadius: '12px',
-                      border: '1px dashed rgba(59, 130, 246, 0.4)',
-                      background: 'transparent',
-                      color: '#3b82f6',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    +
-                  </button>
-                ) : (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      placeholder="New category..."
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newCategoryName.trim()) {
-                          // Create new category in Categories table
-                          addNewCategory(newCategoryName.trim());
-                          setNewCategoryName('');
-                          setShowAddCategory(false);
-                        }
-                        if (e.key === 'Escape') {
-                          setNewCategoryName('');
-                          setShowAddCategory(false);
-                        }
-                      }}
-                      autoFocus
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '10px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(59, 130, 246, 0.3)',
-                        background: 'white',
-                        color: '#334155',
-                        width: '100px',
-                        outline: 'none',
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (newCategoryName.trim()) {
-                          // Create new category in Categories table
-                          addNewCategory(newCategoryName.trim());
-                          setNewCategoryName('');
-                          setShowAddCategory(false);
-                        }
-                      }}
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '10px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: '#3b82f6',
-                        color: 'white',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ✓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewCategoryName('');
-                        setShowAddCategory(false);
-                      }}
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '10px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: '#f1f5f9',
-                        color: '#64748b',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* Subcategory chips - show when category selected */}
-              {selectedCategory && selectedCategory !== '__uncategorized__' && (
-                <div style={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap', 
-                  gap: '6px', 
-                  marginBottom: '8px',
-                  paddingLeft: '12px',
-                }}>
-                  {getSubcategories(pathsList, selectedCategory).map(sub => {
-                    const count = pathsList.filter(p => p.name && p.category === selectedCategory && p.subcategory === sub).length;
-                    return (
-                      <button
-                        type="button"
-                        key={sub}
-                        draggable
-                        onDragStart={() => setDraggedCategory({ name: sub, level: 'subcategory' })}
-                        onDragEnd={() => setDraggedCategory(null)}
-                        onClick={() => {
-                          setSelectedSubcategory(sub);
-                          setSelectedSubsubcategory(null);
-                          setSaveSubcategory(sub);
-                          setSaveSubsubcategory('');
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (draggedPath) {
-                            updatePathCategory(draggedPath, selectedCategory, sub);
-                            setDraggedPath(null);
-                          }
-                        }}
-                        style={{
-                          padding: '5px 10px',
-                          fontSize: '10px',
-                          fontWeight: selectedSubcategory === sub ? '600' : '500',
-                          borderRadius: '12px',
-                          border: selectedSubcategory === sub 
-                            ? '1px solid rgba(16, 185, 129, 0.5)' 
-                            : '1px solid rgba(16, 185, 129, 0.2)',
-                          background: selectedSubcategory === sub 
-                            ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' 
-                            : 'rgba(236, 253, 245, 0.5)',
-                          color: selectedSubcategory === sub ? '#047857' : '#10b981',
-                          cursor: 'grab',
-                          boxShadow: selectedSubcategory === sub ? '0 1px 3px rgba(16, 185, 129, 0.15)' : 'none',
-                        }}
-                      >
-                        {sub} ({count})
-                      </button>
-                    );
-                  })}
-                  
-                  {/* Add subcategory button or input */}
-                  {!showAddSubcategory ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAddSubcategory(true)}
-                      style={{
-                        padding: '5px 10px',
-                        fontSize: '10px',
-                        fontWeight: '500',
-                        borderRadius: '12px',
-                        border: '1px dashed rgba(16, 185, 129, 0.4)',
-                        background: 'transparent',
-                        color: '#10b981',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      +
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        placeholder="New subcategory..."
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newCategoryName.trim()) {
-                            // Note: subcategories not yet supported in new category system
-                            setSaveSubcategory(newCategoryName.trim());
-                            setSelectedSubcategory(newCategoryName.trim());
-                            setSelectedSubsubcategory(null);
-                            setNewCategoryName('');
-                            setShowAddSubcategory(false);
-                          }
-                          if (e.key === 'Escape') {
-                            setNewCategoryName('');
-                            setShowAddSubcategory(false);
-                          }
-                        }}
-                        autoFocus
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '10px',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(16, 185, 129, 0.3)',
-                          background: 'white',
-                          color: '#334155',
-                          width: '100px',
-                          outline: 'none',
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (newCategoryName.trim()) {
-                            // Note: subcategories not yet supported in new category system
-                            setSaveSubcategory(newCategoryName.trim());
-                            setSelectedSubcategory(newCategoryName.trim());
-                            setSelectedSubsubcategory(null);
-                            setNewCategoryName('');
-                            setShowAddSubcategory(false);
-                          }
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '10px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: '#10b981',
-                          color: 'white',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewCategoryName('');
-                          setShowAddSubcategory(false);
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '10px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: '#f1f5f9',
-                          color: '#64748b',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Sub-subcategory chips - show when subcategory selected */}
-              {selectedSubcategory && (
-                <div style={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap', 
-                  gap: '6px', 
-                  marginBottom: '8px',
-                  paddingLeft: '24px',
-                }}>
-                  {getSubsubcategories(pathsList, selectedCategory === '__uncategorized__' ? '' : selectedCategory!, selectedSubcategory).map(subsub => {
-                    const count = pathsList.filter(p => 
-                      p.name &&
-                      p.category === (selectedCategory === '__uncategorized__' ? '' : selectedCategory) && 
-                      p.subcategory === selectedSubcategory && 
-                      p.subsubcategory === subsub
-                    ).length;
-                    return (
-                      <button
-                        type="button"
-                        key={subsub}
-                        onClick={() => {
-                          setSelectedSubsubcategory(subsub);
-                          setSaveSubsubcategory(subsub);
-                        }}
-                        style={{
-                          padding: '5px 10px',
-                          fontSize: '10px',
-                          fontWeight: selectedSubsubcategory === subsub ? '600' : '500',
-                          borderRadius: '12px',
-                          border: selectedSubsubcategory === subsub 
-                            ? '1px solid rgba(168, 85, 247, 0.5)' 
-                            : '1px solid rgba(168, 85, 247, 0.2)',
-                          background: selectedSubsubcategory === subsub 
-                            ? 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)' 
-                            : 'rgba(250, 245, 255, 0.5)',
-                          color: selectedSubsubcategory === subsub ? '#7c3aed' : '#a855f7',
-                          cursor: 'pointer',
-                          boxShadow: selectedSubsubcategory === subsub ? '0 1px 3px rgba(168, 85, 247, 0.15)' : 'none',
-                        }}
-                      >
-                        {subsub} ({count})
-                      </button>
-                    );
-                  })}
-                  
-                  {/* Add sub-subcategory button or input */}
-                  {!showAddSubsubcategory ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAddSubsubcategory(true)}
-                      style={{
-                        padding: '5px 10px',
-                        fontSize: '10px',
-                        fontWeight: '500',
-                        borderRadius: '12px',
-                        border: '1px dashed rgba(168, 85, 247, 0.4)',
-                        background: 'transparent',
-                        color: '#a855f7',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      +
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        placeholder="New sub-sub..."
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newCategoryName.trim()) {
-                            // Note: sub-subcategories not yet supported in new category system
-                            setSaveSubsubcategory(newCategoryName.trim());
-                            setSelectedSubsubcategory(newCategoryName.trim());
-                            setNewCategoryName('');
-                            setShowAddSubsubcategory(false);
-                          }
-                          if (e.key === 'Escape') {
-                            setNewCategoryName('');
-                            setShowAddSubsubcategory(false);
-                          }
-                        }}
-                        autoFocus
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '10px',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(168, 85, 247, 0.3)',
-                          background: 'white',
-                          color: '#334155',
-                          width: '90px',
-                          outline: 'none',
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (newCategoryName.trim()) {
-                            // Note: sub-subcategories not yet supported in new category system
-                            setSaveSubsubcategory(newCategoryName.trim());
-                            setSelectedSubsubcategory(newCategoryName.trim());
-                            setNewCategoryName('');
-                            setShowAddSubsubcategory(false);
-                          }
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '10px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: '#a855f7',
-                          color: 'white',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewCategoryName('');
-                          setShowAddSubsubcategory(false);
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '10px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: '#f1f5f9',
-                          color: '#64748b',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              <button
-                onClick={resetView}
-                style={{
-                  width: '100%',
-                  padding: '9px',
-                  marginBottom: '8px',
-                  background: activePath !== null 
-                    ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                    : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                  color: activePath !== null ? '#1d4ed8' : '#64748b',
-                  border: activePath !== null 
-                    ? '1px solid rgba(59, 130, 246, 0.3)' 
-                    : '1px solid #e2e8f0',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                }}
-              >
-                Clear View
-              </button>
 
-              {/* Header with title and add button */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                marginBottom: '8px',
-              }}>
-                <span style={{ 
-                  fontSize: '10px', 
-                  fontWeight: '600', 
-                  color: '#64748b',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                }}>Paths</span>
-                <button
-                  onClick={createNewPath}
-                  style={{
-                    width: '22px',
-                    height: '22px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(37, 99, 235, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
-                  }}
-                  title="Create new path"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Sort control */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '6px', 
-                marginBottom: '10px',
-                padding: '4px 0',
-              }}>
-                <span style={{ fontSize: '9px', color: '#94a3b8' }}>Sort:</span>
-                <button
-                  onClick={() => setPathSortOrder('latest')}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '9px',
-                    fontWeight: pathSortOrder === 'latest' ? '600' : '400',
-                    background: pathSortOrder === 'latest' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
-                    color: pathSortOrder === 'latest' ? '#1d4ed8' : '#64748b',
-                    border: pathSortOrder === 'latest' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Latest
-                </button>
-                <button
-                  onClick={() => setPathSortOrder('alpha')}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '9px',
-                    fontWeight: pathSortOrder === 'alpha' ? '600' : '400',
-                    background: pathSortOrder === 'alpha' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
-                    color: pathSortOrder === 'alpha' ? '#1d4ed8' : '#64748b',
-                    border: pathSortOrder === 'alpha' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  A-Z
-                </button>
-                <button
-                  onClick={() => setPathSortOrder('category')}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '9px',
-                    fontWeight: pathSortOrder === 'category' ? '600' : '400',
-                    background: pathSortOrder === 'category' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
-                    color: pathSortOrder === 'category' ? '#1d4ed8' : '#64748b',
-                    border: pathSortOrder === 'category' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Category
-                </button>
-              </div>
-            </>
-          )}
+          {/* Sort control */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            marginBottom: '10px',
+            padding: '4px 0',
+          }}>
+            <span style={{ fontSize: '9px', color: '#94a3b8' }}>Sort:</span>
+            <button
+              onClick={() => setPathSortOrder('latest')}
+              style={{
+                padding: '4px 8px',
+                fontSize: '9px',
+                fontWeight: pathSortOrder === 'latest' ? '600' : '400',
+                background: pathSortOrder === 'latest' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                color: pathSortOrder === 'latest' ? '#1d4ed8' : '#64748b',
+                border: pathSortOrder === 'latest' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              Latest
+            </button>
+            <button
+              onClick={() => setPathSortOrder('alpha')}
+              style={{
+                padding: '4px 8px',
+                fontSize: '9px',
+                fontWeight: pathSortOrder === 'alpha' ? '600' : '400',
+                background: pathSortOrder === 'alpha' ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                color: pathSortOrder === 'alpha' ? '#1d4ed8' : '#64748b',
+                border: pathSortOrder === 'alpha' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              A-Z
+            </button>
+          </div>
           </div>
           {/* End of sticky header */}
 
-          {/* Scrollable paths list */}
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {pathsList.length > 0 && (
-            <>
-              {/* Combined search filter (paths + nodes) */}
-              <div ref={searchRef} style={{ marginBottom: '8px', position: 'relative' }}>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    placeholder={selectedNodeFilter ? `🔍 Filtering by node: ${selectedNodeFilterLabel}` : "🔍 Search paths or nodes..."}
-                    value={pathSearchQuery}
-                    onChange={(e) => {
-                      setPathSearchQuery(e.target.value);
-                      if (e.target.value) {
-                        setShowSearchDropdown(true);
-                      }
-                    }}
-                    onFocus={() => {
-                      if (pathSearchQuery) {
-                        setShowSearchDropdown(true);
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 28px 8px 10px',
-                      fontSize: '11px',
-                      border: (pathSearchQuery || selectedNodeFilter) ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      background: selectedNodeFilter ? 'rgba(219, 234, 254, 0.8)' : (pathSearchQuery ? 'rgba(239, 246, 255, 0.5)' : 'white'),
-                      color: '#334155',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  {(pathSearchQuery || selectedNodeFilter) && (
-                    <button
-                      onClick={() => {
-                        setPathSearchQuery('');
-                        setSelectedNodeFilter(null);
-                        setSelectedNodeFilterLabel('');
-                        setShowSearchDropdown(false);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        right: '6px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: '#64748b',
-                        fontSize: '14px',
-                        padding: '2px',
-                        lineHeight: 1,
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                
-                {/* Autocomplete dropdown for nodes */}
-                {showSearchDropdown && pathSearchQuery && !selectedNodeFilter && (
-                  <div 
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      maxHeight: '250px',
-                      overflowY: 'auto',
-                      background: 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                      zIndex: 100,
-                      marginTop: '4px',
-                    }}
-                  >
-                    {(() => {
-                      const query = pathSearchQuery.toLowerCase();
-                      
-                      // Get matching nodes
-                      const matchingNodes = nodes
-                        .filter(n => !n.id.startsWith('personalized-') && !n.id.startsWith('__'))
-                        .map(n => ({ id: n.id, label: (n.data as NodeData)?.label || n.id }))
-                        .filter(n => n.label.toLowerCase().includes(query))
-                        .sort((a, b) => a.label.localeCompare(b.label))
-                        .slice(0, 10);
-                      
-                      // Get matching paths
-                      const matchingPaths = pathsList
-                        .filter(p => p.name && p.name.toLowerCase().includes(query))
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .slice(0, 10);
-                      
-                      if (matchingNodes.length === 0 && matchingPaths.length === 0) {
-                        return (
-                          <div style={{ padding: '10px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
-                            No matches found
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <>
-                          {/* Nodes section */}
-                          {matchingNodes.length > 0 && (
-                            <>
-                              <div style={{ 
-                                padding: '6px 10px', 
-                                fontSize: '9px', 
-                                fontWeight: '600', 
-                                color: '#94a3b8', 
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                background: '#f8fafc',
-                                borderBottom: '1px solid #e2e8f0',
-                              }}>
-                                🔵 Filter by Node
-                              </div>
-                              {matchingNodes.map(node => (
-                                <button
-                                  key={`node-${node.id}`}
-                                  onClick={() => {
-                                    setSelectedNodeFilter(node.id);
-                                    setSelectedNodeFilterLabel(node.label);
-                                    setPathSearchQuery('');
-                                    setShowSearchDropdown(false);
-                                  }}
-                                  style={{
-                                    display: 'block',
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    fontSize: '11px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    color: '#334155',
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid #f1f5f9',
-                                  }}
-                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                >
-                                  <span style={{ color: '#3b82f6', marginRight: '6px' }}>●</span>
-                                  {node.label}
-                                </button>
-                              ))}
-                            </>
-                          )}
-                          
-                          {/* Paths section */}
-                          {matchingPaths.length > 0 && (
-                            <>
-                              <div style={{ 
-                                padding: '6px 10px', 
-                                fontSize: '9px', 
-                                fontWeight: '600', 
-                                color: '#94a3b8', 
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                background: '#f8fafc',
-                                borderBottom: '1px solid #e2e8f0',
-                                marginTop: matchingNodes.length > 0 ? '4px' : 0,
-                              }}>
-                                📁 Paths
-                              </div>
-                              {matchingPaths.map(path => (
-                                <button
-                                  key={`path-${path.id}`}
-                                  onClick={() => {
-                                    setPathSearchQuery(path.name);
-                                    setShowSearchDropdown(false);
-                                    showPath(path.name);
-                                  }}
-                                  style={{
-                                    display: 'block',
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    fontSize: '11px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    color: '#334155',
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid #f1f5f9',
-                                  }}
-                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                >
-                                  <span style={{ color: '#64748b', marginRight: '6px' }}>📄</span>
-                                  {path.name}
-                                  {path.category && categoryMap[path.category] && (
-                                    <span style={{ color: '#94a3b8', fontSize: '9px', marginLeft: '6px' }}>
-                                      ({categoryMap[path.category]})
-                                    </span>
-                                  )}
-                                </button>
-                              ))}
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-              
-              {/* Filtered and grouped paths list */}
-              {(() => {
-                // Filter paths first
-                const filteredPaths = pathsList.filter(path => {
-                  // Filter out category placeholders (empty names)
-                  if (!path.name) return false;
-                  
-                  // Filter by path search query
-                  if (pathSearchQuery && !path.name.toLowerCase().includes(pathSearchQuery.toLowerCase())) {
-                    return false;
-                  }
-                  
-                  // Filter by selected node (if any)
-                  if (selectedNodeFilter) {
-                    const pathNodeIds = pathsMap[path.name] || [];
-                    if (!pathNodeIds.includes(selectedNodeFilter)) {
-                      return false;
-                    }
-                  }
-                  
-                  // Filter by selected category hierarchy
-                  if (selectedCategory === '__uncategorized__') {
-                    return !path.category;
-                  }
-                  if (selectedSubsubcategory) {
-                    return path.category === selectedCategory && 
-                           path.subcategory === selectedSubcategory && 
-                           path.subsubcategory === selectedSubsubcategory;
-                  }
-                  if (selectedSubcategory) {
-                    return path.category === selectedCategory && path.subcategory === selectedSubcategory;
-                  }
-                  if (selectedCategory) {
-                    return path.category === selectedCategory;
-                  }
-                  return true;
-                });
-                
-                // Sort based on selected sort order
-                let sortedPaths: PathRow[];
-                if (pathSortOrder === 'alpha') {
-                  // Alphabetical sort - flat list, no category grouping
-                  sortedPaths = [...filteredPaths].sort((a, b) => a.name.localeCompare(b.name));
-                } else if (pathSortOrder === 'latest') {
-                  // Latest updated sort - flat list, sorted by most recently updated
-                  // Use local pathLastUpdated first, then fall back to path.lastUpdated from the record
-                  sortedPaths = [...filteredPaths].sort((a, b) => {
-                    const aTime = pathLastUpdated[a.id] || a.lastUpdated || 0;
-                    const bTime = pathLastUpdated[b.id] || b.lastUpdated || 0;
-                    return bTime - aTime; // Descending (most recent first)
-                  });
-                } else {
-                  // Category sort - keep original order within categories
-                  sortedPaths = filteredPaths;
+          {/* Scrollable FolderTree with paths */}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
+            {/* FolderTree - unified folder/path navigation */}
+            <FolderTree
+              folders={folderTree}
+              paths={folderPathItems}
+              activePath={activePath}
+              expandedFolders={expandedFolders}
+              onToggleFolder={handleToggleFolder}
+              onSelectPath={(pathName) => showPath(pathName)}
+              onCreateFolder={handleCreateFolder}
+              onDeleteFolder={handleDeleteFolder}
+              onRenameFolder={handleRenameFolder}
+              onMovePathToFolder={handleMovePathToFolder}
+              onMoveFolderToFolder={handleMoveFolderToFolder}
+              onDeletePath={(pathName) => deletePathByName(pathName)}
+              onRenamePath={renamePath}
+              onShowPathNotes={(pathName) => {
+                if (activePath !== pathName) {
+                  showPath(pathName);
                 }
-                
-                // Only group by category when in 'category' sort mode
-                if (pathSortOrder === 'category') {
-                  // Group by category (alphabetically sorted categories)
-                  const groupedPaths: Record<string, PathRow[]> = {};
-                  sortedPaths.forEach(path => {
-                    const cat = path.category || '__uncategorized__';
-                    if (!groupedPaths[cat]) groupedPaths[cat] = [];
-                    groupedPaths[cat].push(path);
-                  });
-                  
-                  // Sort category keys alphabetically, with uncategorized at the end
-                  const sortedCategories = Object.keys(groupedPaths).sort((a, b) => {
-                    if (a === '__uncategorized__') return 1;
-                    if (b === '__uncategorized__') return -1;
-                    return a.localeCompare(b);
-                  });
-                  
-                  return sortedCategories.map(cat => (
-                    <div key={cat}>
-                      {/* Category header - only show if not filtering by specific category */}
-                      {!selectedCategory && sortedCategories.length > 1 && (
-                        <div style={{ 
-                          fontSize: '9px', 
-                          fontWeight: '600', 
-                          color: '#94a3b8', 
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          marginTop: cat === sortedCategories[0] ? 0 : '12px',
-                          marginBottom: '6px',
-                          paddingBottom: '4px',
-                          borderBottom: '1px solid #f1f5f9',
-                        }}>
-                          {cat === '__uncategorized__' ? 'Uncategorized' : cat}
-                        </div>
-                      )}
-                      {groupedPaths[cat].map((path) => (
-                      <div
-                        key={path.name}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          marginBottom: '5px',
-                        }}
-                      >
-                        {editingPathName === path.name ? (
-                          <div
-                            style={{
-                              flex: 1,
-                              padding: '7px 10px',
-                              background: 'rgba(255,255,255,0.9)',
-                              border: '1px solid rgba(59, 130, 246, 0.35)',
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          >
-                            <span style={{ color: '#94a3b8', fontSize: '10px', lineHeight: 1 }}>⋮⋮</span>
-                            <input
-                              type="text"
-                              value={editingPathValue}
-                              onChange={(e) => setEditingPathValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  commitPathRename();
-                                } else if (e.key === 'Escape') {
-                                  e.preventDefault();
-                                  cancelPathRename();
-                                }
-                              }}
-                              onBlur={commitPathRename}
-                              onFocus={(e) => e.target.select()}
-                              autoFocus
-                              style={{
-                                flex: 1,
-                                fontSize: '11px',
-                                fontWeight: '600',
-                                color: '#1e293b',
-                                border: 'none',
-                                outline: 'none',
-                                background: 'transparent',
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <button
-                            draggable
-                            onDragStart={() => setDraggedPath(path.name)}
-                            onDragEnd={() => setDraggedPath(null)}
-                            onClick={() => showPath(path.name)}
-                            onDoubleClick={(e) => {
-                              e.stopPropagation();
-                              startEditingPath(path.name);
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: '9px 10px',
-                              background: activePath === path.name 
-                                ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                                : 'rgba(255,255,255,0.6)',
-                              color: activePath === path.name ? '#1d4ed8' : '#475569',
-                              border: activePath === path.name 
-                                ? '1px solid rgba(59, 130, 246, 0.3)' 
-                                : '1px solid #e2e8f0',
-                              borderRadius: '8px',
-                              cursor: 'grab',
-                              fontSize: '11px',
-                              textAlign: 'left',
-                              fontWeight: activePath === path.name ? '600' : '500',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                            }}
-                          >
-                            {/* Drag handle */}
-                            <span style={{ 
-                              color: '#94a3b8', 
-                              fontSize: '10px',
-                              lineHeight: 1,
-                              cursor: 'grab',
-                            }}>⋮⋮</span>
-                            <span style={{ flex: 1 }}>{path.name}</span>
-                          </button>
-                        )}
-                        {/* Delete button - always visible */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deletePathByName(path.name);
-                          }}
-                          style={{
-                            padding: '6px 8px',
-                            background: 'rgba(254, 226, 226, 0.6)',
-                            color: '#dc2626',
-                            border: '1px solid rgba(220, 38, 38, 0.2)',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            lineHeight: 1,
-                            opacity: 0.7,
-                            transition: 'opacity 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                          title="Delete path"
-                        >
-                          🗑
-                        </button>
-                        {/* Info button for notes */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Load the path first if not already loaded
-                            if (activePath !== path.name) {
-                              showPath(path.name);
-                            }
-                            setNotesPathName(path.name);
-                            setShowNotesPanel(true);
-                            // Position notes panel next to left panel
-                            setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
-                          }}
-                          style={{
-                            padding: '6px 8px',
-                            background: (showNotesPanel && notesPathName === path.name)
-                              ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
-                              : 'rgba(255,255,255,0.8)',
-                            color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
-                            border: (showNotesPanel && notesPathName === path.name)
-                              ? '1px solid rgba(59, 130, 246, 0.4)'
-                              : '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            lineHeight: 1,
-                          }}
-                          title="View notes"
-                        >
-                          ℹ
-                        </button>
-                      </div>
-                      ))}
-                    </div>
-                  ));
-                }
-                
-                // For 'latest' and 'alpha' modes - flat list without category headers
-                return sortedPaths.map((path) => (
-                  <div
-                    key={path.name}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      marginBottom: '5px',
-                    }}
-                  >
-                    {editingPathName === path.name ? (
-                      <div
-                        style={{
-                          flex: 1,
-                          padding: '7px 10px',
-                          background: 'rgba(255,255,255,0.9)',
-                          border: '1px solid rgba(59, 130, 246, 0.35)',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                      >
-                        <span style={{ color: '#94a3b8', fontSize: '10px', lineHeight: 1 }}>⋮⋮</span>
-                        <input
-                          type="text"
-                          value={editingPathValue}
-                          onChange={(e) => setEditingPathValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              commitPathRename();
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              cancelPathRename();
-                            }
-                          }}
-                          onBlur={commitPathRename}
-                          onFocus={(e) => e.target.select()}
-                          autoFocus
-                          style={{
-                            flex: 1,
-                            fontSize: '11px',
-                            fontWeight: '500',
-                            color: '#1e293b',
-                            border: 'none',
-                            outline: 'none',
-                            background: 'transparent',
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <button
-                        draggable
-                        onDragStart={() => setDraggedPath(path.name)}
-                        onDragEnd={() => setDraggedPath(null)}
-                        onClick={() => showPath(path.name)}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          startEditingPath(path.name);
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '9px 10px',
-                          background: activePath === path.name 
-                            ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                            : 'rgba(255,255,255,0.6)',
-                          color: activePath === path.name ? '#1d4ed8' : '#475569',
-                          border: activePath === path.name 
-                            ? '1px solid rgba(59, 130, 246, 0.3)' 
-                            : '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          cursor: 'grab',
-                          fontSize: '11px',
-                          textAlign: 'left',
-                          fontWeight: activePath === path.name ? '600' : '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}
-                      >
-                        {/* Drag handle */}
-                        <span style={{ 
-                          color: '#94a3b8', 
-                          fontSize: '10px',
-                          lineHeight: 1,
-                          cursor: 'grab',
-                        }}>⋮⋮</span>
-                        <span style={{ flex: 1 }}>{path.name}</span>
-                      </button>
-                    )}
-                    {/* Delete button - always visible */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deletePathByName(path.name);
-                      }}
-                      style={{
-                        padding: '6px 8px',
-                        background: 'rgba(254, 226, 226, 0.6)',
-                        color: '#dc2626',
-                        border: '1px solid rgba(220, 38, 38, 0.2)',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        lineHeight: 1,
-                        opacity: 0.7,
-                        transition: 'opacity 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                      title="Delete path"
-                    >
-                      🗑
-                    </button>
-                    {/* Info button for notes */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Load the path first if not already loaded
-                        if (activePath !== path.name) {
-                          showPath(path.name);
-                        }
-                        setNotesPathName(path.name);
-                        setShowNotesPanel(true);
-                        // Position notes panel next to left panel
-                        setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
-                      }}
-                      style={{
-                        padding: '6px 8px',
-                        background: (showNotesPanel && notesPathName === path.name)
-                          ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
-                          : 'rgba(255,255,255,0.8)',
-                        color: (showNotesPanel && notesPathName === path.name) ? '#1d4ed8' : '#64748b',
-                        border: (showNotesPanel && notesPathName === path.name)
-                          ? '1px solid rgba(59, 130, 246, 0.4)'
-                          : '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        lineHeight: 1,
-                      }}
-                      title="View notes"
-                    >
-                      ℹ
-                    </button>
-                  </div>
-                ));
-              })()}
-              {/* End of scrollable paths list */}
-            </>
-          )}
+                setNotesPathName(pathName);
+                setShowNotesPanel(true);
+                setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+              }}
+            />
           </div>
         </div>
         </div>
