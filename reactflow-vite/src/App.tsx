@@ -369,11 +369,12 @@ function MethodNode(props: any) {
           fontSize: 12, 
           marginBottom: 3, 
           textAlign: 'center', 
-          paddingRight: 24,
           cursor: 'pointer',
           borderRadius: 4,
           padding: '2px 4px',
-          margin: '-2px -4px 3px -4px',
+          marginRight: 20,
+          marginLeft: -4,
+          marginTop: -2,
           transition: 'background 0.15s ease',
         }}
         onMouseEnter={(e) => {
@@ -403,9 +404,8 @@ function MethodNode(props: any) {
             whiteSpace: 'nowrap',
             color: '#64748b',
           }}
-        >
-          {firstLine}
-        </div>
+          dangerouslySetInnerHTML={{ __html: firstLine }}
+        />
       )}
       
       {/* Inline note area - only visible when highlighted */}
@@ -463,9 +463,8 @@ function MethodNode(props: any) {
                 whiteSpace: 'nowrap',
                 cursor: 'text',
               }}
-            >
-              {hasNote ? firstLine : '...'}
-            </div>
+              dangerouslySetInnerHTML={{ __html: hasNote ? firstLine : '...' }}
+            />
           )}
         </div>
       )}
@@ -976,6 +975,9 @@ function DiagramContent() {
     // Update last updated timestamp
     setPathLastUpdated(prev => ({ ...prev, [pathIdToUse!]: Date.now() }));
     
+    // Set status to saving
+    setNoteSaveStatus(prev => ({ ...prev, ['pathNotes']: 'saving' }));
+    
     // Debounced auto-save
     if (debounceTimerRef.current['pathNotes']) {
       clearTimeout(debounceTimerRef.current['pathNotes']);
@@ -998,8 +1000,12 @@ function DiagramContent() {
             }),
           });
         }
+        // Set status to saved
+        setNoteSaveStatus(prev => ({ ...prev, ['pathNotes']: 'saved' }));
       } catch (error) {
         console.error('Error saving path notes:', error);
+        // Still mark as saved to avoid stuck "Saving..." state
+        setNoteSaveStatus(prev => ({ ...prev, ['pathNotes']: 'saved' }));
       }
     }, 1000);
   }, [activePathId, GOOGLE_SCRIPT_URL]);
@@ -4017,23 +4023,17 @@ Use the toolbar above or keyboard shortcuts:
                     <span>📋</span>
                     <span>Path Notes</span>
                   </div>
-                  <textarea
+                  <div
+                    contentEditable
                     dir="ltr"
-                    placeholder="Add path-level notes..."
-                    value={pathNotes[activePathId || ''] || ''}
-                    onChange={(e) => {
-                      handlePathNotesChange(e.target.value);
-                      // Auto-resize
-                      const textarea = e.target;
-                      textarea.style.height = 'auto';
-                      const maxHeight = 300;
-                      textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                    dangerouslySetInnerHTML={{ __html: pathNotes[activePathId || ''] || '' }}
+                    onInput={(e) => {
+                      const content = (e.target as HTMLDivElement).innerHTML;
+                      handlePathNotesChange(content);
                     }}
-                    onFocus={(e) => {
-                      const textarea = e.target;
-                      textarea.style.height = 'auto';
-                      const maxHeight = 300;
-                      textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                    onBlur={(e) => {
+                      const content = (e.target as HTMLDivElement).innerHTML;
+                      handlePathNotesChange(content);
                     }}
                     style={{
                       width: '100%',
@@ -4045,7 +4045,6 @@ Use the toolbar above or keyboard shortcuts:
                       borderRadius: '12px',
                       background: 'white',
                       color: '#1e293b',
-                      resize: 'vertical',
                       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                       lineHeight: 1.6,
                       boxSizing: 'border-box',
@@ -4056,6 +4055,13 @@ Use the toolbar above or keyboard shortcuts:
                       transition: 'border-color 0.2s ease',
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
+                    onFocus={(e) => {
+                      (e.target as HTMLDivElement).style.borderColor = '#3b82f6';
+                    }}
+                    onBlurCapture={(e) => {
+                      (e.target as HTMLDivElement).style.borderColor = '#e2e8f0';
+                    }}
+                    suppressContentEditableWarning={true}
                   />
                 </div>
                 
@@ -4119,12 +4125,12 @@ Use the toolbar above or keyboard shortcuts:
                               }} />
                               {nodeData?.label || nodeId}
                             </div>
-                            <textarea
-                              placeholder="Add notes for this node..."
-                              value={content}
+                            <div
+                              contentEditable
+                              dangerouslySetInnerHTML={{ __html: content || '' }}
                               onMouseDown={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                const newContent = e.target.value;
+                              onInput={(e) => {
+                                const newContent = (e.target as HTMLDivElement).innerHTML;
                                 setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
                                 
                                 setNodePathMap(prev => ({
@@ -4135,12 +4141,6 @@ Use the toolbar above or keyboard shortcuts:
                                   },
                                 }));
                                 setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
-                                
-                                // Auto-resize
-                                const textarea = e.target;
-                                textarea.style.height = 'auto';
-                                const maxHeight = 200;
-                                textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
                                 
                                 if (debounceTimerRef.current[nodeId]) {
                                   clearTimeout(debounceTimerRef.current[nodeId]);
@@ -4172,12 +4172,6 @@ Use the toolbar above or keyboard shortcuts:
                                   }
                                 }, 1000);
                               }}
-                              onFocus={(e) => {
-                                const textarea = e.target;
-                                textarea.style.height = 'auto';
-                                const maxHeight = 200;
-                                textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-                              }}
                               style={{
                                 width: '100%',
                                 minHeight: '60px',
@@ -4188,13 +4182,19 @@ Use the toolbar above or keyboard shortcuts:
                                 borderRadius: '8px',
                                 background: 'white',
                                 color: '#334155',
-                                resize: 'vertical',
                                 fontFamily: 'inherit',
                                 lineHeight: 1.5,
                                 boxSizing: 'border-box',
                                 outline: 'none',
                                 overflow: 'auto',
                               }}
+                              onFocus={(e) => {
+                                (e.target as HTMLDivElement).style.borderColor = '#3b82f6';
+                              }}
+                              onBlur={(e) => {
+                                (e.target as HTMLDivElement).style.borderColor = '#e2e8f0';
+                              }}
+                              suppressContentEditableWarning={true}
                             />
                           </div>
                         );
