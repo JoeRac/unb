@@ -255,9 +255,9 @@ interface FolderItemProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSelectPath: (pathName: string) => void;
-  onCreateSubfolder: (name: string) => Promise<void>;
-  onDelete: () => void;
-  onRename: (newName: string) => void;
+  onCreateFolder: (name: string, parentId: string | null) => Promise<void>;
+  onDeleteFolder: (folder: FolderTreeNode) => void;
+  onRenameFolder: (folder: FolderTreeNode, newName: string) => void;
   onMovePathToFolder: (pathName: string, folderId: string | null) => void;
   onMoveFolderToFolder: (folderId: string, targetParentId: string | null) => void;
   onDeletePath: (pathName: string) => void;
@@ -276,9 +276,9 @@ const FolderItem: React.FC<FolderItemProps> = ({
   isExpanded,
   onToggle,
   onSelectPath,
-  onCreateSubfolder,
-  onDelete,
-  onRename,
+  onCreateFolder,
+  onDeleteFolder,
+  onRenameFolder,
   onMovePathToFolder,
   onMoveFolderToFolder,
   onDeletePath,
@@ -334,7 +334,8 @@ const FolderItem: React.FC<FolderItemProps> = ({
   const handleAddSubmit = async () => {
     if (newName.trim()) {
       try {
-        await onCreateSubfolder(newName.trim());
+        // Create subfolder under THIS folder (use notionPageId or id as parent)
+        await onCreateFolder(newName.trim(), folder.notionPageId || folder.id);
         setNewName('');
         setIsAdding(false);
       } catch (error) {
@@ -345,7 +346,8 @@ const FolderItem: React.FC<FolderItemProps> = ({
 
   const handleRenameSubmit = () => {
     if (renameValue.trim() && renameValue.trim() !== folder.name) {
-      onRename(renameValue.trim());
+      // Rename THIS specific folder
+      onRenameFolder(folder, renameValue.trim());
     }
     setIsRenaming(false);
   };
@@ -419,7 +421,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
             <EditIcon />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            onClick={(e) => { e.stopPropagation(); onDeleteFolder(folder); }}
             style={{ ...styles.actionButton, color: '#ef4444' }}
             title="Delete folder"
           >
@@ -462,9 +464,9 @@ const FolderItem: React.FC<FolderItemProps> = ({
               isExpanded={expandedFolders[child.id] !== false}
               onToggle={() => onToggleFolder(child.id)}
               onSelectPath={onSelectPath}
-              onCreateSubfolder={async (name) => await onCreateSubfolder(name)}
-              onDelete={onDelete}
-              onRename={onRename}
+              onCreateFolder={onCreateFolder}
+              onDeleteFolder={onDeleteFolder}
+              onRenameFolder={onRenameFolder}
               onMovePathToFolder={onMovePathToFolder}
               onMoveFolderToFolder={onMoveFolderToFolder}
               onDeletePath={onDeletePath}
@@ -702,9 +704,9 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           isExpanded={expandedFolders[folder.id] !== false}
           onToggle={() => onToggleFolder(folder.id)}
           onSelectPath={onSelectPath}
-          onCreateSubfolder={async (name) => await onCreateFolder(name, folder.notionPageId || folder.id)}
-          onDelete={() => onDeleteFolder(folder)}
-          onRename={(newName) => onRenameFolder(folder, newName)}
+          onCreateFolder={onCreateFolder}
+          onDeleteFolder={onDeleteFolder}
+          onRenameFolder={onRenameFolder}
           onMovePathToFolder={(pathName, folderId) => onMovePathToFolder(pathName, folderId)}
           onMoveFolderToFolder={(fId, targetId) => onMoveFolderToFolder(fId, targetId)}
           onDeletePath={onDeletePath}

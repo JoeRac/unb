@@ -1456,10 +1456,13 @@ function DiagramContent() {
       p.name.toLowerCase().includes(query)
     ).slice(0, 5);
     
-    // Search nodes
+    // Search nodes - also count how many paths contain each node
     const matchingNodes = allNodesData.filter(n =>
       n.label.toLowerCase().includes(query) || n.id.toLowerCase().includes(query)
-    ).slice(0, 5);
+    ).slice(0, 5).map(node => ({
+      ...node,
+      pathCount: pathsList.filter(p => p.nodeIds.includes(node.id)).length,
+    }));
     
     // Search folders
     const matchingFolders = categoriesList.filter(c =>
@@ -1467,7 +1470,44 @@ function DiagramContent() {
     ).slice(0, 5);
     
     return { paths: matchingPaths, nodes: matchingNodes, folders: matchingFolders };
-  }, [searchQuery, folderPathItems, allNodesData, categoriesList]);
+  }, [searchQuery, folderPathItems, allNodesData, categoriesList, pathsList]);
+
+  // Helper function to expand a folder and all its parent folders
+  const expandFolderWithParents = useCallback((folderId: string) => {
+    // Find all parent folders by traversing the categoriesList
+    const expandIds: string[] = [];
+    
+    // Find the folder to expand
+    const targetFolder = categoriesList.find(c => c.id === folderId || c.notionPageId === folderId);
+    if (!targetFolder) return;
+    
+    // Add the target folder
+    expandIds.push(targetFolder.notionPageId || targetFolder.id);
+    
+    // Walk up the parent chain
+    let currentParentId = targetFolder.parentId;
+    while (currentParentId) {
+      const parent = categoriesList.find(c => c.notionPageId === currentParentId || c.id === currentParentId);
+      if (parent) {
+        expandIds.push(parent.notionPageId || parent.id);
+        currentParentId = parent.parentId || null;
+      } else {
+        break;
+      }
+    }
+    
+    // Expand all folders in the chain
+    setExpandedFolders(prev => {
+      const newExpanded = { ...prev };
+      expandIds.forEach(id => {
+        newExpanded[id] = true;
+      });
+      return newExpanded;
+    });
+    
+    // Switch to folder view
+    setViewMode('folder');
+  }, [categoriesList]);
 
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
@@ -2415,11 +2455,10 @@ function DiagramContent() {
                       setSearchQuery('');
                       setShowSearchDropdown(false);
                     } else {
-                      // Select folder - switch to folder view and expand
+                      // Select folder - expand folder and all its parents
                       const folderIdx = idx - searchResults.paths.length - searchResults.nodes.length;
                       const folder = searchResults.folders[folderIdx];
-                      setViewMode('folder');
-                      setExpandedFolders(prev => ({ ...prev, [folder.notionPageId || folder.id]: true }));
+                      expandFolderWithParents(folder.notionPageId || folder.id);
                       setSearchQuery('');
                       setShowSearchDropdown(false);
                     }
@@ -2533,7 +2572,11 @@ function DiagramContent() {
                           onMouseEnter={() => setSearchFocusIndex(globalIdx)}
                         >
                           {node.label}
-                          <span style={{ fontSize: '9px', color: '#94a3b8', marginLeft: '6px' }}>({node.id})</span>
+                          {node.pathCount > 0 && (
+                            <span style={{ fontSize: '9px', color: '#94a3b8', marginLeft: '6px' }}>
+                              ({node.pathCount} {node.pathCount === 1 ? 'path' : 'paths'})
+                            </span>
+                          )}
                         </div>
                       );
                     })}
@@ -2552,8 +2595,7 @@ function DiagramContent() {
                         <div
                           key={folder.id}
                           onClick={() => {
-                            setViewMode('folder');
-                            setExpandedFolders(prev => ({ ...prev, [folder.notionPageId || folder.id]: true }));
+                            expandFolderWithParents(folder.notionPageId || folder.id);
                             setSearchQuery('');
                             setShowSearchDropdown(false);
                           }}
