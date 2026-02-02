@@ -1775,11 +1775,9 @@ function DiagramContent() {
             n.parentIds
               .filter((pid) => pid && notionNodes.some((node) => node.id === pid))
               .map((parentId) => ({
-                id: `${parentId}-${n.id}`,
+                id: `${parentId}->${n.id}`,
                 source: parentId,
                 target: n.id,
-                type: 'smoothstep',
-                style: { stroke: EDGE_COLOR, opacity: 0.5, strokeWidth: 1.5 },
               }))
           );
           
@@ -2378,7 +2376,7 @@ function DiagramContent() {
               color: '#1e293b',
               letterSpacing: '0.05em',
             }}>
-              UNBURDENED
+              APEX
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
