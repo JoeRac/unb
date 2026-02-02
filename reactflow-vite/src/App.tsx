@@ -161,63 +161,6 @@ const NODE_PATH_GVIZ_URL =
 // Rich Text Helper Functions
 // ============================================
 
-// Convert plain text with markdown-like syntax to HTML for rendering
-function textToHtml(text: string): string {
-  if (!text) return '';
-  
-  // Escape HTML first
-  let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  
-  // Convert markdown-style syntax to HTML (order matters - do longer patterns first)
-  // Bold: **text** or __text__
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
-  
-  // Italic: *text* or _text_ (but not inside links)
-  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
-  html = html.replace(/(?<!_)_([^_]+?)_(?!_)/g, '<em>$1</em>');
-  
-  // Underline: ~~text~~ (using ~~ for underline since it's available in our editor)
-  html = html.replace(/~~(.+?)~~/g, '<u>$1</u>');
-  
-  // Strikethrough: --text--
-  html = html.replace(/--(.+?)--/g, '<s>$1</s>');
-  
-  // Links: [text](url)
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#3b82f6;text-decoration:underline;">$1</a>');
-  
-  // Headers: # Header
-  html = html.replace(/^### (.+)$/gm, '<span style="font-size:1.1em;font-weight:600;display:block;margin-top:8px;">$1</span>');
-  html = html.replace(/^## (.+)$/gm, '<span style="font-size:1.2em;font-weight:600;display:block;margin-top:8px;">$1</span>');
-  html = html.replace(/^# (.+)$/gm, '<span style="font-size:1.3em;font-weight:700;display:block;margin-top:8px;">$1</span>');
-  
-  // Bullet lists: - item or * item
-  html = html.replace(/^[\-\*] (.+)$/gm, '<span style="display:block;padding-left:16px;">• $1</span>');
-  
-  // Numbered lists: 1. item
-  html = html.replace(/^\d+\. (.+)$/gm, (_match, p1, offset, str) => {
-    // Count which number this is
-    const prevLines = str.slice(0, offset).split('\n');
-    let num = 1;
-    for (let i = prevLines.length - 1; i >= 0; i--) {
-      if (/^\d+\. /.test(prevLines[i])) num++;
-      else break;
-    }
-    return `<span style="display:block;padding-left:16px;">${num}. ${p1}</span>`;
-  });
-  
-  // Highlight: ==text==
-  html = html.replace(/==(.+?)==/g, '<mark style="background:#fef08a;padding:0 2px;border-radius:2px;">$1</mark>');
-  
-  // Newlines to <br>
-  html = html.replace(/\n/g, '<br>');
-  
-  return html;
-}
-
 // Convert HTML back to plain text with markdown-like syntax (for saving)
 // Note: Using globalThis.Node to avoid conflict with ReactFlow's Node type
 export function htmlToText(html: string): string {
@@ -925,13 +868,8 @@ function DiagramContent() {
   const [noteRedoStack, setNoteRedoStack] = useState<Record<string, string[]>>({});
   const [editorFocusMode, setEditorFocusMode] = useState(false);
   const [sidebarFocusMode, setSidebarFocusMode] = useState(false);
-  const [showSlashMenu, setShowSlashMenu] = useState(false);
-  const [slashMenuPos, setSlashMenuPos] = useState({ x: 0, y: 0 });
-  const [slashMenuFilter, setSlashMenuFilter] = useState('');
-  const [slashMenuIndex, setSlashMenuIndex] = useState(0);
-  const [notePreviewMode, setNotePreviewMode] = useState(false); // Toggle between edit and preview
-  const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const slashStartPos = useRef<number>(0);
+  const wysiwygEditorRef = useRef<HTMLDivElement | null>(null);
+  const focusModeEditorRef = useRef<HTMLDivElement | null>(null);
   
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -3485,24 +3423,6 @@ function DiagramContent() {
         const canRedo = (noteRedoStack[nodeId]?.length || 0) > 0;
         void charCount; // Suppress unused variable warning - available for future use
         
-        // Slash command options
-        const slashCommands = [
-          { icon: 'B', label: 'Bold', desc: 'Make text bold', format: '**', shortcut: '⌘B' },
-          { icon: 'I', label: 'Italic', desc: 'Make text italic', format: '_', shortcut: '⌘I' },
-          { icon: '—', label: 'Strikethrough', desc: 'Cross out text', format: '~~', shortcut: null },
-          { icon: '•', label: 'Bullet list', desc: 'Create a bullet list', format: '• ', shortcut: null },
-          { icon: '1.', label: 'Numbered list', desc: 'Create a numbered list', format: '1. ', shortcut: null },
-          { icon: '>', label: 'Quote', desc: 'Add a quote block', format: '> ', shortcut: null },
-          { icon: '`', label: 'Code', desc: 'Inline code', format: '`', shortcut: null },
-          { icon: '—', label: 'Divider', desc: 'Horizontal line', format: '\n---\n', shortcut: null },
-          { icon: '[ ]', label: 'Checkbox', desc: 'Add a checkbox', format: '- [ ] ', shortcut: null },
-          { icon: '#', label: 'Heading', desc: 'Section heading', format: '## ', shortcut: null },
-        ].filter(cmd => 
-          !slashMenuFilter || 
-          cmd.label.toLowerCase().includes(slashMenuFilter.toLowerCase()) ||
-          cmd.desc.toLowerCase().includes(slashMenuFilter.toLowerCase())
-        );
-        
         return (
           <div style={{ marginBottom: '20px', position: 'relative' }}>
             {/* Header row with title, actions, and status */}
@@ -3655,33 +3575,32 @@ function DiagramContent() {
               </span>
             </div>
             
-            {/* Rich text toolbar */}
+            {/* WYSIWYG Rich text toolbar */}
             <div style={{
               display: 'flex',
               gap: '2px',
               padding: '6px 8px',
               background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
-              borderRadius: editorFocusMode ? '10px 10px 0 0' : '10px 10px 0 0',
+              borderRadius: '10px 10px 0 0',
               border: '1px solid #e2e8f0',
               borderBottom: 'none',
               flexWrap: 'wrap',
               alignItems: 'center',
             }}>
               {[
-                { icon: 'B', title: 'Bold (⌘B)', style: { fontWeight: 700 }, format: '**' },
-                { icon: 'I', title: 'Italic (⌘I)', style: { fontStyle: 'italic' }, format: '_' },
-                { icon: 'U', title: 'Underline (⌘U)', style: { textDecoration: 'underline' }, format: '__' },
-                { icon: '—', title: 'Strikethrough', style: { textDecoration: 'line-through' }, format: '~~' },
-                { icon: 'sep', title: '', style: {}, format: '' },
-                { icon: 'H', title: 'Heading', style: { fontWeight: 700, fontSize: '11px' }, format: '## ' },
-                { icon: '•', title: 'Bullet list', style: {}, format: '• ' },
-                { icon: '1.', title: 'Numbered list', style: { fontSize: '11px' }, format: '1. ' },
-                { icon: '☐', title: 'Checkbox', style: { fontSize: '11px' }, format: '- [ ] ' },
-                { icon: 'sep', title: '', style: {}, format: '' },
-                { icon: '>', title: 'Quote', style: { fontSize: '14px' }, format: '> ' },
-                { icon: '</>', title: 'Code', style: { fontFamily: 'monospace', fontSize: '10px' }, format: '`' },
-                { icon: '—', title: 'Divider', style: { letterSpacing: '-2px' }, format: '\n---\n' },
-                { icon: '🔗', title: 'Link (⌘K)', style: { fontSize: '11px' }, format: '[](url)' },
+                { icon: 'B', title: 'Bold (⌘B)', command: 'bold', style: { fontWeight: 700 } },
+                { icon: 'I', title: 'Italic (⌘I)', command: 'italic', style: { fontStyle: 'italic' } },
+                { icon: 'U', title: 'Underline (⌘U)', command: 'underline', style: { textDecoration: 'underline' } },
+                { icon: '—', title: 'Strikethrough', command: 'strikeThrough', style: { textDecoration: 'line-through' } },
+                { icon: 'sep', title: '', command: '', style: {} },
+                { icon: 'H₁', title: 'Heading 1', command: 'formatBlock', arg: 'h2', style: { fontWeight: 700, fontSize: '11px' } },
+                { icon: 'H₂', title: 'Heading 2', command: 'formatBlock', arg: 'h3', style: { fontWeight: 600, fontSize: '10px' } },
+                { icon: '•', title: 'Bullet list', command: 'insertUnorderedList', style: {} },
+                { icon: '1.', title: 'Numbered list', command: 'insertOrderedList', style: { fontSize: '11px' } },
+                { icon: 'sep', title: '', command: '', style: {} },
+                { icon: '❝', title: 'Quote', command: 'formatBlock', arg: 'blockquote', style: { fontSize: '12px' } },
+                { icon: '🔗', title: 'Link (⌘K)', command: 'createLink', style: { fontSize: '11px' } },
+                { icon: '⊘', title: 'Remove formatting', command: 'removeFormat', style: { fontSize: '11px' } },
               ].map((btn, idx) => (
                 btn.icon === 'sep' ? (
                   <div key={idx} style={{ width: '1px', height: '16px', background: '#e2e8f0', margin: '0 4px' }} />
@@ -3692,38 +3611,19 @@ function DiagramContent() {
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    const textarea = noteTextareaRef.current;
-                    if (textarea) {
-                      const start = textarea.selectionStart;
-                      const end = textarea.selectionEnd;
-                      const text = textarea.value;
-                      const selectedText = text.substring(start, end);
-                      let newText: string;
-                      let newCursorPos: number;
-                      
-                      if (['• ', '1. ', '> ', '## ', '- [ ] '].includes(btn.format)) {
-                        newText = text.substring(0, start) + btn.format + selectedText + text.substring(end);
-                        newCursorPos = start + btn.format.length + selectedText.length;
-                      } else if (btn.format === '[](url)') {
-                        newText = text.substring(0, start) + '[' + (selectedText || 'link text') + '](url)' + text.substring(end);
-                        newCursorPos = start + 1 + (selectedText || 'link text').length + 2;
-                      } else if (btn.format === '\n---\n') {
-                        newText = text.substring(0, start) + '\n---\n' + text.substring(end);
-                        newCursorPos = start + 5;
+                    const editor = wysiwygEditorRef.current;
+                    if (editor) {
+                      editor.focus();
+                      if (btn.command === 'createLink') {
+                        const url = prompt('Enter URL:', 'https://');
+                        if (url) {
+                          document.execCommand('createLink', false, url);
+                        }
+                      } else if (btn.arg) {
+                        document.execCommand(btn.command, false, btn.arg);
                       } else {
-                        newText = text.substring(0, start) + btn.format + selectedText + btn.format + text.substring(end);
-                        newCursorPos = end + btn.format.length * 2;
+                        document.execCommand(btn.command, false);
                       }
-                      
-                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                      nativeInputValueSetter?.call(textarea, newText);
-                      const inputEvent = new Event('input', { bubbles: true });
-                      textarea.dispatchEvent(inputEvent);
-                      
-                      setTimeout(() => {
-                        textarea.focus();
-                        textarea.setSelectionRange(newCursorPos, newCursorPos);
-                      }, 0);
                     }
                   }}
                   style={{
@@ -3755,386 +3655,69 @@ function DiagramContent() {
                 </button>
                 )
               ))}
-              {/* Preview toggle button */}
-              <button
-                title={notePreviewMode ? 'Edit mode' : 'Preview mode'}
-                onClick={() => setNotePreviewMode(!notePreviewMode)}
-                style={{
-                  marginLeft: 'auto',
-                  border: 'none',
-                  background: notePreviewMode ? 'rgba(59,130,246,0.15)' : 'transparent',
-                  cursor: 'pointer',
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  color: notePreviewMode ? '#3b82f6' : '#64748b',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  if (!notePreviewMode) {
-                    e.currentTarget.style.background = 'rgba(59,130,246,0.08)';
-                    e.currentTarget.style.color = '#3b82f6';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!notePreviewMode) {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#64748b';
-                  }
-                }}
-              >
-                {notePreviewMode ? '✏️ Edit' : '👁️ Preview'}
-              </button>
+              {/* Keyboard shortcuts hint */}
+              <div style={{ marginLeft: 'auto', fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px' }}>⌘B</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px' }}>⌘I</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px' }}>⌘U</span>
+              </div>
             </div>
             
-            {/* Slash command menu */}
-            {showSlashMenu && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: slashMenuPos.x,
-                  top: slashMenuPos.y,
-                  zIndex: 1000,
-                  background: 'white',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                  border: '1px solid #e2e8f0',
-                  minWidth: '220px',
-                  maxHeight: '280px',
-                  overflow: 'auto',
-                }}
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                <div style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-                  Formatting
-                </div>
-                {slashCommands.length === 0 ? (
-                  <div style={{ padding: '12px', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>
-                    No matching commands
-                  </div>
-                ) : (
-                  slashCommands.map((cmd, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        const textarea = noteTextareaRef.current;
-                        if (textarea) {
-                          const text = textarea.value;
-                          const beforeSlash = text.substring(0, slashStartPos.current);
-                          const afterCursor = text.substring(textarea.selectionStart);
-                          let newText: string;
-                          let cursorPos: number;
-                          
-                          if (['• ', '1. ', '> ', '## ', '- [ ] '].includes(cmd.format)) {
-                            newText = beforeSlash + cmd.format + afterCursor;
-                            cursorPos = beforeSlash.length + cmd.format.length;
-                          } else if (cmd.format === '\n---\n') {
-                            newText = beforeSlash + '\n---\n' + afterCursor;
-                            cursorPos = beforeSlash.length + 5;
-                          } else {
-                            newText = beforeSlash + cmd.format + cmd.format + afterCursor;
-                            cursorPos = beforeSlash.length + cmd.format.length;
-                          }
-                          
-                          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                          nativeInputValueSetter?.call(textarea, newText);
-                          const inputEvent = new Event('input', { bubbles: true });
-                          textarea.dispatchEvent(inputEvent);
-                          
-                          setShowSlashMenu(false);
-                          setSlashMenuFilter('');
-                          
-                          setTimeout(() => {
-                            textarea.focus();
-                            textarea.setSelectionRange(cursorPos, cursorPos);
-                          }, 0);
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '8px 12px',
-                        cursor: 'pointer',
-                        background: idx === slashMenuIndex ? 'rgba(59,130,246,0.08)' : 'transparent',
-                        transition: 'background 0.1s ease',
-                      }}
-                      onMouseEnter={() => setSlashMenuIndex(idx)}
-                    >
-                      <span style={{
-                        width: '28px',
-                        height: '28px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: '#f8fafc',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        color: '#475569',
-                        fontWeight: 600,
-                      }}>
-                        {cmd.icon}
-                      </span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{cmd.label}</div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{cmd.desc}</div>
-                      </div>
-                      {cmd.shortcut && (
-                        <span style={{ fontSize: '10px', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '3px' }}>
-                          {cmd.shortcut}
-                        </span>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-            
-            {/* Preview Mode Display */}
-            {notePreviewMode ? (
-              <div
-                onClick={() => setNotePreviewMode(false)}
-                style={{
-                  width: '100%',
-                  minHeight: editorFocusMode ? '300px' : '120px',
-                  maxHeight: editorFocusMode ? '500px' : '300px',
-                  padding: '14px 16px',
-                  fontSize: '14px',
-                  border: '1px solid #e2e8f0',
-                  borderTop: 'none',
-                  borderRadius: '0 0 10px 10px',
-                  background: '#ffffff',
-                  color: '#1e293b',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  lineHeight: 1.6,
-                  boxSizing: 'border-box',
-                  overflow: 'auto',
-                  cursor: 'text',
-                }}
-                title="Click to edit"
-                dangerouslySetInnerHTML={{ 
-                  __html: content ? textToHtml(content) : '<span style="color:#94a3b8;">Click to start writing...</span>' 
-                }}
-              />
-            ) : (
-            /* Notes textarea */
-            <textarea
-              ref={(el) => {
-                noteTextareaRef.current = el;
-                // Auto-focus and place cursor at end when popup opens
-                if (el) {
-                  setTimeout(() => {
-                    el.focus();
-                    el.setSelectionRange(el.value.length, el.value.length);
-                    // Auto-resize
-                    el.style.height = 'auto';
-                    el.style.height = Math.min(el.scrollHeight, editorFocusMode ? 500 : 300) + 'px';
-                  }, 50);
-                }
-              }}
-              placeholder="Start writing your notes here...
+            {/* WYSIWYG Rich Text Editor */}
+            <div
+              ref={wysiwygEditorRef}
+              contentEditable
+              suppressContentEditableWarning
+              data-placeholder="Start writing your notes here...
 
-Tips:
-• Type / for formatting commands
-• ⌘B for bold, ⌘I for italic
-• ⌘Z to undo, ⌘⇧Z to redo
-• Use **bold** or _italic_ syntax"
-              value={content}
+Click and type, then use the toolbar or:
+• ⌘B for bold
+• ⌘I for italic  
+• ⌘U for underline"
               onMouseDown={(e) => e.stopPropagation()}
               onWheelCapture={(e) => {
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
               }}
               onKeyDown={(e) => {
-                const textarea = e.currentTarget;
-                const text = textarea.value;
-                const start = textarea.selectionStart;
-                const end = textarea.selectionEnd;
-                const selectedText = text.substring(start, end);
-                
-                // Handle slash command menu navigation
-                if (showSlashMenu) {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setSlashMenuIndex(i => Math.min(i + 1, slashCommands.length - 1));
-                    return;
-                  }
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setSlashMenuIndex(i => Math.max(i - 1, 0));
-                    return;
-                  }
-                  if (e.key === 'Enter' && slashCommands.length > 0) {
-                    e.preventDefault();
-                    const cmd = slashCommands[slashMenuIndex];
-                    const beforeSlash = text.substring(0, slashStartPos.current);
-                    const afterCursor = text.substring(start);
-                    let newText: string;
-                    let cursorPos: number;
-                    
-                    if (['• ', '1. ', '> ', '## ', '- [ ] '].includes(cmd.format)) {
-                      newText = beforeSlash + cmd.format + afterCursor;
-                      cursorPos = beforeSlash.length + cmd.format.length;
-                    } else if (cmd.format === '\n---\n') {
-                      newText = beforeSlash + '\n---\n' + afterCursor;
-                      cursorPos = beforeSlash.length + 5;
-                    } else {
-                      newText = beforeSlash + cmd.format + cmd.format + afterCursor;
-                      cursorPos = beforeSlash.length + cmd.format.length;
-                    }
-                    
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                    nativeInputValueSetter?.call(textarea, newText);
-                    const inputEvent = new Event('input', { bubbles: true });
-                    textarea.dispatchEvent(inputEvent);
-                    
-                    setShowSlashMenu(false);
-                    setSlashMenuFilter('');
-                    
-                    setTimeout(() => {
-                      textarea.focus();
-                      textarea.setSelectionRange(cursorPos, cursorPos);
-                    }, 0);
-                    return;
-                  }
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setShowSlashMenu(false);
-                    setSlashMenuFilter('');
-                    return;
-                  }
-                }
-                
-                // Keyboard shortcuts
                 const isMod = e.metaKey || e.ctrlKey;
-                
-                // Undo: ⌘Z
-                if (isMod && !e.shiftKey && e.key === 'z') {
-                  e.preventDefault();
-                  if (canUndo) {
-                    const stack = [...(noteUndoStack[nodeId] || [])];
-                    const prev = stack.pop();
-                    if (prev !== undefined) {
-                      setNoteUndoStack(s => ({ ...s, [nodeId]: stack }));
-                      setNoteRedoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
-                      setSidebarNodeContent(s => ({ ...s, [nodeId]: prev }));
-                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: prev } }));
-                    }
-                  }
-                  return;
-                }
-                
-                // Redo: ⌘⇧Z
-                if (isMod && e.shiftKey && e.key === 'z') {
-                  e.preventDefault();
-                  if (canRedo) {
-                    const stack = [...(noteRedoStack[nodeId] || [])];
-                    const next = stack.pop();
-                    if (next !== undefined) {
-                      setNoteRedoStack(s => ({ ...s, [nodeId]: stack }));
-                      setNoteUndoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
-                      setSidebarNodeContent(s => ({ ...s, [nodeId]: next }));
-                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: next } }));
-                    }
-                  }
-                  return;
-                }
                 
                 // Bold: ⌘B
                 if (isMod && e.key === 'b') {
                   e.preventDefault();
-                  const newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
-                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                  nativeInputValueSetter?.call(textarea, newText);
-                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                  setTimeout(() => textarea.setSelectionRange(start + 2, end + 2), 0);
+                  document.execCommand('bold', false);
                   return;
                 }
-                
                 // Italic: ⌘I
                 if (isMod && e.key === 'i') {
                   e.preventDefault();
-                  const newText = text.substring(0, start) + '_' + selectedText + '_' + text.substring(end);
-                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                  nativeInputValueSetter?.call(textarea, newText);
-                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                  setTimeout(() => textarea.setSelectionRange(start + 1, end + 1), 0);
+                  document.execCommand('italic', false);
                   return;
                 }
-                
                 // Underline: ⌘U
                 if (isMod && e.key === 'u') {
                   e.preventDefault();
-                  const newText = text.substring(0, start) + '__' + selectedText + '__' + text.substring(end);
-                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                  nativeInputValueSetter?.call(textarea, newText);
-                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                  setTimeout(() => textarea.setSelectionRange(start + 2, end + 2), 0);
+                  document.execCommand('underline', false);
                   return;
                 }
-                
                 // Link: ⌘K
                 if (isMod && e.key === 'k') {
                   e.preventDefault();
-                  const linkText = selectedText || 'link text';
-                  const newText = text.substring(0, start) + '[' + linkText + '](url)' + text.substring(end);
-                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                  nativeInputValueSetter?.call(textarea, newText);
-                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                  const urlStart = start + 1 + linkText.length + 2;
-                  setTimeout(() => textarea.setSelectionRange(urlStart, urlStart + 3), 0);
+                  const url = prompt('Enter URL:', 'https://');
+                  if (url) {
+                    document.execCommand('createLink', false, url);
+                  }
                   return;
                 }
               }}
-              onInput={(e) => {
-                const textarea = e.currentTarget;
-                const text = textarea.value;
-                const pos = textarea.selectionStart;
+              onInput={() => {
+                const editor = wysiwygEditorRef.current;
+                if (!editor) return;
                 
-                // Check for slash command trigger
-                const textBeforeCursor = text.substring(0, pos);
-                const lastSlash = textBeforeCursor.lastIndexOf('/');
+                const newContent = editor.innerHTML;
                 
-                if (lastSlash !== -1) {
-                  const textAfterSlash = textBeforeCursor.substring(lastSlash + 1);
-                  // Only show menu if slash is at start of line or after whitespace, and no spaces in filter
-                  const charBeforeSlash = lastSlash > 0 ? text[lastSlash - 1] : '\n';
-                  if ((charBeforeSlash === '\n' || charBeforeSlash === ' ' || lastSlash === 0) && !textAfterSlash.includes(' ')) {
-                    slashStartPos.current = lastSlash;
-                    setSlashMenuFilter(textAfterSlash);
-                    setSlashMenuIndex(0);
-                    
-                    // Position the menu
-                    const rect = textarea.getBoundingClientRect();
-                    setSlashMenuPos({ x: 20, y: rect.height + 10 });
-                    setShowSlashMenu(true);
-                  } else {
-                    setShowSlashMenu(false);
-                  }
-                } else {
-                  setShowSlashMenu(false);
-                }
-              }}
-              onChange={(e) => {
-                const newContent = e.target.value;
-                const prevContent = content;
-                
-                // Push to undo stack (limit to 50 entries)
-                if (prevContent !== newContent) {
-                  setNoteUndoStack(prev => {
-                    const stack = [...(prev[nodeId] || []), prevContent].slice(-50);
-                    return { ...prev, [nodeId]: stack };
-                  });
-                  // Clear redo stack on new change
-                  setNoteRedoStack(prev => ({ ...prev, [nodeId]: [] }));
-                }
-                
+                // Update state without re-rendering the editor
                 setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
-                
                 setNodePathMap(prev => ({
                   ...prev,
                   [activePathId]: {
@@ -4142,16 +3725,8 @@ Tips:
                     [nodeId]: newContent,
                   },
                 }));
-                
                 setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
-                
-                // Set status to saving
                 setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saving' }));
-                
-                // Auto-resize
-                const textarea = e.target;
-                textarea.style.height = 'auto';
-                textarea.style.height = Math.min(textarea.scrollHeight, editorFocusMode ? 500 : 300) + 'px';
                 
                 // Debounced auto-save
                 if (debounceTimerRef.current[nodeId]) {
@@ -4179,19 +3754,25 @@ Tips:
                         }),
                       });
                     }
-                    // Set status to saved after successful save
                     setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
                   } catch (error) {
                     console.error('Error saving node content:', error);
-                    // Still mark as saved to avoid stuck state, but could show error
                     setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
                   }
                 }, 1000);
               }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#3b82f6';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
               style={{
                 width: '100%',
-                minHeight: editorFocusMode ? '300px' : '120px',
-                maxHeight: editorFocusMode ? '500px' : '300px',
+                minHeight: '120px',
+                maxHeight: '300px',
                 padding: '14px 16px',
                 fontSize: '14px',
                 border: '1px solid #e2e8f0',
@@ -4199,30 +3780,19 @@ Tips:
                 borderRadius: '0 0 10px 10px',
                 background: '#ffffff',
                 color: '#1e293b',
-                resize: 'vertical',
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 lineHeight: 1.6,
                 boxSizing: 'border-box',
                 overflow: 'auto',
                 outline: 'none',
-                transition: 'all 0.2s ease',
+                transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#3b82f6';
-                e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
-                // Auto-resize
-                const textarea = e.target;
-                textarea.style.height = 'auto';
-                textarea.style.height = Math.min(textarea.scrollHeight, editorFocusMode ? 500 : 300) + 'px';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e2e8f0';
-                e.target.style.boxShadow = 'none';
-                // Close slash menu on blur
-                setShowSlashMenu(false);
+              dangerouslySetInnerHTML={{ 
+                __html: content || '' 
               }}
             />
-            )}
             
             {/* Keyboard shortcuts helper */}
             <div style={{
@@ -4516,38 +4086,6 @@ Tips:
                   }} />
                   {noteSaveStatus[nodeId] === 'saving' ? 'Saving...' : 'All changes saved'}
                 </span>
-                {/* Preview toggle in focus mode */}
-                <button
-                  onClick={() => setNotePreviewMode(!notePreviewMode)}
-                  style={{
-                    background: notePreviewMode ? 'rgba(59,130,246,0.15)' : 'rgba(100,116,139,0.1)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 14px',
-                    cursor: 'pointer',
-                    color: notePreviewMode ? '#3b82f6' : '#64748b',
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!notePreviewMode) {
-                      e.currentTarget.style.background = 'rgba(59,130,246,0.1)';
-                      e.currentTarget.style.color = '#3b82f6';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!notePreviewMode) {
-                      e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
-                      e.currentTarget.style.color = '#64748b';
-                    }
-                  }}
-                >
-                  {notePreviewMode ? '✏️ Edit' : '👁️ Preview'}
-                </button>
                 <button
                   onClick={() => setEditorFocusMode(false)}
                   style={{
@@ -4572,54 +4110,127 @@ Tips:
                 </button>
               </div>
               
-              {/* Focus mode content area */}
-              <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
-                {notePreviewMode ? (
-                  <div
-                    onClick={() => setNotePreviewMode(false)}
+              {/* Focus mode WYSIWYG toolbar */}
+              <div style={{
+                padding: '12px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                gap: '4px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                background: '#f8fafc',
+              }}>
+                {[
+                  { icon: 'B', title: 'Bold (⌘B)', command: 'bold', style: { fontWeight: 700 } },
+                  { icon: 'I', title: 'Italic (⌘I)', command: 'italic', style: { fontStyle: 'italic' } },
+                  { icon: 'U', title: 'Underline (⌘U)', command: 'underline', style: { textDecoration: 'underline' } },
+                  { icon: '—', title: 'Strikethrough', command: 'strikeThrough', style: { textDecoration: 'line-through' } },
+                  { icon: 'sep' },
+                  { icon: 'H₁', title: 'Heading 1', command: 'formatBlock', arg: 'h2', style: { fontWeight: 700 } },
+                  { icon: 'H₂', title: 'Heading 2', command: 'formatBlock', arg: 'h3', style: { fontWeight: 600, fontSize: '12px' } },
+                  { icon: '•', title: 'Bullet list', command: 'insertUnorderedList' },
+                  { icon: '1.', title: 'Numbered list', command: 'insertOrderedList', style: { fontSize: '12px' } },
+                  { icon: 'sep' },
+                  { icon: '❝', title: 'Quote', command: 'formatBlock', arg: 'blockquote' },
+                  { icon: '🔗', title: 'Link (⌘K)', command: 'createLink' },
+                  { icon: '⊘', title: 'Remove formatting', command: 'removeFormat' },
+                ].map((btn, idx) => (
+                  btn.icon === 'sep' ? (
+                    <div key={idx} style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 6px' }} />
+                  ) : (
+                  <button
+                    key={idx}
+                    title={btn.title}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const editor = focusModeEditorRef.current;
+                      if (editor) {
+                        editor.focus();
+                        if (btn.command === 'createLink') {
+                          const url = prompt('Enter URL:', 'https://');
+                          if (url) document.execCommand('createLink', false, url);
+                        } else if (btn.arg) {
+                          document.execCommand(btn.command!, false, btn.arg);
+                        } else {
+                          document.execCommand(btn.command!, false);
+                        }
+                      }
+                    }}
                     style={{
-                      width: '100%',
-                      height: '100%',
-                      minHeight: '400px',
-                      padding: '20px',
-                      fontSize: '16px',
-                      lineHeight: 1.8,
-                      border: '2px solid #e2e8f0',
-                      borderRadius: '12px',
+                      border: 'none',
                       background: 'white',
-                      color: '#1e293b',
-                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                      boxSizing: 'border-box',
-                      cursor: 'text',
-                      overflow: 'auto',
+                      cursor: 'pointer',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      color: '#475569',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      minWidth: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                      transition: 'all 0.1s ease',
+                      ...btn.style,
                     }}
-                    title="Click to edit"
-                    dangerouslySetInnerHTML={{ 
-                      __html: content ? textToHtml(content) : '<span style="color:#94a3b8;">Click to start writing...</span>' 
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#3b82f6';
+                      e.currentTarget.style.color = 'white';
                     }}
-                  />
-                ) : (
-                <textarea
-                  autoFocus
-                  placeholder="Start writing your notes here...
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.color = '#475569';
+                    }}
+                  >
+                    {btn.icon}
+                  </button>
+                  )
+                ))}
+              </div>
+              
+              {/* Focus mode WYSIWYG editor */}
+              <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+                <div
+                  ref={focusModeEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  data-placeholder="Start writing your journal entry here...
 
-Tips:
-• ⌘B for bold, ⌘I for italic
-• ⌘Z to undo, ⌘⇧Z to redo
-• Use **bold** or _italic_ syntax
-• Focus and write distraction-free"
-                  value={content}
-                  onChange={(e) => {
-                    const newContent = e.target.value;
-                    const prevContent = content;
-                    
-                    if (prevContent !== newContent) {
-                      setNoteUndoStack(prev => {
-                        const stack = [...(prev[nodeId] || []), prevContent].slice(-50);
-                        return { ...prev, [nodeId]: stack };
-                      });
-                      setNoteRedoStack(prev => ({ ...prev, [nodeId]: [] }));
+This is your personal space to write freely.
+Use the toolbar above or keyboard shortcuts:
+• ⌘B for bold
+• ⌘I for italic
+• ⌘U for underline"
+                  onKeyDown={(e) => {
+                    const isMod = e.metaKey || e.ctrlKey;
+                    if (e.key === 'Escape') {
+                      setEditorFocusMode(false);
+                      return;
                     }
+                    if (isMod && e.key === 'b') {
+                      e.preventDefault();
+                      document.execCommand('bold', false);
+                    }
+                    if (isMod && e.key === 'i') {
+                      e.preventDefault();
+                      document.execCommand('italic', false);
+                    }
+                    if (isMod && e.key === 'u') {
+                      e.preventDefault();
+                      document.execCommand('underline', false);
+                    }
+                    if (isMod && e.key === 'k') {
+                      e.preventDefault();
+                      const url = prompt('Enter URL:', 'https://');
+                      if (url) document.execCommand('createLink', false, url);
+                    }
+                  }}
+                  onInput={() => {
+                    const editor = focusModeEditorRef.current;
+                    if (!editor) return;
+                    
+                    const newContent = editor.innerHTML;
                     
                     setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
                     setNodePathMap(prev => ({
@@ -4664,65 +4275,37 @@ Tips:
                       }
                     }, 1000);
                   }}
-                  onKeyDown={(e) => {
-                    const isMod = e.metaKey || e.ctrlKey;
-                    if (isMod && e.key === 'Escape') {
-                      setEditorFocusMode(false);
-                    }
-                    // Keyboard shortcuts
-                    if (isMod && e.key === 'b') {
-                      e.preventDefault();
-                      const textarea = e.currentTarget;
-                      const start = textarea.selectionStart;
-                      const end = textarea.selectionEnd;
-                      const text = textarea.value;
-                      const selectedText = text.substring(start, end);
-                      const newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
-                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                      nativeInputValueSetter?.call(textarea, newText);
-                      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                      setTimeout(() => textarea.setSelectionRange(start + 2, end + 2), 0);
-                    }
-                    if (isMod && e.key === 'i') {
-                      e.preventDefault();
-                      const textarea = e.currentTarget;
-                      const start = textarea.selectionStart;
-                      const end = textarea.selectionEnd;
-                      const text = textarea.value;
-                      const selectedText = text.substring(start, end);
-                      const newText = text.substring(0, start) + '_' + selectedText + '_' + text.substring(end);
-                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                      nativeInputValueSetter?.call(textarea, newText);
-                      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                      setTimeout(() => textarea.setSelectionRange(start + 1, end + 1), 0);
-                    }
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#3b82f6';
+                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                   style={{
                     width: '100%',
                     height: '100%',
                     minHeight: '400px',
-                    padding: '20px',
+                    padding: '24px',
                     fontSize: '16px',
                     lineHeight: 1.8,
                     border: '2px solid #e2e8f0',
                     borderRadius: '12px',
-                    background: '#fafafa',
+                    background: 'white',
                     color: '#1e293b',
-                    resize: 'none',
-                    outline: 'none',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     boxSizing: 'border-box',
+                    outline: 'none',
+                    overflow: 'auto',
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                    whiteSpace: 'pre-wrap',
+                    wordWrap: 'break-word',
                   }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3b82f6';
-                    e.target.style.background = 'white';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = '#e2e8f0';
-                    e.target.style.background = '#fafafa';
+                  dangerouslySetInnerHTML={{ 
+                    __html: content || '' 
                   }}
                 />
-                )}
               </div>
               
               {/* Keyboard shortcuts footer */}
@@ -4739,8 +4322,8 @@ Tips:
                 {[
                   { keys: '⌘B', label: 'Bold' },
                   { keys: '⌘I', label: 'Italic' },
-                  { keys: '⌘Z', label: 'Undo' },
-                  { keys: '⌘⇧Z', label: 'Redo' },
+                  { keys: '⌘U', label: 'Underline' },
+                  { keys: '⌘K', label: 'Link' },
                   { keys: 'Esc', label: 'Exit' },
                 ].map((s, i) => (
                   <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
