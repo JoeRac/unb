@@ -788,40 +788,35 @@ function DiagramContent() {
           x: Math.max(0, e.clientX - dragOffset.x),
           y: Math.max(0, e.clientY - dragOffset.y),
         });
-      } else if (isDraggingPanel === 'info') {
-        setInfoPanelPos({
-          x: Math.max(0, e.clientX - dragOffset.x),
-          y: Math.max(0, e.clientY - dragOffset.y),
-        });
       }
       
       if (resizeEdge) {
         const { panel, edge } = resizeEdge;
+        if (panel !== 'left') return; // Only handle left panel
+        
         const deltaX = e.clientX - resizeStart.mouseX;
         const deltaY = e.clientY - resizeStart.mouseY;
         
-        const setPos = panel === 'left' ? setLeftPanelPos : setInfoPanelPos;
-        const setSize = panel === 'left' ? setLeftPanelSize : setInfoPanelSize;
-        const minW = panel === 'left' ? 180 : 280;
+        const minW = 180;
         const minH = 200;
         
         if (edge.includes('e')) {
-          setSize(prev => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
+          setLeftPanelSize((prev: { width: number; height: number }) => ({ ...prev, width: Math.max(minW, resizeStart.width + deltaX) }));
         }
         if (edge.includes('w')) {
           const newWidth = Math.max(minW, resizeStart.width - deltaX);
           const newX = resizeStart.x + (resizeStart.width - newWidth);
-          setSize(prev => ({ ...prev, width: newWidth }));
-          setPos(prev => ({ ...prev, x: Math.max(0, newX) }));
+          setLeftPanelSize((prev: { width: number; height: number }) => ({ ...prev, width: newWidth }));
+          setLeftPanelPos((prev: { x: number; y: number }) => ({ ...prev, x: Math.max(0, newX) }));
         }
         if (edge.includes('s')) {
-          setSize(prev => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
+          setLeftPanelSize((prev: { width: number; height: number }) => ({ ...prev, height: Math.max(minH, resizeStart.height + deltaY) }));
         }
         if (edge.includes('n')) {
           const newHeight = Math.max(minH, resizeStart.height - deltaY);
           const newY = resizeStart.y + (resizeStart.height - newHeight);
-          setSize(prev => ({ ...prev, height: newHeight }));
-          setPos(prev => ({ ...prev, y: Math.max(0, newY) }));
+          setLeftPanelSize((prev: { width: number; height: number }) => ({ ...prev, height: newHeight }));
+          setLeftPanelPos((prev: { x: number; y: number }) => ({ ...prev, y: Math.max(0, newY) }));
         }
       }
     };
