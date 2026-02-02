@@ -861,6 +861,7 @@ function DiagramContent() {
   }, []);
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
   const activePathIdRef = useRef<string | null>(null);
+  const activePathRef = useRef<string | null>(null);
   const [noteSaveStatus, setNoteSaveStatus] = useState<Record<string, 'saved' | 'saving'>>({});
   
   // Advanced editor features
@@ -911,6 +912,10 @@ function DiagramContent() {
   useEffect(() => {
     activePathIdRef.current = activePathId;
   }, [activePathId]);
+
+  useEffect(() => {
+    activePathRef.current = activePath;
+  }, [activePath]);
 
   // Initialize focus mode editor content when it opens
   useEffect(() => {
@@ -1090,20 +1095,22 @@ function DiagramContent() {
         })
       );
       
-      // Auto-save to backend for the active path (same as onNodeClick)
-      if (activePath && activePathId) {
-        setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [activePathId]: Date.now() }));
+      // Auto-save to backend for the active path (use refs to get current values)
+      const currentActivePath = activePathRef.current;
+      const currentActivePathId = activePathIdRef.current;
+      if (currentActivePath && currentActivePathId) {
+        setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [currentActivePathId]: Date.now() }));
         // Use setTimeout to ensure state is updated before saving
         setTimeout(() => {
           if (updatePathNodesCallbackRef.current) {
-            updatePathNodesCallbackRef.current(activePathId, activePath, next);
+            updatePathNodesCallbackRef.current(currentActivePathId, currentActivePath, next);
           }
         }, 0);
       }
       
       return next;
     });
-  }, [activePath, activePathId]);
+  }, []); // Empty deps - uses refs for current values
 
   // Stable callbacks for inline note editing (use refs to avoid recreating)
   const handleStartEditNote = useCallback((nodeId: string) => {
