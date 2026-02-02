@@ -161,6 +161,7 @@ function MethodNode(props: any) {
   const data = props.data as NodeData & { 
     isHighlighted?: boolean; 
     onInfoClick?: (nodeId: string) => void;
+    onToggleSelect?: (nodeId: string) => void;
     nodeNote?: string;
     onNodeNoteChange?: (nodeId: string, note: string) => void;
     editingNoteNodeId?: string | null;
@@ -198,8 +199,17 @@ function MethodNode(props: any) {
   const borderStyle = isHighlighted ? '1.5px solid rgba(59, 130, 246, 0.4)' : `1px solid ${NODE_BORDER}`;
   const shadow = isHighlighted ? GLASS_SHADOW_SELECTED : GLASS_SHADOW;
 
-  const handleInfoClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent node selection
+  // "i" button now toggles selection (like clicking the node)
+  const handleToggleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (data.onToggleSelect) {
+      data.onToggleSelect(props.id);
+    }
+  };
+
+  // Clicking the title opens the popup
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (data.onInfoClick) {
       data.onInfoClick(props.id);
     }
@@ -254,9 +264,9 @@ function MethodNode(props: any) {
         style={{ background: '#555', opacity: 0, width: 0, height: 0 }}
         isConnectable={false}
       />
-      {/* Info button */}
+      {/* Toggle selection button (was "i" info button) */}
       <button
-        onClick={handleInfoClick}
+        onClick={handleToggleClick}
         style={{
           position: 'absolute',
           top: 6,
@@ -265,8 +275,8 @@ function MethodNode(props: any) {
           height: 18,
           borderRadius: '50%',
           border: 'none',
-          background: 'rgba(100, 116, 139, 0.08)',
-          color: '#64748b',
+          background: isHighlighted ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.08)',
+          color: isHighlighted ? '#3b82f6' : '#64748b',
           fontSize: 10,
           fontWeight: 600,
           cursor: 'pointer',
@@ -277,17 +287,42 @@ function MethodNode(props: any) {
           lineHeight: 1,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.12)';
+          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
           e.currentTarget.style.color = '#3b82f6';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(100, 116, 139, 0.08)';
-          e.currentTarget.style.color = '#64748b';
+          e.currentTarget.style.background = isHighlighted ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.08)';
+          e.currentTarget.style.color = isHighlighted ? '#3b82f6' : '#64748b';
         }}
+        title={isHighlighted ? 'Deselect node' : 'Select node'}
       >
-        i
+        {isHighlighted ? '✓' : '○'}
       </button>
-      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, textAlign: 'center', paddingRight: 16 }}>{data.label}</div>
+      {/* Clickable title - opens popup */}
+      <div 
+        onClick={handleTitleClick}
+        style={{ 
+          fontWeight: 600, 
+          fontSize: 12, 
+          marginBottom: 3, 
+          textAlign: 'center', 
+          paddingRight: 16,
+          cursor: 'pointer',
+          borderRadius: 4,
+          padding: '2px 4px',
+          margin: '-2px -4px 3px -4px',
+          transition: 'background 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'transparent';
+        }}
+        title="Click to open notes editor"
+      >
+        {data.label}
+      </div>
       
       {/* Note preview for unselected nodes that have notes */}
       {!isHighlighted && hasNote && (
@@ -909,6 +944,35 @@ function DiagramContent() {
       }
     }
   }, []); // Empty deps - uses ref instead
+
+  // Handler for toggle select button - toggles node selection without opening popup
+  const handleToggleSelect = useCallback((nodeId: string) => {
+    // Skip personalized nodes and path notes
+    if (nodeId.startsWith('personalized-') || nodeId === PATH_NOTES_NODE_ID) return;
+    
+    setManualHighlights((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      // Update visual state (without enforceRootHidden since it's not available yet)
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id.startsWith('personalized-')) return n;
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              isHighlighted: next.has(n.id),
+            },
+          };
+        })
+      );
+      return next;
+    });
+  }, []);
 
   // Stable callbacks for inline note editing (use refs to avoid recreating)
   const handleStartEditNote = useCallback((nodeId: string) => {
@@ -1763,12 +1827,13 @@ function DiagramContent() {
         }));
         setAllNodesData(nodesForAutocomplete);
         
-        // Add onInfoClick to each node's data
+        // Add callbacks to each node's data
         const nodesWithCallback = nodesFromSheet.map(n => ({
           ...n,
           data: {
             ...n.data,
             onInfoClick: handleInfoClick,
+            onToggleSelect: handleToggleSelect,
           },
         }));
         setNodes(enforceRootHidden(layoutNodes(nodesWithCallback, edgesFromSheet), effectiveRoots));
@@ -3127,18 +3192,19 @@ function DiagramContent() {
       left: infoPanelPos.x,
       top: infoPanelPos.y,
       zIndex: 10,
-      background: 'rgba(255,255,255,0.96)',
-      padding: '20px',
-      borderRadius: '14px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)',
+      backdropFilter: 'blur(20px)',
+      padding: '0',
+      borderRadius: '16px',
       width: infoPanelSize.width,
       height: infoPanelSize.height,
       overflowY: 'auto',
-      boxShadow: '0 22px 48px rgba(15,23,42,0.2)',
-      border: '1px solid rgba(26,115,232,0.22)',
-      color: '#333',
+      boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.5) inset',
+      border: '1px solid rgba(26,115,232,0.15)',
+      color: '#1e293b',
     }}
   >
-    {/* Drag handle */}
+    {/* Header with drag handle */}
     <div
       onMouseDown={(e) => {
         e.preventDefault();
@@ -3146,258 +3212,497 @@ function DiagramContent() {
         setDragOffset({ x: e.clientX - infoPanelPos.x, y: e.clientY - infoPanelPos.y });
       }}
       style={{
-        position: 'absolute',
+        position: 'sticky',
         top: 0,
         left: 0,
         right: 0,
-        height: '28px',
+        padding: '16px 20px 12px 20px',
         cursor: 'move',
-        background: 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
-        borderTopLeftRadius: '14px',
-        borderTopRightRadius: '14px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.95) 100%)',
+        borderTopLeftRadius: '16px',
+        borderTopRightRadius: '16px',
+        borderBottom: '1px solid rgba(226,232,240,0.8)',
+        zIndex: 1,
       }}
     >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ 
+            margin: 0, 
+            fontSize: '18px',
+            fontWeight: 700,
+            color: selectedNodeData.color,
+            lineHeight: 1.3,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            {selectedNodeData.label}
+          </h2>
+          <div style={{ 
+            fontSize: '11px', 
+            color: '#64748b',
+            marginTop: '4px',
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}>
+            {selectedNodeData.category}
+          </div>
+        </div>
+        <button
+          onClick={() => setSelectedNode(null)}
+          style={{
+            border: 'none',
+            background: 'rgba(241,245,249,0.8)',
+            cursor: 'pointer',
+            fontSize: '14px',
+            width: '28px',
+            height: '28px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#64748b',
+            transition: 'all 0.15s ease',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+            e.currentTarget.style.color = '#ef4444';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(241,245,249,0.8)';
+            e.currentTarget.style.color = '#64748b';
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      {/* Drag indicator */}
       <div style={{ 
         width: '40px', 
         height: '4px', 
-        background: '#cbd5e1', 
+        background: 'rgba(203,213,225,0.6)', 
         borderRadius: '2px',
+        margin: '10px auto 0',
       }} />
     </div>
     
     {/* Edge resize handles */}
-    {/* North edge */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
-    {/* South edge */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
-    {/* West edge */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, left: 0, width: 6, cursor: 'ew-resize' }} />
-    {/* East edge */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, right: 0, width: 6, cursor: 'ew-resize' }} />
-    {/* NW corner */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
-    {/* NE corner */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
-    {/* SW corner */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
-    {/* SE corner */}
     <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
     
-    {/* Content with padding for drag handle */}
-    <div style={{ marginTop: '10px' }}>
-    <button
-      onClick={() => setSelectedNode(null)}
-      style={{
-        float: 'right',
-        border: 'none',
-        background: 'none',
-        cursor: 'pointer',
-        fontSize: '18px'
-      }}
-    >
-      ✕
-    </button>
+    {/* Main content area */}
+    <div style={{ padding: '16px 20px 20px' }}>
+      
+      {/* NOTES SECTION - Primary focus at the top */}
+      {activePathId && selectedNode && (() => {
+        const nodeId = selectedNode.id.replace('personalized-', '');
+        const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+        return (
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              marginBottom: '10px',
+            }}>
+              <span style={{ fontSize: '16px' }}>📝</span>
+              <span style={{ 
+                fontSize: '13px', 
+                fontWeight: 600, 
+                color: '#334155',
+              }}>
+                Your Notes
+              </span>
+              <span style={{
+                fontSize: '10px',
+                color: '#94a3b8',
+                marginLeft: 'auto',
+                fontStyle: 'italic',
+              }}>
+                Auto-saves
+              </span>
+            </div>
+            
+            {/* Rich text toolbar */}
+            <div style={{
+              display: 'flex',
+              gap: '2px',
+              padding: '6px 8px',
+              background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
+              borderRadius: '10px 10px 0 0',
+              border: '1px solid #e2e8f0',
+              borderBottom: 'none',
+            }}>
+              {[
+                { icon: 'B', title: 'Bold (⌘B)', style: { fontWeight: 700 }, format: '**' },
+                { icon: 'I', title: 'Italic (⌘I)', style: { fontStyle: 'italic' }, format: '_' },
+                { icon: '—', title: 'Strikethrough', style: { textDecoration: 'line-through' }, format: '~~' },
+                { icon: '•', title: 'Bullet list', style: {}, format: '• ' },
+                { icon: '1.', title: 'Numbered list', style: { fontSize: '11px' }, format: '1. ' },
+                { icon: '>', title: 'Quote', style: { fontSize: '14px' }, format: '> ' },
+                { icon: '</>', title: 'Code', style: { fontFamily: 'monospace', fontSize: '10px' }, format: '`' },
+              ].map((btn, idx) => (
+                <button
+                  key={idx}
+                  title={btn.title}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const textarea = e.currentTarget.closest('div')?.parentElement?.querySelector('textarea');
+                    if (textarea) {
+                      const start = textarea.selectionStart;
+                      const end = textarea.selectionEnd;
+                      const text = textarea.value;
+                      const selectedText = text.substring(start, end);
+                      let newText: string;
+                      let newCursorPos: number;
+                      
+                      if (['• ', '1. ', '> '].includes(btn.format)) {
+                        // Line prefix formats
+                        newText = text.substring(0, start) + btn.format + selectedText + text.substring(end);
+                        newCursorPos = start + btn.format.length + selectedText.length;
+                      } else {
+                        // Wrap formats
+                        newText = text.substring(0, start) + btn.format + selectedText + btn.format + text.substring(end);
+                        newCursorPos = end + btn.format.length * 2;
+                      }
+                      
+                      // Trigger the onChange handler
+                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                      nativeInputValueSetter?.call(textarea, newText);
+                      const inputEvent = new Event('input', { bubbles: true });
+                      textarea.dispatchEvent(inputEvent);
+                      
+                      // Restore focus and selection
+                      setTimeout(() => {
+                        textarea.focus();
+                        textarea.setSelectionRange(newCursorPos, newCursorPos);
+                      }, 0);
+                    }
+                  }}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    color: '#475569',
+                    fontSize: '12px',
+                    minWidth: '28px',
+                    height: '26px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.1s ease',
+                    ...btn.style,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(59,130,246,0.1)';
+                    e.currentTarget.style.color = '#3b82f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#475569';
+                  }}
+                >
+                  {btn.icon}
+                </button>
+              ))}
+            </div>
+            
+            {/* Notes textarea */}
+            <textarea
+              ref={(el) => {
+                // Auto-focus and place cursor at end when popup opens
+                if (el) {
+                  setTimeout(() => {
+                    el.focus();
+                    el.setSelectionRange(el.value.length, el.value.length);
+                    // Auto-resize
+                    el.style.height = 'auto';
+                    el.style.height = Math.min(el.scrollHeight, 300) + 'px';
+                  }, 50);
+                }
+              }}
+              placeholder="Start writing your notes here...
 
-    <h2 style={{ marginTop: 0, color: selectedNodeData.color }}>
-      {selectedNodeData.label}
-    </h2>
-
-    <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: 12 }}>
-      {selectedNodeData.category}
-    </div>
-
-    {selectedNodeData.longDescription && (
-      <p style={{ lineHeight: 1.6 }}>
-        {selectedNodeData.longDescription}
-      </p>
-    )}
-
-    {/* Images */}
-    {selectedNodeData.images?.map((img) => (
-      <img
-        key={img.src}
-        src={img.src}
-        alt={img.alt || ''}
-        style={{
-          width: '100%',
-          borderRadius: 8,
-          marginTop: 12
-        }}
-      />
-    ))}
-
-    {/* Video */}
-    {selectedNodeData.video && (
-      selectedNodeData.video.type === 'html5' ? (
-        <video
-          controls
-          src={selectedNodeData.video.url}
-          style={{
-            width: '100%',
-            borderRadius: 8,
-            marginTop: 16
-          }}
-        />
-      ) : (
-        <iframe
-          src={selectedNodeData.video.url}
-          style={{
-            width: '100%',
-            aspectRatio: '16 / 9',
-            borderRadius: 8,
-            marginTop: 16
-          }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      )
-    )}
-
-    {/* External links */}
-    {selectedNodeData.externalLinks?.length && (
-      <div style={{ marginTop: 16 }}>
-        {selectedNodeData.externalLinks.map((link) => (
-          <a
-            key={link.url}
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'block',
-              marginBottom: 8,
-              color: '#3498db',
-              fontWeight: 'bold'
-            }}
-          >
-            {link.label} ↗
-          </a>
-        ))}
-      </div>
-    )}
-
-    {/* Wiki */}
-    {selectedNodeData.wikiUrl && (
-      <a
-        href={selectedNodeData.wikiUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: 'block',
-          marginTop: 20,
-          padding: 10,
-          background: '#3498db',
-          color: 'white',
-          textAlign: 'center',
-          borderRadius: 6,
-          fontWeight: 'bold',
-          textDecoration: 'none'
-        }}
-      >
-        Open Documentation
-      </a>
-    )}
-
-    {/* Node-path content editor - only when a path is loaded */}
-    {activePathId && selectedNode && (() => {
-      const nodeId = selectedNode.id.replace('personalized-', '');
-      const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
-      return (
-        <div style={{ marginTop: 20, borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
-          <div style={{ fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-            📝 Your Notes for this Node
-          </div>
-          <textarea
-            placeholder="Add your notes for this node..."
-            value={content}
-            onMouseDown={(e) => e.stopPropagation()}
-            onWheelCapture={(e) => {
-              // Stop the wheel event from reaching ReactFlow
-              e.stopPropagation();
-              e.nativeEvent.stopImmediatePropagation();
-            }}
-            onChange={(e) => {
-              const newContent = e.target.value;
-              setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
-              
-              // Also update nodePathMap so changes persist when switching paths
-              setNodePathMap(prev => ({
-                ...prev,
-                [activePathId]: {
-                  ...(prev[activePathId] || {}),
-                  [nodeId]: newContent,
-                },
-              }));
-              
-              // Update last updated timestamp
-              setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
-              
-              // Auto-resize
-              const textarea = e.target;
-              textarea.style.height = 'auto';
-              const maxHeight = 225;
-              textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-              
-              // Debounced auto-save
-              if (debounceTimerRef.current[nodeId]) {
-                clearTimeout(debounceTimerRef.current[nodeId]);
-              }
-              debounceTimerRef.current[nodeId] = setTimeout(async () => {
-                try {
-                  if (DATA_SOURCE === 'notion') {
-                    await notionService.saveNodePath({
-                      id: `${activePathId}_${nodeId}`,
-                      pathId: activePathId!,
-                      nodeId: nodeId,
-                      content: newContent,
-                    });
-                  } else {
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                      method: 'POST',
-                      mode: 'no-cors',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        action: 'saveNodeContent',
-                        pathId: activePathId,
+Tips:
+• Use **bold** for emphasis
+• Use _italic_ for subtle highlights
+• Use • or 1. for lists
+• Use > for quotes"
+              value={content}
+              onMouseDown={(e) => e.stopPropagation()}
+              onWheelCapture={(e) => {
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+              }}
+              onChange={(e) => {
+                const newContent = e.target.value;
+                setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
+                
+                setNodePathMap(prev => ({
+                  ...prev,
+                  [activePathId]: {
+                    ...(prev[activePathId] || {}),
+                    [nodeId]: newContent,
+                  },
+                }));
+                
+                setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
+                
+                // Auto-resize
+                const textarea = e.target;
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px';
+                
+                // Debounced auto-save
+                if (debounceTimerRef.current[nodeId]) {
+                  clearTimeout(debounceTimerRef.current[nodeId]);
+                }
+                debounceTimerRef.current[nodeId] = setTimeout(async () => {
+                  try {
+                    if (DATA_SOURCE === 'notion') {
+                      await notionService.saveNodePath({
+                        id: `${activePathId}_${nodeId}`,
+                        pathId: activePathId!,
                         nodeId: nodeId,
                         content: newContent,
-                      }),
-                    });
+                      });
+                    } else {
+                      await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'saveNodeContent',
+                          pathId: activePathId,
+                          nodeId: nodeId,
+                          content: newContent,
+                        }),
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error saving node content:', error);
                   }
-                } catch (error) {
-                  console.error('Error saving node content:', error);
-                }
-              }, 1000);
-            }}
-            onFocus={(e) => {
-              // Auto-resize on focus
-              const textarea = e.target;
-              textarea.style.height = 'auto';
-              const maxHeight = 225;
-              textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-            }}
+                }, 1000);
+              }}
+              style={{
+                width: '100%',
+                minHeight: '120px',
+                maxHeight: '300px',
+                padding: '14px 16px',
+                fontSize: '14px',
+                border: '1px solid #e2e8f0',
+                borderTop: 'none',
+                borderRadius: '0 0 10px 10px',
+                background: '#ffffff',
+                color: '#1e293b',
+                resize: 'vertical',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                lineHeight: 1.6,
+                boxSizing: 'border-box',
+                overflow: 'auto',
+                outline: 'none',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#3b82f6';
+                e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
+                // Auto-resize
+                const textarea = e.target;
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#e2e8f0';
+                e.target.style.boxShadow = 'none';
+              }}
+            />
+          </div>
+        );
+      })()}
+      
+      {/* No path loaded message */}
+      {!activePathId && (
+        <div style={{
+          padding: '20px',
+          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+          borderRadius: '10px',
+          marginBottom: '20px',
+          border: '1px solid rgba(245,158,11,0.2)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>💡</span>
+            <div>
+              <div style={{ fontWeight: 600, color: '#92400e', fontSize: '13px' }}>Load a path to take notes</div>
+              <div style={{ fontSize: '12px', color: '#a16207', marginTop: '2px' }}>Select a path from the sidebar to enable note-taking for this node</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Divider before documentation section */}
+      {(selectedNodeData.longDescription || selectedNodeData.images?.length || selectedNodeData.video || selectedNodeData.externalLinks?.length || selectedNodeData.wikiUrl) && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          margin: '8px 0 16px',
+        }}>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #e2e8f0, transparent)' }} />
+          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Documentation
+          </span>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #e2e8f0, transparent)' }} />
+        </div>
+      )}
+
+      {/* Long description */}
+      {selectedNodeData.longDescription && (
+        <p style={{ 
+          lineHeight: 1.7, 
+          color: '#475569',
+          fontSize: '13px',
+          margin: '0 0 16px',
+          padding: '12px 14px',
+          background: 'rgba(241,245,249,0.5)',
+          borderRadius: '8px',
+          borderLeft: `3px solid ${selectedNodeData.color || '#3b82f6'}`,
+        }}>
+          {selectedNodeData.longDescription}
+        </p>
+      )}
+
+      {/* Images */}
+      {selectedNodeData.images?.map((img) => (
+        <img
+          key={img.src}
+          src={img.src}
+          alt={img.alt || ''}
+          style={{
+            width: '100%',
+            borderRadius: '10px',
+            marginBottom: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          }}
+        />
+      ))}
+
+      {/* Video */}
+      {selectedNodeData.video && (
+        selectedNodeData.video.type === 'html5' ? (
+          <video
+            controls
+            src={selectedNodeData.video.url}
             style={{
               width: '100%',
-              minHeight: '80px',
-              maxHeight: '225px',
-              padding: '10px 12px',
-              fontSize: '13px',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              background: 'white',
-              color: '#334155',
-              resize: 'both',
-              fontFamily: 'inherit',
-              lineHeight: 1.5,
-              boxSizing: 'border-box',
-              overflow: 'auto',
+              borderRadius: '10px',
+              marginBottom: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             }}
           />
+        ) : (
+          <iframe
+            src={selectedNodeData.video.url}
+            style={{
+              width: '100%',
+              aspectRatio: '16 / 9',
+              borderRadius: '10px',
+              marginBottom: '12px',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        )
+      )}
+
+      {/* External links */}
+      {(selectedNodeData.externalLinks?.length ?? 0) > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          {selectedNodeData.externalLinks!.map((link) => (
+            <a
+              key={link.url}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 14px',
+                marginBottom: '8px',
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(59,130,246,0.1) 100%)',
+                borderRadius: '8px',
+                color: '#2563eb',
+                fontWeight: 500,
+                fontSize: '13px',
+                textDecoration: 'none',
+                transition: 'all 0.15s ease',
+                border: '1px solid rgba(59,130,246,0.1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(59,130,246,0.15) 100%)';
+                e.currentTarget.style.transform = 'translateX(4px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(59,130,246,0.1) 100%)';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span>🔗</span>
+              <span style={{ flex: 1 }}>{link.label}</span>
+              <span style={{ opacity: 0.6 }}>↗</span>
+            </a>
+          ))}
         </div>
-      );
-    })()}
+      )}
+
+      {/* Wiki / Documentation button */}
+      {selectedNodeData.wikiUrl && (
+        <a
+          href={selectedNodeData.wikiUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '12px 16px',
+            background: `linear-gradient(135deg, ${selectedNodeData.color || '#3b82f6'} 0%, ${selectedNodeData.color || '#3b82f6'}dd 100%)`,
+            color: 'white',
+            borderRadius: '10px',
+            fontWeight: 600,
+            fontSize: '13px',
+            textDecoration: 'none',
+            boxShadow: `0 4px 14px ${selectedNodeData.color || '#3b82f6'}40`,
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = `0 6px 20px ${selectedNodeData.color || '#3b82f6'}50`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = `0 4px 14px ${selectedNodeData.color || '#3b82f6'}40`;
+          }}
+        >
+          <span>📚</span>
+          <span>Open Documentation</span>
+          <span>↗</span>
+        </a>
+      )}
     </div>
   </div>
 )}
