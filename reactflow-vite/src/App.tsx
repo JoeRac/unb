@@ -802,31 +802,14 @@ function DiagramContent() {
   // Advanced editor features
   const [noteUndoStack, setNoteUndoStack] = useState<Record<string, string[]>>({});
   const [noteRedoStack, setNoteRedoStack] = useState<Record<string, string[]>>({});
-  const [noteLastEdited, setNoteLastEdited] = useState<Record<string, number>>({});
   const [editorFocusMode, setEditorFocusMode] = useState(false);
+  const [sidebarFocusMode, setSidebarFocusMode] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPos, setSlashMenuPos] = useState({ x: 0, y: 0 });
   const [slashMenuFilter, setSlashMenuFilter] = useState('');
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const slashStartPos = useRef<number>(0);
-  
-  // Helper: format relative time
-  const formatRelativeTime = (timestamp: number): string => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (seconds < 5) return 'Just now';
-    if (seconds < 60) return `${seconds}s ago`;
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return new Date(timestamp).toLocaleDateString();
-  };
   
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -2445,36 +2428,69 @@ function DiagramContent() {
             }}>
               UNBURDENED
             </h1>
-            <button
-              onClick={createNewPath}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                fontSize: '11px',
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 3px 8px rgba(37, 99, 235, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
-              }}
-              title="Create new path"
-            >
-              <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span>
-              <span>New Path</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* Focus mode button */}
+              <button
+                onClick={() => setSidebarFocusMode(true)}
+                title="Expand path manager"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  fontSize: '14px',
+                  background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                  color: '#64748b',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)';
+                  e.currentTarget.style.color = '#3b82f6';
+                  e.currentTarget.style.borderColor = 'rgba(59,130,246,0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
+                  e.currentTarget.style.color = '#64748b';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                }}
+              >
+                ◎
+              </button>
+              <button
+                onClick={createNewPath}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 3px 8px rgba(37, 99, 235, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
+                }}
+                title="Create new path"
+              >
+                <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span>
+                <span>New Path</span>
+              </button>
+            </div>
           </div>
 
           {(dataLoading || dataError) && (
@@ -3338,7 +3354,6 @@ function DiagramContent() {
         const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
         const charCount = content.length; // For future character limit feature
         const readingTime = Math.max(1, Math.ceil(wordCount / 200));
-        const lastEdited = noteLastEdited[nodeId];
         const canUndo = (noteUndoStack[nodeId]?.length || 0) > 0;
         const canRedo = (noteRedoStack[nodeId]?.length || 0) > 0;
         void charCount; // Suppress unused variable warning - available for future use
@@ -3460,7 +3475,7 @@ function DiagramContent() {
               {/* Spacer */}
               <div style={{ flex: 1 }} />
               
-              {/* Stats: word count, reading time, last edited */}
+              {/* Stats: word count, reading time */}
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -3473,14 +3488,6 @@ function DiagramContent() {
                     <span title="Word count">{wordCount} words</span>
                     <span>·</span>
                     <span title="Estimated reading time">{readingTime} min read</span>
-                    {lastEdited && (
-                      <>
-                        <span>·</span>
-                        <span title={new Date(lastEdited).toLocaleString()}>
-                          Edited {formatRelativeTime(lastEdited)}
-                        </span>
-                      </>
-                    )}
                   </>
                 )}
               </div>
@@ -3955,9 +3962,6 @@ Tips:
                 
                 setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
                 
-                // Update last edited timestamp
-                setNoteLastEdited(prev => ({ ...prev, [nodeId]: Date.now() }));
-                
                 // Set status to saving
                 setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saving' }));
                 
@@ -4254,6 +4258,479 @@ Tips:
   </div>
 )}
       </ReactFlow>
+      
+      {/* Full-screen Editor Focus Mode Overlay */}
+      {editorFocusMode && selectedNode && activePathId && (() => {
+        const nodeId = selectedNode.id.replace('personalized-', '');
+        const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+        const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+        const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+        
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(8px)',
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEditorFocusMode(false);
+            }}
+          >
+            <div
+              style={{
+                width: '90%',
+                maxWidth: '900px',
+                maxHeight: '90vh',
+                background: 'white',
+                borderRadius: '20px',
+                boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Focus mode header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                background: 'linear-gradient(180deg, #f8fafc 0%, white 100%)',
+              }}>
+                <span style={{ fontSize: '24px' }}>📝</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
+                    {selectedNodeData?.label || 'Notes'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                    Focus mode · {wordCount} words · {readingTime} min read
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: '12px',
+                  color: noteSaveStatus[nodeId] === 'saving' ? '#f59e0b' : '#22c55e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 500,
+                }}>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: noteSaveStatus[nodeId] === 'saving' ? '#f59e0b' : '#22c55e',
+                    animation: noteSaveStatus[nodeId] === 'saving' ? 'pulse 1s ease-in-out infinite' : 'none',
+                  }} />
+                  {noteSaveStatus[nodeId] === 'saving' ? 'Saving...' : 'All changes saved'}
+                </span>
+                <button
+                  onClick={() => setEditorFocusMode(false)}
+                  style={{
+                    background: 'rgba(239,68,68,0.1)',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '10px 16px',
+                    cursor: 'pointer',
+                    color: '#ef4444',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                  }}
+                >
+                  Exit Focus Mode
+                </button>
+              </div>
+              
+              {/* Focus mode textarea */}
+              <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+                <textarea
+                  autoFocus
+                  placeholder="Start writing your notes here...
+
+Tips:
+• ⌘B for bold, ⌘I for italic
+• ⌘Z to undo, ⌘⇧Z to redo
+• Use **bold** or _italic_ syntax
+• Focus and write distraction-free"
+                  value={content}
+                  onChange={(e) => {
+                    const newContent = e.target.value;
+                    const prevContent = content;
+                    
+                    if (prevContent !== newContent) {
+                      setNoteUndoStack(prev => {
+                        const stack = [...(prev[nodeId] || []), prevContent].slice(-50);
+                        return { ...prev, [nodeId]: stack };
+                      });
+                      setNoteRedoStack(prev => ({ ...prev, [nodeId]: [] }));
+                    }
+                    
+                    setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
+                    setNodePathMap(prev => ({
+                      ...prev,
+                      [activePathId]: {
+                        ...(prev[activePathId] || {}),
+                        [nodeId]: newContent,
+                      },
+                    }));
+                    setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
+                    setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saving' }));
+                    
+                    if (debounceTimerRef.current[nodeId]) {
+                      clearTimeout(debounceTimerRef.current[nodeId]);
+                    }
+                    debounceTimerRef.current[nodeId] = setTimeout(async () => {
+                      try {
+                        if (DATA_SOURCE === 'notion') {
+                          await notionService.saveNodePath({
+                            id: `${activePathId}_${nodeId}`,
+                            pathId: activePathId!,
+                            nodeId: nodeId,
+                            content: newContent,
+                          });
+                        } else {
+                          await fetch(GOOGLE_SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              action: 'saveNodeContent',
+                              pathId: activePathId,
+                              nodeId: nodeId,
+                              content: newContent,
+                            }),
+                          });
+                        }
+                        setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
+                      } catch (error) {
+                        console.error('Error saving node content:', error);
+                        setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
+                      }
+                    }, 1000);
+                  }}
+                  onKeyDown={(e) => {
+                    const isMod = e.metaKey || e.ctrlKey;
+                    if (isMod && e.key === 'Escape') {
+                      setEditorFocusMode(false);
+                    }
+                    // Keyboard shortcuts
+                    if (isMod && e.key === 'b') {
+                      e.preventDefault();
+                      const textarea = e.currentTarget;
+                      const start = textarea.selectionStart;
+                      const end = textarea.selectionEnd;
+                      const text = textarea.value;
+                      const selectedText = text.substring(start, end);
+                      const newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
+                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                      nativeInputValueSetter?.call(textarea, newText);
+                      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                      setTimeout(() => textarea.setSelectionRange(start + 2, end + 2), 0);
+                    }
+                    if (isMod && e.key === 'i') {
+                      e.preventDefault();
+                      const textarea = e.currentTarget;
+                      const start = textarea.selectionStart;
+                      const end = textarea.selectionEnd;
+                      const text = textarea.value;
+                      const selectedText = text.substring(start, end);
+                      const newText = text.substring(0, start) + '_' + selectedText + '_' + text.substring(end);
+                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                      nativeInputValueSetter?.call(textarea, newText);
+                      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                      setTimeout(() => textarea.setSelectionRange(start + 1, end + 1), 0);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px',
+                    padding: '20px',
+                    fontSize: '16px',
+                    lineHeight: 1.8,
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '12px',
+                    background: '#fafafa',
+                    color: '#1e293b',
+                    resize: 'none',
+                    outline: 'none',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#3b82f6';
+                    e.target.style.background = 'white';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e2e8f0';
+                    e.target.style.background = '#fafafa';
+                  }}
+                />
+              </div>
+              
+              {/* Keyboard shortcuts footer */}
+              <div style={{
+                padding: '12px 24px',
+                borderTop: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                display: 'flex',
+                gap: '16px',
+                fontSize: '11px',
+                color: '#64748b',
+                flexWrap: 'wrap',
+              }}>
+                {[
+                  { keys: '⌘B', label: 'Bold' },
+                  { keys: '⌘I', label: 'Italic' },
+                  { keys: '⌘Z', label: 'Undo' },
+                  { keys: '⌘⇧Z', label: 'Redo' },
+                  { keys: 'Esc', label: 'Exit' },
+                ].map((s, i) => (
+                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ 
+                      background: 'white', 
+                      padding: '3px 6px', 
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0',
+                      fontWeight: 500,
+                    }}>{s.keys}</span>
+                    <span>{s.label}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      
+      {/* Full-screen Sidebar Focus Mode Overlay */}
+      {sidebarFocusMode && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(8px)',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSidebarFocusMode(false);
+          }}
+        >
+          <div
+            style={{
+              width: '90%',
+              maxWidth: '600px',
+              height: '90vh',
+              background: 'white',
+              borderRadius: '20px',
+              boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              background: 'linear-gradient(180deg, #f8fafc 0%, white 100%)',
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '24px' }}>📁</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
+                  Path Manager
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Focus mode · {pathsList.length} paths
+                </div>
+              </div>
+              <button
+                onClick={() => setSidebarFocusMode(false)}
+                style={{
+                  background: 'rgba(239,68,68,0.1)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 16px',
+                  cursor: 'pointer',
+                  color: '#ef4444',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                }}
+              >
+                Exit Focus Mode
+              </button>
+            </div>
+            
+            {/* Content - reuse FolderTree */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+              {/* Quick actions */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <button
+                  onClick={createNewPath}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '12px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>+</span>
+                  New Path
+                </button>
+                <button
+                  onClick={() => {
+                    resetView();
+                    setSelectedNodeFilter(null);
+                    setSelectedNodeFilterLabel('');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    background: '#f1f5f9',
+                    color: '#64748b',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear View
+                </button>
+              </div>
+              
+              {/* View mode selector */}
+              <div style={{
+                display: 'flex',
+                gap: '4px',
+                padding: '4px',
+                background: '#f1f5f9',
+                borderRadius: '10px',
+                marginBottom: '16px',
+              }}>
+                {[
+                  { mode: 'folder' as const, label: '📁 Folders', icon: '📁' },
+                  { mode: 'alpha' as const, label: '🔤 A-Z', icon: '🔤' },
+                  { mode: 'latest' as const, label: '🕐 Latest', icon: '🕐' },
+                ].map((v) => (
+                  <button
+                    key={v.mode}
+                    onClick={() => setViewMode(v.mode)}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      fontSize: '12px',
+                      fontWeight: viewMode === v.mode ? 600 : 500,
+                      background: viewMode === v.mode ? 'white' : 'transparent',
+                      color: viewMode === v.mode ? '#1d4ed8' : '#64748b',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      boxShadow: viewMode === v.mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    }}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Paths list (simplified for focus mode) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {(viewMode === 'alpha' 
+                  ? [...pathsList].sort((a, b) => a.name.localeCompare(b.name))
+                  : viewMode === 'latest'
+                  ? [...pathsList].sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
+                  : pathsList
+                ).map((path) => (
+                  <div
+                    key={path.id}
+                    onClick={() => {
+                      showPath(path.name);
+                      setSidebarFocusMode(false);
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      background: activePath === path.name 
+                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
+                        : '#f8fafc',
+                      border: activePath === path.name 
+                        ? '1px solid rgba(59,130,246,0.3)'
+                        : '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activePath !== path.name) {
+                        e.currentTarget.style.background = '#f1f5f9';
+                        e.currentTarget.style.borderColor = '#cbd5e1';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activePath !== path.name) {
+                        e.currentTarget.style.background = '#f8fafc';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                      }
+                    }}
+                  >
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: activePath === path.name ? '#1d4ed8' : '#334155',
+                    }}>
+                      {path.name}
+                    </div>
+                    {path.category && (
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                        📁 {path.category}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
