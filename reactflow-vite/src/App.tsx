@@ -369,7 +369,7 @@ function MethodNode(props: any) {
           fontSize: 12, 
           marginBottom: 3, 
           textAlign: 'center', 
-          paddingRight: 16,
+          paddingRight: 24,
           cursor: 'pointer',
           borderRadius: 4,
           padding: '2px 4px',
@@ -870,6 +870,10 @@ function DiagramContent() {
   const [sidebarFocusMode, setSidebarFocusMode] = useState(false);
   const wysiwygEditorRef = useRef<HTMLDivElement | null>(null);
   const focusModeEditorRef = useRef<HTMLDivElement | null>(null);
+  const focusModeInitialized = useRef(false); // Track if focus mode editor has been initialized
+  const mainEditorInitialized = useRef<string | null>(null); // Track which node's content is loaded in main editor
+  const updatePathNodesCallbackRef = useRef<((pathId: string, pathName: string, nodeIds: Set<string>) => void) | null>(null);
+  const [highlightedFolderId, setHighlightedFolderId] = useState<string | null>(null);
   
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -907,6 +911,40 @@ function DiagramContent() {
   useEffect(() => {
     activePathIdRef.current = activePathId;
   }, [activePathId]);
+
+  // Initialize focus mode editor content when it opens
+  useEffect(() => {
+    if (editorFocusMode && selectedNode && activePathId && focusModeEditorRef.current) {
+      const nodeId = selectedNode.id.replace('personalized-', '');
+      const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+      // Only set content if not already initialized for this session
+      if (!focusModeInitialized.current) {
+        focusModeEditorRef.current.innerHTML = content || '';
+        focusModeInitialized.current = true;
+      }
+    }
+    // Reset initialized flag when focus mode closes
+    if (!editorFocusMode) {
+      focusModeInitialized.current = false;
+    }
+  }, [editorFocusMode, selectedNode, activePathId]);
+
+  // Initialize main WYSIWYG editor content when popup opens or node changes
+  useEffect(() => {
+    if (selectedNode && activePathId && wysiwygEditorRef.current) {
+      const nodeId = selectedNode.id.replace('personalized-', '');
+      const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+      // Only set content if we're loading a different node
+      if (mainEditorInitialized.current !== nodeId) {
+        wysiwygEditorRef.current.innerHTML = content || '';
+        mainEditorInitialized.current = nodeId;
+      }
+    }
+    // Reset when popup closes
+    if (!selectedNode) {
+      mainEditorInitialized.current = null;
+    }
+  }, [selectedNode, activePathId]);
 
   // Panel drag and resize handlers
   useEffect(() => {
@@ -1048,9 +1086,21 @@ function DiagramContent() {
           };
         })
       );
+      
+      // Auto-save to backend for the active path (same as onNodeClick)
+      if (activePath && activePathId) {
+        setPathLastUpdated(prevUpdated => ({ ...prevUpdated, [activePathId]: Date.now() }));
+        // Use setTimeout to ensure state is updated before saving
+        setTimeout(() => {
+          if (updatePathNodesCallbackRef.current) {
+            updatePathNodesCallbackRef.current(activePathId, activePath, next);
+          }
+        }, 0);
+      }
+      
       return next;
     });
-  }, []);
+  }, [activePath, activePathId]);
 
   // Stable callbacks for inline note editing (use refs to avoid recreating)
   const handleStartEditNote = useCallback((nodeId: string) => {
@@ -1649,6 +1699,22 @@ function DiagramContent() {
     
     // Switch to folder view
     setViewMode('folder');
+    
+    // Highlight the target folder temporarily
+    const targetId = targetFolder.notionPageId || targetFolder.id;
+    setHighlightedFolderId(targetId);
+    
+    // Scroll to the folder after a short delay (to allow DOM to update)
+    setTimeout(() => {
+      const folderElement = document.querySelector(`[data-folder-id="${targetId}"]`);
+      if (folderElement) {
+        folderElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      // Clear highlight after 2 seconds
+      setTimeout(() => {
+        setHighlightedFolderId(null);
+      }, 2000);
+    }, 100);
   }, [categoriesList]);
 
   const layoutNodes = useCallback(
@@ -2144,6 +2210,11 @@ function DiagramContent() {
       }
     }, 500); // 500ms debounce
   }, [GOOGLE_SCRIPT_URL]);
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    updatePathNodesCallbackRef.current = updatePathNodes;
+  }, [updatePathNodes]);
 
   const onNodeClick = useCallback(
     (_: any, node: Node) => {
@@ -2934,6 +3005,7 @@ function DiagramContent() {
                 paths={folderPathItems}
                 activePath={activePath}
                 expandedFolders={expandedFolders}
+                highlightedFolderId={highlightedFolderId}
                 onToggleFolder={handleToggleFolder}
                 onSelectPath={(pathName) => showPath(pathName)}
                 onCreateFolder={handleCreateFolder}
@@ -3789,9 +3861,6 @@ Click and type, then use the toolbar or:
                 whiteSpace: 'pre-wrap',
                 wordWrap: 'break-word',
               }}
-              dangerouslySetInnerHTML={{ 
-                __html: content || '' 
-              }}
             />
             
             {/* Keyboard shortcuts helper */}
@@ -4302,9 +4371,6 @@ Use the toolbar above or keyboard shortcuts:
                     whiteSpace: 'pre-wrap',
                     wordWrap: 'break-word',
                   }}
-                  dangerouslySetInnerHTML={{ 
-                    __html: content || '' 
-                  }}
                 />
               </div>
               
@@ -4507,6 +4573,7 @@ Use the toolbar above or keyboard shortcuts:
                   paths={folderPathItems}
                   activePath={activePath}
                   expandedFolders={expandedFolders}
+                  highlightedFolderId={highlightedFolderId}
                   onToggleFolder={handleToggleFolder}
                   onSelectPath={(pathName) => {
                     showPath(pathName);

@@ -27,6 +27,7 @@ interface FolderTreeProps {
   paths: PathItem[];
   activePath: string | null;
   expandedFolders: Record<string, boolean>;
+  highlightedFolderId?: string | null;
   onToggleFolder: (folderId: string) => void;
   onSelectPath: (pathName: string) => void;
   onCreateFolder: (name: string, parentId: string | null) => Promise<void>;
@@ -253,6 +254,7 @@ interface FolderItemProps {
   level: number;
   activePath: string | null;
   isExpanded: boolean;
+  highlightedFolderId?: string | null;
   onToggle: () => void;
   onSelectPath: (pathName: string) => void;
   onCreateFolder: (name: string, parentId: string | null) => Promise<void>;
@@ -274,6 +276,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
   level,
   activePath,
   isExpanded,
+  highlightedFolderId,
   onToggle,
   onSelectPath,
   onCreateFolder,
@@ -352,10 +355,13 @@ const FolderItem: React.FC<FolderItemProps> = ({
     setIsRenaming(false);
   };
 
+  const isHighlighted = highlightedFolderId === (folder.notionPageId || folder.id);
+
   return (
     <div>
       {/* Folder row */}
       <div
+        data-folder-id={folder.notionPageId || folder.id}
         draggable
         onDragStart={handleFolderDragStart}
         onDragOver={handleDragOver}
@@ -368,6 +374,11 @@ const FolderItem: React.FC<FolderItemProps> = ({
           ...styles.folderRow,
           ...(isHovered ? styles.folderRowHover : {}),
           ...(isDragOver ? styles.folderRowDragOver : {}),
+          ...(isHighlighted ? { 
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            boxShadow: '0 0 8px rgba(245, 158, 11, 0.3)',
+          } : {}),
           paddingLeft: `${8 + level * 12}px`,
         }}
       >
@@ -462,6 +473,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
               level={level + 1}
               activePath={activePath}
               isExpanded={expandedFolders[child.id] !== false}
+              highlightedFolderId={highlightedFolderId}
               onToggle={() => onToggleFolder(child.id)}
               onSelectPath={onSelectPath}
               onCreateFolder={onCreateFolder}
@@ -636,6 +648,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   paths,
   activePath,
   expandedFolders,
+  highlightedFolderId,
   onToggleFolder,
   onSelectPath,
   onCreateFolder,
@@ -702,6 +715,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           level={0}
           activePath={activePath}
           isExpanded={expandedFolders[folder.id] !== false}
+          highlightedFolderId={highlightedFolderId}
           onToggle={() => onToggleFolder(folder.id)}
           onSelectPath={onSelectPath}
           onCreateFolder={onCreateFolder}
