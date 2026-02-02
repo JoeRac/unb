@@ -926,16 +926,19 @@ function DiagramContent() {
     // Reset initialized flag when focus mode closes
     if (!editorFocusMode) {
       focusModeInitialized.current = false;
+      // Also reset main editor so it reloads content when focus mode exits
+      mainEditorInitialized.current = null;
     }
   }, [editorFocusMode, selectedNode, activePathId]);
 
-  // Initialize main WYSIWYG editor content when popup opens or node changes
+  // Initialize main WYSIWYG editor content when popup opens, node changes, or focus mode exits
   useEffect(() => {
-    if (selectedNode && activePathId && wysiwygEditorRef.current) {
+    // Only update when not in focus mode (so we refresh content after exiting focus mode)
+    if (selectedNode && activePathId && wysiwygEditorRef.current && !editorFocusMode) {
       const nodeId = selectedNode.id.replace('personalized-', '');
       const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
-      // Only set content if we're loading a different node
-      if (mainEditorInitialized.current !== nodeId) {
+      // Only set content if we're loading a different node OR if mainEditorInitialized is null (coming back from focus mode)
+      if (mainEditorInitialized.current !== nodeId || mainEditorInitialized.current === null) {
         wysiwygEditorRef.current.innerHTML = content || '';
         mainEditorInitialized.current = nodeId;
       }
@@ -944,7 +947,7 @@ function DiagramContent() {
     if (!selectedNode) {
       mainEditorInitialized.current = null;
     }
-  }, [selectedNode, activePathId]);
+  }, [selectedNode, activePathId, editorFocusMode, sidebarNodeContent, nodePathMap]);
 
   // Panel drag and resize handlers
   useEffect(() => {
@@ -2167,7 +2170,7 @@ function DiagramContent() {
   const updatePathNodesRef = useRef<NodeJS.Timeout | null>(null);
   
   const updatePathNodes = useCallback(async (pathId: string, pathName: string, nodeIds: Set<string>) => {
-    if (!pathId || nodeIds.size === 0) return;
+    if (!pathId) return;
     
     // Debounce to avoid too many saves on rapid clicking
     if (updatePathNodesRef.current) {
