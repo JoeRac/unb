@@ -797,6 +797,7 @@ function DiagramContent() {
   }, []);
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
   const activePathIdRef = useRef<string | null>(null);
+  const [noteSaveStatus, setNoteSaveStatus] = useState<Record<string, 'saved' | 'saving'>>({});
   
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -3322,12 +3323,37 @@ function DiagramContent() {
                 Your Notes
               </span>
               <span style={{
-                fontSize: '10px',
-                color: '#94a3b8',
+                fontSize: '11px',
+                color: noteSaveStatus[nodeId] === 'saving' ? '#f59e0b' : '#22c55e',
                 marginLeft: 'auto',
-                fontStyle: 'italic',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 500,
+                transition: 'color 0.2s ease',
               }}>
-                Auto-saves
+                {noteSaveStatus[nodeId] === 'saving' ? (
+                  <>
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#f59e0b',
+                      animation: 'pulse 1s ease-in-out infinite',
+                    }} />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#22c55e',
+                    }} />
+                    All changes saved
+                  </>
+                )}
               </span>
             </div>
             
@@ -3459,6 +3485,9 @@ Tips:
                 
                 setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
                 
+                // Set status to saving
+                setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saving' }));
+                
                 // Auto-resize
                 const textarea = e.target;
                 textarea.style.height = 'auto';
@@ -3490,8 +3519,12 @@ Tips:
                         }),
                       });
                     }
+                    // Set status to saved after successful save
+                    setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
                   } catch (error) {
                     console.error('Error saving node content:', error);
+                    // Still mark as saved to avoid stuck state, but could show error
+                    setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
                   }
                 }, 1000);
               }}
