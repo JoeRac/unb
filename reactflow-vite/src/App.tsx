@@ -1741,22 +1741,76 @@ function DiagramContent() {
       setDataLoading(true);
       setDataError(null);
       try {
-        const response = await fetch(SHEET_TSV_URL);
-        if (!response.ok) {
-          throw new Error(`Sheet load failed: ${response.status}`);
+        let nodesFromSheet: Node[] = [];
+        let edgesFromSheet: Edge[] = [];
+        let roots: string[] = [];
+        
+        if (DATA_SOURCE === 'notion') {
+          // Load nodes from Notion
+          const notionNodes = await notionService.fetchNodes();
+          
+          // Convert NodeRecord to ReactFlow Node format
+          nodesFromSheet = notionNodes.map((n) => ({
+            id: n.id,
+            type: 'method',
+            position: { x: 0, y: 0 },
+            data: {
+              label: n.label,
+              color: n.color || '#3b82f6',
+              category: n.category,
+              description: n.description,
+              details: n.details,
+              longDescription: n.longDescription,
+              externalLinks: n.externalLinks,
+              images: n.images,
+              video: n.video,
+              hidden_by_default: n.hidden_by_default,
+              wikiUrl: n.wikiUrl,
+            } as NodeData,
+            hidden: n.hidden_by_default,
+          }));
+          
+          // Build edges from parentIds
+          edgesFromSheet = notionNodes.flatMap((n) =>
+            n.parentIds
+              .filter((pid) => pid && notionNodes.some((node) => node.id === pid))
+              .map((parentId) => ({
+                id: `${parentId}-${n.id}`,
+                source: parentId,
+                target: n.id,
+                type: 'smoothstep',
+                style: { stroke: EDGE_COLOR, opacity: 0.5, strokeWidth: 1.5 },
+              }))
+          );
+          
+          // Find root nodes (nodes with no parents or where parent doesn't exist)
+          roots = notionNodes
+            .filter((n) => n.parentIds.length === 0 || !n.parentIds.some((pid) => notionNodes.some((node) => node.id === pid)))
+            .filter((n) => n.hidden_by_default)
+            .map((n) => n.id);
+        } else {
+          // Load from Google Sheet (legacy)
+          const response = await fetch(SHEET_TSV_URL);
+          if (!response.ok) {
+            throw new Error(`Sheet load failed: ${response.status}`);
+          }
+          const csvText = await response.text();
+          const parsed = Papa.parse<SheetRow>(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            delimiter: '\t',
+          });
+          if (parsed.errors?.length) {
+            throw new Error(parsed.errors[0].message);
+          }
+          const built = buildFromRows(parsed.data || []);
+          nodesFromSheet = built.nodesFromSheet;
+          edgesFromSheet = built.edgesFromSheet;
+          roots = built.roots;
         }
-        const csvText = await response.text();
-        const parsed = Papa.parse<SheetRow>(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          delimiter: '\t',
-        });
-        if (parsed.errors?.length) {
-          throw new Error(parsed.errors[0].message);
-        }
-        const { nodesFromSheet, edgesFromSheet, roots } = buildFromRows(parsed.data || []);
+        
         if (!nodesFromSheet.length) {
-          throw new Error('No nodes found in sheet');
+          throw new Error('No nodes found');
         }
         const effectiveRoots = roots.length ? roots : nodesFromSheet.slice(0, 1).map((n) => n.id);
         setBaseNodes(nodesFromSheet);
@@ -1788,7 +1842,7 @@ function DiagramContent() {
           });
         }, 50);
       } catch (error: any) {
-        setDataError(error?.message || 'Failed to load sheet');
+        setDataError(error?.message || 'Failed to load data');
       } finally {
         setDataLoading(false);
       }
