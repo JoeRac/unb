@@ -2853,719 +2853,6 @@ function DiagramContent() {
         </div>
         </div>
 
-        {selectedNode && selectedNodeData && (
-  <div
-    ref={infoPanelRef}
-    style={{
-      position: 'absolute',
-      left: infoPanelPos.x,
-      top: infoPanelPos.y,
-      zIndex: 10,
-      background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)',
-      backdropFilter: 'blur(20px)',
-      padding: '0',
-      borderRadius: '16px',
-      width: infoPanelSize.width,
-      height: infoPanelSize.height,
-      overflowY: 'auto',
-      boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.5) inset',
-      border: '1px solid rgba(26,115,232,0.15)',
-      color: '#1e293b',
-    }}
-  >
-    {/* Header with drag handle */}
-    <div
-      onMouseDown={(e) => {
-        e.preventDefault();
-        setIsDraggingPanel('info');
-        setDragOffset({ x: e.clientX - infoPanelPos.x, y: e.clientY - infoPanelPos.y });
-      }}
-      style={{
-        position: 'sticky',
-        top: 0,
-        left: 0,
-        right: 0,
-        padding: '16px 20px 12px 20px',
-        cursor: 'move',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.95) 100%)',
-        borderTopLeftRadius: '16px',
-        borderTopRightRadius: '16px',
-        borderBottom: '1px solid rgba(226,232,240,0.8)',
-        zIndex: 1,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ 
-            margin: 0, 
-            fontSize: '18px',
-            fontWeight: 700,
-            color: selectedNodeData.color,
-            lineHeight: 1.3,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            {selectedNodeData.label}
-          </h2>
-          <div style={{ 
-            fontSize: '11px', 
-            color: '#64748b',
-            marginTop: '4px',
-            fontWeight: 500,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}>
-            {selectedNodeData.category}
-          </div>
-        </div>
-        <button
-          onClick={() => setSelectedNode(null)}
-          style={{
-            border: 'none',
-            background: 'rgba(241,245,249,0.8)',
-            cursor: 'pointer',
-            fontSize: '14px',
-            width: '28px',
-            height: '28px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#64748b',
-            transition: 'all 0.15s ease',
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
-            e.currentTarget.style.color = '#ef4444';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(241,245,249,0.8)';
-            e.currentTarget.style.color = '#64748b';
-          }}
-        >
-          ✕
-        </button>
-      </div>
-      {/* Drag indicator */}
-      <div style={{ 
-        width: '40px', 
-        height: '4px', 
-        background: 'rgba(203,213,225,0.6)', 
-        borderRadius: '2px',
-        margin: '10px auto 0',
-      }} />
-    </div>
-    
-    {/* Edge resize handles */}
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, left: 0, width: 6, cursor: 'ew-resize' }} />
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, right: 0, width: 6, cursor: 'ew-resize' }} />
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
-    <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'info', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: infoPanelSize.width, height: infoPanelSize.height, x: infoPanelPos.x, y: infoPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
-    
-    {/* Main content area */}
-    <div style={{ padding: '16px 20px 20px' }}>
-      
-      {/* NOTES SECTION - Primary focus at the top */}
-      {activePathId && selectedNode && (() => {
-        const nodeId = selectedNode.id.replace('personalized-', '');
-        const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
-        const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
-        const charCount = content.length; // For future character limit feature
-        const readingTime = Math.max(1, Math.ceil(wordCount / 200));
-        const canUndo = (noteUndoStack[nodeId]?.length || 0) > 0;
-        const canRedo = (noteRedoStack[nodeId]?.length || 0) > 0;
-        void charCount; // Suppress unused variable warning - available for future use
-        
-        return (
-          <div style={{ marginBottom: '20px', position: 'relative' }}>
-            {/* Header row with title, actions, and status */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              marginBottom: '10px',
-            }}>
-              <span style={{ fontSize: '16px' }}>📝</span>
-              <span style={{ 
-                fontSize: '13px', 
-                fontWeight: 600, 
-                color: '#334155',
-              }}>
-                Your Notes
-              </span>
-              
-              {/* Undo/Redo buttons */}
-              <div style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
-                <button
-                  onClick={() => {
-                    if (!canUndo) return;
-                    const stack = [...(noteUndoStack[nodeId] || [])];
-                    const prev = stack.pop();
-                    if (prev !== undefined) {
-                      setNoteUndoStack(s => ({ ...s, [nodeId]: stack }));
-                      setNoteRedoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
-                      setSidebarNodeContent(s => ({ ...s, [nodeId]: prev }));
-                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: prev } }));
-                    }
-                  }}
-                  disabled={!canUndo}
-                  title="Undo (⌘Z)"
-                  style={{
-                    border: 'none',
-                    background: canUndo ? 'rgba(59,130,246,0.1)' : 'transparent',
-                    cursor: canUndo ? 'pointer' : 'default',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    color: canUndo ? '#3b82f6' : '#cbd5e1',
-                    fontSize: '12px',
-                    opacity: canUndo ? 1 : 0.5,
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  ↩
-                </button>
-                <button
-                  onClick={() => {
-                    if (!canRedo) return;
-                    const stack = [...(noteRedoStack[nodeId] || [])];
-                    const next = stack.pop();
-                    if (next !== undefined) {
-                      setNoteRedoStack(s => ({ ...s, [nodeId]: stack }));
-                      setNoteUndoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
-                      setSidebarNodeContent(s => ({ ...s, [nodeId]: next }));
-                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: next } }));
-                    }
-                  }}
-                  disabled={!canRedo}
-                  title="Redo (⌘⇧Z)"
-                  style={{
-                    border: 'none',
-                    background: canRedo ? 'rgba(59,130,246,0.1)' : 'transparent',
-                    cursor: canRedo ? 'pointer' : 'default',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    color: canRedo ? '#3b82f6' : '#cbd5e1',
-                    fontSize: '12px',
-                    opacity: canRedo ? 1 : 0.5,
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  ↪
-                </button>
-              </div>
-              
-              {/* Focus mode toggle */}
-              <button
-                onClick={() => setEditorFocusMode(!editorFocusMode)}
-                title={editorFocusMode ? 'Exit focus mode' : 'Focus mode'}
-                style={{
-                  border: 'none',
-                  background: editorFocusMode ? 'rgba(59,130,246,0.15)' : 'transparent',
-                  cursor: 'pointer',
-                  padding: '4px 6px',
-                  borderRadius: '4px',
-                  color: editorFocusMode ? '#3b82f6' : '#94a3b8',
-                  fontSize: '12px',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {editorFocusMode ? '⊙' : '◎'}
-              </button>
-              
-              {/* Spacer */}
-              <div style={{ flex: 1 }} />
-              
-              {/* Stats: word count, reading time */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px',
-                fontSize: '10px',
-                color: '#94a3b8',
-              }}>
-                {content && (
-                  <>
-                    <span title="Word count">{wordCount} words</span>
-                    <span>·</span>
-                    <span title="Estimated reading time">{readingTime} min read</span>
-                  </>
-                )}
-              </div>
-              
-              {/* Save status */}
-              <span style={{
-                fontSize: '11px',
-                color: noteSaveStatus[nodeId] === 'saving' ? '#f59e0b' : '#22c55e',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontWeight: 500,
-                transition: 'color 0.2s ease',
-                marginLeft: '8px',
-              }}>
-                {noteSaveStatus[nodeId] === 'saving' ? (
-                  <>
-                    <span style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: '#f59e0b',
-                      animation: 'pulse 1s ease-in-out infinite',
-                    }} />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <span style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: '#22c55e',
-                    }} />
-                    Saved
-                  </>
-                )}
-              </span>
-            </div>
-            
-            {/* WYSIWYG Rich text toolbar */}
-            <div style={{
-              display: 'flex',
-              gap: '2px',
-              padding: '6px 8px',
-              background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
-              borderRadius: '10px 10px 0 0',
-              border: '1px solid #e2e8f0',
-              borderBottom: 'none',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-            }}>
-              {[
-                { icon: 'B', title: 'Bold (⌘B)', command: 'bold', style: { fontWeight: 700 } },
-                { icon: 'I', title: 'Italic (⌘I)', command: 'italic', style: { fontStyle: 'italic' } },
-                { icon: 'U', title: 'Underline (⌘U)', command: 'underline', style: { textDecoration: 'underline' } },
-                { icon: '—', title: 'Strikethrough', command: 'strikeThrough', style: { textDecoration: 'line-through' } },
-                { icon: 'sep', title: '', command: '', style: {} },
-                { icon: 'H₁', title: 'Heading 1', command: 'formatBlock', arg: 'h2', style: { fontWeight: 700, fontSize: '11px' } },
-                { icon: 'H₂', title: 'Heading 2', command: 'formatBlock', arg: 'h3', style: { fontWeight: 600, fontSize: '10px' } },
-                { icon: '•', title: 'Bullet list', command: 'insertUnorderedList', style: {} },
-                { icon: '1.', title: 'Numbered list', command: 'insertOrderedList', style: { fontSize: '11px' } },
-                { icon: 'sep', title: '', command: '', style: {} },
-                { icon: '❝', title: 'Quote', command: 'formatBlock', arg: 'blockquote', style: { fontSize: '12px' } },
-                { icon: '🔗', title: 'Link (⌘K)', command: 'createLink', style: { fontSize: '11px' } },
-                { icon: '⊘', title: 'Remove formatting', command: 'removeFormat', style: { fontSize: '11px' } },
-              ].map((btn, idx) => (
-                btn.icon === 'sep' ? (
-                  <div key={idx} style={{ width: '1px', height: '16px', background: '#e2e8f0', margin: '0 4px' }} />
-                ) : (
-                <button
-                  key={idx}
-                  title={btn.title}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const editor = wysiwygEditorRef.current;
-                    if (editor) {
-                      editor.focus();
-                      if (btn.command === 'createLink') {
-                        const url = prompt('Enter URL:', 'https://');
-                        if (url) {
-                          document.execCommand('createLink', false, url);
-                        }
-                      } else if (btn.arg) {
-                        document.execCommand(btn.command, false, btn.arg);
-                      } else {
-                        document.execCommand(btn.command, false);
-                      }
-                    }
-                  }}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    color: '#475569',
-                    fontSize: '12px',
-                    minWidth: '26px',
-                    height: '26px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.1s ease',
-                    ...btn.style,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(59,130,246,0.1)';
-                    e.currentTarget.style.color = '#3b82f6';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#475569';
-                  }}
-                >
-                  {btn.icon}
-                </button>
-                )
-              ))}
-              {/* Keyboard shortcuts hint */}
-              <div style={{ marginLeft: 'auto', fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px' }}>⌘B</span>
-                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px' }}>⌘I</span>
-                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px' }}>⌘U</span>
-              </div>
-            </div>
-            
-            {/* WYSIWYG Rich Text Editor */}
-            <div
-              ref={wysiwygEditorRef}
-              contentEditable
-              suppressContentEditableWarning
-              data-placeholder="Start writing your notes here...
-
-Click and type, then use the toolbar or:
-• ⌘B for bold
-• ⌘I for italic  
-• ⌘U for underline"
-              onMouseDown={(e) => e.stopPropagation()}
-              onWheelCapture={(e) => {
-                e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-              }}
-              onKeyDown={(e) => {
-                const isMod = e.metaKey || e.ctrlKey;
-                
-                // Bold: ⌘B
-                if (isMod && e.key === 'b') {
-                  e.preventDefault();
-                  document.execCommand('bold', false);
-                  return;
-                }
-                // Italic: ⌘I
-                if (isMod && e.key === 'i') {
-                  e.preventDefault();
-                  document.execCommand('italic', false);
-                  return;
-                }
-                // Underline: ⌘U
-                if (isMod && e.key === 'u') {
-                  e.preventDefault();
-                  document.execCommand('underline', false);
-                  return;
-                }
-                // Link: ⌘K
-                if (isMod && e.key === 'k') {
-                  e.preventDefault();
-                  const url = prompt('Enter URL:', 'https://');
-                  if (url) {
-                    document.execCommand('createLink', false, url);
-                  }
-                  return;
-                }
-              }}
-              onInput={() => {
-                const editor = wysiwygEditorRef.current;
-                if (!editor) return;
-                
-                const newContent = editor.innerHTML;
-                
-                // Update state without re-rendering the editor
-                setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
-                setNodePathMap(prev => ({
-                  ...prev,
-                  [activePathId]: {
-                    ...(prev[activePathId] || {}),
-                    [nodeId]: newContent,
-                  },
-                }));
-                setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
-                setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saving' }));
-                
-                // Debounced auto-save
-                if (debounceTimerRef.current[nodeId]) {
-                  clearTimeout(debounceTimerRef.current[nodeId]);
-                }
-                debounceTimerRef.current[nodeId] = setTimeout(async () => {
-                  try {
-                    if (DATA_SOURCE === 'notion') {
-                      await notionService.saveNodePath({
-                        id: `${activePathId}_${nodeId}`,
-                        pathId: activePathId!,
-                        nodeId: nodeId,
-                        content: newContent,
-                      });
-                    } else {
-                      await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'saveNodeContent',
-                          pathId: activePathId,
-                          nodeId: nodeId,
-                          content: newContent,
-                        }),
-                      });
-                    }
-                    setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
-                  } catch (error) {
-                    console.error('Error saving node content:', error);
-                    setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saved' }));
-                  }
-                }, 1000);
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#3b82f6';
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '#e2e8f0';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-              style={{
-                width: '100%',
-                minHeight: '120px',
-                maxHeight: '300px',
-                padding: '14px 16px',
-                fontSize: '14px',
-                border: '1px solid #e2e8f0',
-                borderTop: 'none',
-                borderRadius: '0 0 10px 10px',
-                background: '#ffffff',
-                color: '#1e293b',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                lineHeight: 1.6,
-                boxSizing: 'border-box',
-                overflow: 'auto',
-                outline: 'none',
-                transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word',
-              }}
-            />
-            
-            {/* Keyboard shortcuts helper */}
-            <div style={{
-              marginTop: '8px',
-              padding: '8px 12px',
-              background: '#f8fafc',
-              borderRadius: '8px',
-              border: '1px solid #f1f5f9',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '12px',
-              fontSize: '10px',
-              color: '#64748b',
-            }}>
-              {[
-                { keys: '⌘B', label: 'Bold' },
-                { keys: '⌘I', label: 'Italic' },
-                { keys: '⌘U', label: 'Underline' },
-                { keys: '⌘K', label: 'Link' },
-                { keys: '⌘Z', label: 'Undo' },
-                { keys: '⌘⇧Z', label: 'Redo' },
-                { keys: '/', label: 'Commands' },
-              ].map((shortcut, i) => (
-                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ 
-                    background: 'white', 
-                    padding: '2px 5px', 
-                    borderRadius: '3px', 
-                    fontFamily: 'system-ui',
-                    fontWeight: 500,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                    border: '1px solid #e2e8f0',
-                  }}>
-                    {shortcut.keys}
-                  </span>
-                  <span>{shortcut.label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-      
-      {/* No path loaded message */}
-      {!activePathId && (
-        <div style={{
-          padding: '20px',
-          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-          borderRadius: '10px',
-          marginBottom: '20px',
-          border: '1px solid rgba(245,158,11,0.2)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '20px' }}>💡</span>
-            <div>
-              <div style={{ fontWeight: 600, color: '#92400e', fontSize: '13px' }}>Load a path to take notes</div>
-              <div style={{ fontSize: '12px', color: '#a16207', marginTop: '2px' }}>Select a path from the sidebar to enable note-taking for this node</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Divider before documentation section */}
-      {(selectedNodeData.longDescription || selectedNodeData.images?.length || selectedNodeData.video || selectedNodeData.externalLinks?.length || selectedNodeData.wikiUrl) && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          margin: '8px 0 16px',
-        }}>
-          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #e2e8f0, transparent)' }} />
-          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Documentation
-          </span>
-          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #e2e8f0, transparent)' }} />
-        </div>
-      )}
-
-      {/* Long description */}
-      {selectedNodeData.longDescription && (
-        <p style={{ 
-          lineHeight: 1.7, 
-          color: '#475569',
-          fontSize: '13px',
-          margin: '0 0 16px',
-          padding: '12px 14px',
-          background: 'rgba(241,245,249,0.5)',
-          borderRadius: '8px',
-          borderLeft: `3px solid ${selectedNodeData.color || '#3b82f6'}`,
-        }}>
-          {selectedNodeData.longDescription}
-        </p>
-      )}
-
-      {/* Images */}
-      {selectedNodeData.images?.map((img) => (
-        <img
-          key={img.src}
-          src={img.src}
-          alt={img.alt || ''}
-          style={{
-            width: '100%',
-            borderRadius: '10px',
-            marginBottom: '12px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          }}
-        />
-      ))}
-
-      {/* Video */}
-      {selectedNodeData.video && (
-        selectedNodeData.video.type === 'html5' ? (
-          <video
-            controls
-            src={selectedNodeData.video.url}
-            style={{
-              width: '100%',
-              borderRadius: '10px',
-              marginBottom: '12px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            }}
-          />
-        ) : (
-          <iframe
-            src={selectedNodeData.video.url}
-            style={{
-              width: '100%',
-              aspectRatio: '16 / 9',
-              borderRadius: '10px',
-              marginBottom: '12px',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        )
-      )}
-
-      {/* External links */}
-      {(selectedNodeData.externalLinks?.length ?? 0) > 0 && (
-        <div style={{ marginBottom: '12px' }}>
-          {selectedNodeData.externalLinks!.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 14px',
-                marginBottom: '8px',
-                background: 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(59,130,246,0.1) 100%)',
-                borderRadius: '8px',
-                color: '#2563eb',
-                fontWeight: 500,
-                fontSize: '13px',
-                textDecoration: 'none',
-                transition: 'all 0.15s ease',
-                border: '1px solid rgba(59,130,246,0.1)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(59,130,246,0.15) 100%)';
-                e.currentTarget.style.transform = 'translateX(4px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(59,130,246,0.1) 100%)';
-                e.currentTarget.style.transform = 'translateX(0)';
-              }}
-            >
-              <span>🔗</span>
-              <span style={{ flex: 1 }}>{link.label}</span>
-              <span style={{ opacity: 0.6 }}>↗</span>
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* Wiki / Documentation button */}
-      {selectedNodeData.wikiUrl && (
-        <a
-          href={selectedNodeData.wikiUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '12px 16px',
-            background: `linear-gradient(135deg, ${selectedNodeData.color || '#3b82f6'} 0%, ${selectedNodeData.color || '#3b82f6'}dd 100%)`,
-            color: 'white',
-            borderRadius: '10px',
-            fontWeight: 600,
-            fontSize: '13px',
-            textDecoration: 'none',
-            boxShadow: `0 4px 14px ${selectedNodeData.color || '#3b82f6'}40`,
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = `0 6px 20px ${selectedNodeData.color || '#3b82f6'}50`;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = `0 4px 14px ${selectedNodeData.color || '#3b82f6'}40`;
-          }}
-        >
-          <span>📚</span>
-          <span>Open Documentation</span>
-          <span>↗</span>
-        </a>
-      )}
-    </div>
-  </div>
-)}
       </ReactFlow>
       
       {/* Full-screen Editor Focus Mode Overlay */}
@@ -3608,76 +2895,97 @@ Click and type, then use the toolbar or:
             >
               {/* Focus mode header */}
               <div style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid #e2e8f0',
+                padding: '16px 20px',
+                borderBottom: '1px solid rgba(226,232,240,0.6)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                background: 'linear-gradient(180deg, #f8fafc 0%, white 100%)',
+                background: 'rgba(248,250,252,0.8)',
+                backdropFilter: 'blur(10px)',
               }}>
-                <span style={{ fontSize: '24px' }}>📝</span>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: `linear-gradient(135deg, ${selectedNodeData?.color || '#3b82f6'}20 0%, ${selectedNodeData?.color || '#3b82f6'}10 100%)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                }}>
+                  📝
+                </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b' }}>
                     {selectedNodeData?.label || 'Notes'}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                    Focus mode · {wordCount} words · {readingTime} min read
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                    {wordCount} words · {readingTime} min read
                   </div>
                 </div>
                 <span style={{
-                  fontSize: '12px',
+                  fontSize: '11px',
                   color: noteSaveStatus[nodeId] === 'saving' ? '#f59e0b' : '#22c55e',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '5px',
                   fontWeight: 500,
+                  padding: '6px 10px',
+                  background: noteSaveStatus[nodeId] === 'saving' ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.1)',
+                  borderRadius: '6px',
                 }}>
                   <span style={{
-                    width: '8px',
-                    height: '8px',
+                    width: '6px',
+                    height: '6px',
                     borderRadius: '50%',
                     background: noteSaveStatus[nodeId] === 'saving' ? '#f59e0b' : '#22c55e',
                     animation: noteSaveStatus[nodeId] === 'saving' ? 'pulse 1s ease-in-out infinite' : 'none',
                   }} />
-                  {noteSaveStatus[nodeId] === 'saving' ? 'Saving...' : 'All changes saved'}
+                  {noteSaveStatus[nodeId] === 'saving' ? 'Saving...' : 'Saved'}
                 </span>
                 <button
                   onClick={() => setEditorFocusMode(false)}
+                  title="Close (Esc)"
                   style={{
-                    background: 'rgba(239,68,68,0.1)',
+                    background: 'rgba(100,116,139,0.1)',
                     border: 'none',
-                    borderRadius: '10px',
-                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    width: '32px',
+                    height: '32px',
                     cursor: 'pointer',
-                    color: '#ef4444',
-                    fontWeight: 600,
-                    fontSize: '13px',
+                    color: '#64748b',
+                    fontSize: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
+                    e.currentTarget.style.background = 'rgba(100,116,139,0.2)';
+                    e.currentTarget.style.color = '#475569';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                    e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
+                    e.currentTarget.style.color = '#64748b';
                   }}
                 >
-                  Exit Focus Mode
+                  ✕
                 </button>
               </div>
               
               {/* Two-column layout */}
               <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                 {/* Left column: Notes editor */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #e2e8f0' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(226,232,240,0.6)' }}>
                   {/* Focus mode WYSIWYG toolbar */}
                   <div style={{
-                    padding: '12px 24px',
-                    borderBottom: '1px solid #e2e8f0',
+                    padding: '10px 20px',
+                    borderBottom: '1px solid rgba(226,232,240,0.6)',
                     display: 'flex',
-                    gap: '4px',
+                    gap: '3px',
                     flexWrap: 'wrap',
                     alignItems: 'center',
-                    background: '#f8fafc',
+                    background: 'rgba(248,250,252,0.8)',
                   }}>
                     {[
                       { icon: 'B', title: 'Bold (⌘B)', command: 'bold', style: { fontWeight: 700 } },
@@ -3695,7 +3003,7 @@ Click and type, then use the toolbar or:
                   { icon: '⊘', title: 'Remove formatting', command: 'removeFormat' },
                 ].map((btn, idx) => (
                   btn.icon === 'sep' ? (
-                    <div key={idx} style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 6px' }} />
+                    <div key={idx} style={{ width: '1px', height: '18px', background: 'rgba(226,232,240,0.8)', margin: '0 4px' }} />
                   ) : (
                   <button
                     key={idx}
@@ -3717,29 +3025,28 @@ Click and type, then use the toolbar or:
                     }}
                     style={{
                       border: 'none',
-                      background: 'white',
+                      background: 'rgba(255,255,255,0.9)',
                       cursor: 'pointer',
-                      padding: '6px 10px',
-                      borderRadius: '6px',
-                      color: '#475569',
-                      fontSize: '13px',
+                      padding: '5px 8px',
+                      borderRadius: '5px',
+                      color: '#64748b',
+                      fontSize: '12px',
                       fontWeight: 500,
-                      minWidth: '32px',
-                      height: '32px',
+                      minWidth: '28px',
+                      height: '28px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                       transition: 'all 0.1s ease',
                       ...btn.style,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#3b82f6';
-                      e.currentTarget.style.color = 'white';
+                      e.currentTarget.style.background = 'rgba(59,130,246,0.15)';
+                      e.currentTarget.style.color = '#3b82f6';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'white';
-                      e.currentTarget.style.color = '#475569';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
+                      e.currentTarget.style.color = '#64748b';
                     }}
                   >
                     {btn.icon}
@@ -3749,18 +3056,12 @@ Click and type, then use the toolbar or:
               </div>
               
               {/* Focus mode WYSIWYG editor */}
-              <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+              <div style={{ flex: 1, padding: '20px', overflow: 'auto', background: 'rgba(248,250,252,0.5)' }}>
                 <div
                   ref={focusModeEditorRef}
                   contentEditable
                   suppressContentEditableWarning
-                  data-placeholder="Start writing your journal entry here...
-
-This is your personal space to write freely.
-Use the toolbar above or keyboard shortcuts:
-• ⌘B for bold
-• ⌘I for italic
-• ⌘U for underline"
+                  data-placeholder="Start writing your notes here..."
                   onKeyDown={(e) => {
                     const isMod = e.metaKey || e.ctrlKey;
                     if (e.key === 'Escape') {
@@ -3835,23 +3136,23 @@ Use the toolbar above or keyboard shortcuts:
                     }, 1000);
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = '#3b82f6';
-                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)';
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.borderColor = 'rgba(226,232,240,0.8)';
                     e.currentTarget.style.boxShadow = 'none';
                   }}
                   style={{
                     width: '100%',
                     height: '100%',
-                    minHeight: '400px',
-                    padding: '24px',
-                    fontSize: '16px',
-                    lineHeight: 1.8,
-                    border: '2px solid #e2e8f0',
-                    borderRadius: '12px',
-                    background: 'white',
+                    minHeight: '350px',
+                    padding: '20px',
+                    fontSize: '15px',
+                    lineHeight: 1.75,
+                    border: '1px solid rgba(226,232,240,0.8)',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.95)',
                     color: '#1e293b',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     boxSizing: 'border-box',
@@ -3866,12 +3167,12 @@ Use the toolbar above or keyboard shortcuts:
               
               {/* Keyboard shortcuts footer */}
               <div style={{
-                padding: '12px 24px',
-                borderTop: '1px solid #e2e8f0',
-                background: '#f8fafc',
+                padding: '8px 20px',
+                borderTop: '1px solid rgba(226,232,240,0.6)',
+                background: 'rgba(248,250,252,0.8)',
                 display: 'flex',
-                gap: '16px',
-                fontSize: '11px',
+                gap: '12px',
+                fontSize: '10px',
                 color: '#64748b',
                 flexWrap: 'wrap',
               }}>
@@ -3880,14 +3181,14 @@ Use the toolbar above or keyboard shortcuts:
                   { keys: '⌘I', label: 'Italic' },
                   { keys: '⌘U', label: 'Underline' },
                   { keys: '⌘K', label: 'Link' },
-                  { keys: 'Esc', label: 'Exit' },
+                  { keys: 'Esc', label: 'Close' },
                 ].map((s, i) => (
-                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <span style={{ 
-                      background: 'white', 
-                      padding: '3px 6px', 
-                      borderRadius: '4px',
-                      border: '1px solid #e2e8f0',
+                      background: 'rgba(255,255,255,0.9)', 
+                      padding: '2px 5px', 
+                      borderRadius: '3px',
+                      border: '1px solid rgba(226,232,240,0.6)',
                       fontWeight: 500,
                     }}>{s.keys}</span>
                     <span>{s.label}</span>
@@ -3897,35 +3198,41 @@ Use the toolbar above or keyboard shortcuts:
                 </div>
                 
                 {/* Right column: Documentation */}
-                <div style={{ width: '380px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+                <div style={{ width: '380px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'rgba(248,250,252,0.6)' }}>
                   <div style={{
-                    padding: '16px 20px',
-                    borderBottom: '1px solid #e2e8f0',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid rgba(226,232,240,0.6)',
                     fontWeight: 600,
-                    fontSize: '14px',
-                    color: '#1e293b',
+                    fontSize: '13px',
+                    color: '#475569',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
+                    background: 'rgba(248,250,252,0.8)',
+                    backdropFilter: 'blur(10px)',
                   }}>
-                    <span>📚</span>
+                    <span style={{ fontSize: '14px' }}>📚</span>
                     <span>Documentation</span>
                   </div>
-                  <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+                  <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
                     {/* Long description */}
                     {selectedNodeData?.longDescription && (
-                      <p style={{ 
-                        lineHeight: 1.7, 
-                        color: '#475569',
-                        fontSize: '13px',
-                        margin: '0 0 16px',
-                        padding: '12px 14px',
-                        background: 'white',
-                        borderRadius: '8px',
-                        borderLeft: `3px solid ${selectedNodeData.color || '#3b82f6'}`,
-                      }}>
-                        {selectedNodeData.longDescription}
-                      </p>
+                      <div 
+                        style={{ 
+                          lineHeight: 1.7, 
+                          color: '#475569',
+                          fontSize: '13px',
+                          margin: '0 0 16px',
+                          padding: '12px 14px',
+                          background: 'rgba(255,255,255,0.9)',
+                          borderRadius: '8px',
+                          borderLeft: `3px solid ${selectedNodeData.color || '#3b82f6'}`,
+                          border: '1px solid rgba(226,232,240,0.6)',
+                          borderLeftWidth: '3px',
+                          borderLeftColor: selectedNodeData.color || '#3b82f6',
+                        }}
+                        dangerouslySetInnerHTML={{ __html: selectedNodeData.longDescription }}
+                      />
                     )}
 
                     {/* Images */}
@@ -3936,9 +3243,10 @@ Use the toolbar above or keyboard shortcuts:
                         alt={img.alt || ''}
                         style={{
                           width: '100%',
-                          borderRadius: '10px',
+                          borderRadius: '8px',
                           marginBottom: '12px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                          border: '1px solid rgba(226,232,240,0.6)',
                         }}
                       />
                     ))}
@@ -3951,9 +3259,10 @@ Use the toolbar above or keyboard shortcuts:
                           src={selectedNodeData.video.url}
                           style={{
                             width: '100%',
-                            borderRadius: '10px',
+                            borderRadius: '8px',
                             marginBottom: '12px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                            border: '1px solid rgba(226,232,240,0.6)',
                           }}
                         />
                       ) : (
@@ -3962,10 +3271,10 @@ Use the toolbar above or keyboard shortcuts:
                           style={{
                             width: '100%',
                             aspectRatio: '16 / 9',
-                            borderRadius: '10px',
+                            borderRadius: '8px',
                             marginBottom: '12px',
-                            border: 'none',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            border: '1px solid rgba(226,232,240,0.6)',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                           }}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
@@ -3988,21 +3297,21 @@ Use the toolbar above or keyboard shortcuts:
                               gap: '8px',
                               padding: '10px 14px',
                               marginBottom: '8px',
-                              background: 'white',
+                              background: 'rgba(255,255,255,0.9)',
                               borderRadius: '8px',
                               color: '#2563eb',
                               fontWeight: 500,
                               fontSize: '13px',
                               textDecoration: 'none',
                               transition: 'all 0.15s ease',
-                              border: '1px solid #e2e8f0',
+                              border: '1px solid rgba(226,232,240,0.6)',
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#eff6ff';
+                              e.currentTarget.style.background = 'rgba(239,246,255,0.9)';
                               e.currentTarget.style.transform = 'translateX(4px)';
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
                               e.currentTarget.style.transform = 'translateX(0)';
                             }}
                           >
@@ -4054,12 +3363,15 @@ Use the toolbar above or keyboard shortcuts:
                     {!selectedNodeData?.longDescription && !selectedNodeData?.images?.length && !selectedNodeData?.video && !selectedNodeData?.externalLinks?.length && !selectedNodeData?.wikiUrl && (
                       <div style={{
                         textAlign: 'center',
-                        padding: '40px 20px',
+                        padding: '32px 16px',
                         color: '#94a3b8',
-                        fontSize: '13px',
+                        fontSize: '12px',
+                        background: 'rgba(248,250,252,0.5)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(226,232,240,0.4)',
                       }}>
-                        <span style={{ fontSize: '32px', display: 'block', marginBottom: '12px', opacity: 0.5 }}>📄</span>
-                        <p style={{ margin: 0 }}>No documentation available for this node.</p>
+                        <span style={{ fontSize: '28px', display: 'block', marginBottom: '10px', opacity: 0.4 }}>📄</span>
+                        <p style={{ margin: 0 }}>No documentation available</p>
                       </div>
                     )}
                   </div>
@@ -4109,9 +3421,11 @@ Use the toolbar above or keyboard shortcuts:
                 width: '95%',
                 maxWidth: '1200px',
                 maxHeight: '90vh',
-                background: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: '20px',
-                boxShadow: '0 25px 80px rgba(0,0,0,0.2)',
+                background: 'rgba(255, 255, 255, 0.92)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '16px',
+                boxShadow: '0 25px 80px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset',
+                border: '1px solid rgba(255,255,255,0.3)',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -4120,85 +3434,157 @@ Use the toolbar above or keyboard shortcuts:
             >
               {/* Header */}
               <div style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid #e2e8f0',
+                padding: '16px 20px',
+                borderBottom: '1px solid rgba(226,232,240,0.6)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                background: 'linear-gradient(180deg, #f8fafc 0%, white 100%)',
+                background: 'rgba(248,250,252,0.8)',
+                backdropFilter: 'blur(10px)',
               }}>
-                <span style={{ fontSize: '24px' }}>📋</span>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(59,130,246,0.1) 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                }}>
+                  📋
+                </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b' }}>
                     {notesPathName}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                    Path Notes · {wordCount} words · {sortedNodeIds.length} nodes
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                    {wordCount} words · {sortedNodeIds.length} nodes
                   </div>
                 </div>
                 <span style={{
-                  fontSize: '12px',
+                  fontSize: '11px',
                   color: noteSaveStatus['pathNotes'] === 'saving' ? '#f59e0b' : '#22c55e',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '5px',
                   fontWeight: 500,
+                  padding: '6px 10px',
+                  background: noteSaveStatus['pathNotes'] === 'saving' ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.1)',
+                  borderRadius: '6px',
                 }}>
                   <span style={{
-                    width: '8px',
-                    height: '8px',
+                    width: '6px',
+                    height: '6px',
                     borderRadius: '50%',
                     background: noteSaveStatus['pathNotes'] === 'saving' ? '#f59e0b' : '#22c55e',
                     animation: noteSaveStatus['pathNotes'] === 'saving' ? 'pulse 1s ease-in-out infinite' : 'none',
                   }} />
-                  {noteSaveStatus['pathNotes'] === 'saving' ? 'Saving...' : 'All changes saved'}
+                  {noteSaveStatus['pathNotes'] === 'saving' ? 'Saving...' : 'Saved'}
                 </span>
                 <button
                   onClick={() => setPathNotesFocusMode(false)}
+                  title="Close (Esc)"
                   style={{
-                    background: 'rgba(239,68,68,0.1)',
+                    background: 'rgba(100,116,139,0.1)',
                     border: 'none',
-                    borderRadius: '10px',
-                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    width: '32px',
+                    height: '32px',
                     cursor: 'pointer',
-                    color: '#ef4444',
-                    fontWeight: 600,
-                    fontSize: '13px',
+                    color: '#64748b',
+                    fontSize: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
+                    e.currentTarget.style.background = 'rgba(100,116,139,0.2)';
+                    e.currentTarget.style.color = '#475569';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                    e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
+                    e.currentTarget.style.color = '#64748b';
                   }}
                 >
-                  Exit Focus Mode
+                  ✕
                 </button>
               </div>
               
               {/* Content area */}
               <div style={{
                 flex: 1,
-                padding: '24px',
+                padding: '20px',
                 overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '24px',
+                gap: '20px',
+                background: 'rgba(248,250,252,0.5)',
               }}>
                 {/* Path-level notes section */}
-                <div>
+                <div style={{
+                  background: 'rgba(255,255,255,0.9)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(226,232,240,0.6)',
+                  overflow: 'hidden',
+                }}>
                   <div style={{ 
-                    fontSize: '14px', 
+                    fontSize: '13px', 
                     fontWeight: '600', 
                     color: '#1e293b',
-                    marginBottom: '12px',
+                    padding: '12px 16px',
+                    background: 'rgba(248,250,252,0.8)',
+                    borderBottom: '1px solid rgba(226,232,240,0.6)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
                   }}>
                     <span>📋</span>
                     <span>Path Notes</span>
+                  </div>
+                  {/* Mini toolbar */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '2px',
+                    padding: '8px 12px',
+                    background: 'rgba(248,250,252,0.6)',
+                    borderBottom: '1px solid rgba(226,232,240,0.4)',
+                  }}>
+                    {[
+                      { icon: 'B', cmd: 'bold', style: { fontWeight: 700 } },
+                      { icon: 'I', cmd: 'italic', style: { fontStyle: 'italic' } },
+                      { icon: 'U', cmd: 'underline', style: { textDecoration: 'underline' } },
+                      { icon: '•', cmd: 'insertUnorderedList' },
+                      { icon: '🔗', cmd: 'createLink' },
+                    ].map((btn, i) => (
+                      <button
+                        key={i}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          if (btn.cmd === 'createLink') {
+                            const url = prompt('Enter URL:', 'https://');
+                            if (url) document.execCommand('createLink', false, url);
+                          } else {
+                            document.execCommand(btn.cmd, false);
+                          }
+                        }}
+                        style={{
+                          border: 'none',
+                          background: 'rgba(255,255,255,0.8)',
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          color: '#64748b',
+                          fontSize: '11px',
+                          minWidth: '24px',
+                          height: '24px',
+                          ...btn.style,
+                        }}
+                      >
+                        {btn.icon}
+                      </button>
+                    ))}
                   </div>
                   <div
                     contentEditable
@@ -4214,12 +3600,11 @@ Use the toolbar above or keyboard shortcuts:
                     }}
                     style={{
                       width: '100%',
-                      minHeight: '120px',
-                      maxHeight: '300px',
-                      padding: '16px',
+                      minHeight: '100px',
+                      maxHeight: '250px',
+                      padding: '14px 16px',
                       fontSize: '14px',
-                      border: '2px solid #e2e8f0',
-                      borderRadius: '12px',
+                      border: 'none',
                       background: 'white',
                       color: '#1e293b',
                       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -4229,15 +3614,8 @@ Use the toolbar above or keyboard shortcuts:
                       textAlign: 'left',
                       direction: 'ltr',
                       overflow: 'auto',
-                      transition: 'border-color 0.2s ease',
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
-                    onFocus={(e) => {
-                      (e.target as HTMLDivElement).style.borderColor = '#3b82f6';
-                    }}
-                    onBlurCapture={(e) => {
-                      (e.target as HTMLDivElement).style.borderColor = '#e2e8f0';
-                    }}
                     suppressContentEditableWarning={true}
                   />
                 </div>
@@ -4245,7 +3623,7 @@ Use the toolbar above or keyboard shortcuts:
                 {/* Node notes section */}
                 <div>
                   <div style={{ 
-                    fontSize: '14px', 
+                    fontSize: '13px', 
                     fontWeight: '600', 
                     color: '#1e293b',
                     marginBottom: '12px',
@@ -4255,24 +3633,25 @@ Use the toolbar above or keyboard shortcuts:
                   }}>
                     <span>📝</span>
                     <span>Node Notes</span>
-                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 400 }}>
+                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>
                       ({sortedNodeIds.length} nodes)
                     </span>
                   </div>
                   
                   {sortedNodeIds.length === 0 ? (
                     <div style={{ 
-                      fontSize: '14px', 
+                      fontSize: '13px', 
                       color: '#94a3b8', 
                       textAlign: 'center', 
-                      padding: '40px',
-                      background: '#f8fafc',
-                      borderRadius: '12px',
+                      padding: '32px',
+                      background: 'rgba(255,255,255,0.7)',
+                      borderRadius: '10px',
+                      border: '1px dashed rgba(148,163,184,0.4)',
                     }}>
                       No nodes in this path yet. Click nodes on the diagram to add them.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {sortedNodeIds.map((nodeId) => {
                         const node = nodes.find(n => n.id === nodeId);
                         const nodeData = node?.data as NodeData | undefined;
@@ -4280,16 +3659,18 @@ Use the toolbar above or keyboard shortcuts:
                         
                         return (
                           <div key={nodeId} style={{ 
-                            background: '#f8fafc',
-                            borderRadius: '12px',
-                            padding: '16px',
-                            border: '1px solid #e2e8f0',
+                            background: 'rgba(255,255,255,0.9)',
+                            borderRadius: '10px',
+                            border: '1px solid rgba(226,232,240,0.6)',
+                            overflow: 'hidden',
                           }}>
                             <div style={{ 
-                              fontSize: '13px', 
+                              fontSize: '12px', 
                               fontWeight: '600', 
                               color: nodeData?.color || '#1e293b',
-                              marginBottom: '10px',
+                              padding: '10px 14px',
+                              background: 'rgba(248,250,252,0.8)',
+                              borderBottom: '1px solid rgba(226,232,240,0.6)',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '6px',
@@ -4301,6 +3682,43 @@ Use the toolbar above or keyboard shortcuts:
                                 background: nodeData?.color || '#64748b',
                               }} />
                               {nodeData?.label || nodeId}
+                            </div>
+                            {/* Mini toolbar */}
+                            <div style={{
+                              display: 'flex',
+                              gap: '2px',
+                              padding: '6px 10px',
+                              background: 'rgba(248,250,252,0.5)',
+                              borderBottom: '1px solid rgba(226,232,240,0.3)',
+                            }}>
+                              {[
+                                { icon: 'B', cmd: 'bold', style: { fontWeight: 700 } },
+                                { icon: 'I', cmd: 'italic', style: { fontStyle: 'italic' } },
+                                { icon: 'U', cmd: 'underline', style: { textDecoration: 'underline' } },
+                                { icon: '•', cmd: 'insertUnorderedList' },
+                              ].map((btn, i) => (
+                                <button
+                                  key={i}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    document.execCommand(btn.cmd, false);
+                                  }}
+                                  style={{
+                                    border: 'none',
+                                    background: 'rgba(255,255,255,0.8)',
+                                    cursor: 'pointer',
+                                    padding: '3px 6px',
+                                    borderRadius: '3px',
+                                    color: '#64748b',
+                                    fontSize: '10px',
+                                    minWidth: '20px',
+                                    height: '20px',
+                                    ...btn.style,
+                                  }}
+                                >
+                                  {btn.icon}
+                                </button>
+                              ))}
                             </div>
                             <div
                               contentEditable
@@ -4351,12 +3769,11 @@ Use the toolbar above or keyboard shortcuts:
                               }}
                               style={{
                                 width: '100%',
-                                minHeight: '60px',
-                                maxHeight: '200px',
-                                padding: '12px',
+                                minHeight: '50px',
+                                maxHeight: '180px',
+                                padding: '12px 14px',
                                 fontSize: '13px',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '8px',
+                                border: 'none',
                                 background: 'white',
                                 color: '#334155',
                                 fontFamily: 'inherit',
@@ -4364,12 +3781,6 @@ Use the toolbar above or keyboard shortcuts:
                                 boxSizing: 'border-box',
                                 outline: 'none',
                                 overflow: 'auto',
-                              }}
-                              onFocus={(e) => {
-                                (e.target as HTMLDivElement).style.borderColor = '#3b82f6';
-                              }}
-                              onBlur={(e) => {
-                                (e.target as HTMLDivElement).style.borderColor = '#e2e8f0';
                               }}
                               suppressContentEditableWarning={true}
                             />
@@ -4383,26 +3794,43 @@ Use the toolbar above or keyboard shortcuts:
               
               {/* Footer */}
               <div style={{
-                padding: '12px 24px',
-                borderTop: '1px solid #e2e8f0',
-                background: '#f8fafc',
+                padding: '10px 20px',
+                borderTop: '1px solid rgba(226,232,240,0.6)',
+                background: 'rgba(248,250,252,0.8)',
                 display: 'flex',
                 gap: '16px',
-                fontSize: '11px',
+                fontSize: '10px',
                 color: '#64748b',
               }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ 
                     background: 'white', 
-                    padding: '3px 6px', 
-                    borderRadius: '4px',
-                    border: '1px solid #e2e8f0',
+                    padding: '2px 5px', 
+                    borderRadius: '3px',
+                    border: '1px solid rgba(226,232,240,0.6)',
                     fontWeight: 500,
                   }}>Esc</span>
-                  <span>Exit</span>
+                  <span>Close</span>
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>Double-click a path to open this view</span>
+                  <span style={{ 
+                    background: 'white', 
+                    padding: '2px 5px', 
+                    borderRadius: '3px',
+                    border: '1px solid rgba(226,232,240,0.6)',
+                    fontWeight: 500,
+                  }}>⌘B</span>
+                  <span>Bold</span>
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ 
+                    background: 'white', 
+                    padding: '2px 5px', 
+                    borderRadius: '3px',
+                    border: '1px solid rgba(226,232,240,0.6)',
+                    fontWeight: 500,
+                  }}>⌘I</span>
+                  <span>Italic</span>
                 </span>
               </div>
             </div>
@@ -4432,9 +3860,11 @@ Use the toolbar above or keyboard shortcuts:
               width: '95%',
               maxWidth: '800px',
               height: '90vh',
-              background: 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '20px',
-              boxShadow: '0 25px 80px rgba(0,0,0,0.2)',
+              background: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: '16px',
+              boxShadow: '0 25px 80px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset',
+              border: '1px solid rgba(255,255,255,0.3)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
@@ -4443,44 +3873,62 @@ Use the toolbar above or keyboard shortcuts:
           >
             {/* Header */}
             <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid #e2e8f0',
+              padding: '16px 20px',
+              borderBottom: '1px solid rgba(226,232,240,0.6)',
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              background: 'linear-gradient(180deg, #f8fafc 0%, white 100%)',
+              background: 'rgba(248,250,252,0.8)',
+              backdropFilter: 'blur(10px)',
               flexShrink: 0,
             }}>
-              <span style={{ fontSize: '24px' }}>📁</span>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(59,130,246,0.1) 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+              }}>
+                📁
+              </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b' }}>
                   Path Manager
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                  Focus mode · {pathsList.length} paths
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                  {pathsList.length} paths
                 </div>
               </div>
               <button
                 onClick={() => setSidebarFocusMode(false)}
+                title="Close (Esc)"
                 style={{
-                  background: 'rgba(239,68,68,0.1)',
+                  background: 'rgba(100,116,139,0.1)',
                   border: 'none',
-                  borderRadius: '10px',
-                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
                   cursor: 'pointer',
-                  color: '#ef4444',
-                  fontWeight: 600,
-                  fontSize: '13px',
+                  color: '#64748b',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
+                  e.currentTarget.style.background = 'rgba(100,116,139,0.2)';
+                  e.currentTarget.style.color = '#475569';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                  e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
+                  e.currentTarget.style.color = '#64748b';
                 }}
               >
-                Exit Focus Mode
+                ✕
               </button>
             </div>
             
