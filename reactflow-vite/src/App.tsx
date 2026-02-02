@@ -157,6 +157,126 @@ const PATHS_CSV_URL =
 const NODE_PATH_GVIZ_URL =
   'https://docs.google.com/spreadsheets/d/1q8s_0uDQen16KD9bqDJJ_CzKQRB5vcBxI5V1dbNhWnQ/gviz/tq?sheet=node-path&tqx=out:json';
 
+// ============================================
+// Rich Text Helper Functions
+// ============================================
+
+// Convert plain text with markdown-like syntax to HTML for rendering
+function textToHtml(text: string): string {
+  if (!text) return '';
+  
+  // Escape HTML first
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  // Convert markdown-style syntax to HTML (order matters - do longer patterns first)
+  // Bold: **text** or __text__
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  
+  // Italic: *text* or _text_ (but not inside links)
+  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
+  html = html.replace(/(?<!_)_([^_]+?)_(?!_)/g, '<em>$1</em>');
+  
+  // Underline: ~~text~~ (using ~~ for underline since it's available in our editor)
+  html = html.replace(/~~(.+?)~~/g, '<u>$1</u>');
+  
+  // Strikethrough: --text--
+  html = html.replace(/--(.+?)--/g, '<s>$1</s>');
+  
+  // Links: [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#3b82f6;text-decoration:underline;">$1</a>');
+  
+  // Headers: # Header
+  html = html.replace(/^### (.+)$/gm, '<span style="font-size:1.1em;font-weight:600;display:block;margin-top:8px;">$1</span>');
+  html = html.replace(/^## (.+)$/gm, '<span style="font-size:1.2em;font-weight:600;display:block;margin-top:8px;">$1</span>');
+  html = html.replace(/^# (.+)$/gm, '<span style="font-size:1.3em;font-weight:700;display:block;margin-top:8px;">$1</span>');
+  
+  // Bullet lists: - item or * item
+  html = html.replace(/^[\-\*] (.+)$/gm, '<span style="display:block;padding-left:16px;">• $1</span>');
+  
+  // Numbered lists: 1. item
+  html = html.replace(/^\d+\. (.+)$/gm, (_match, p1, offset, str) => {
+    // Count which number this is
+    const prevLines = str.slice(0, offset).split('\n');
+    let num = 1;
+    for (let i = prevLines.length - 1; i >= 0; i--) {
+      if (/^\d+\. /.test(prevLines[i])) num++;
+      else break;
+    }
+    return `<span style="display:block;padding-left:16px;">${num}. ${p1}</span>`;
+  });
+  
+  // Highlight: ==text==
+  html = html.replace(/==(.+?)==/g, '<mark style="background:#fef08a;padding:0 2px;border-radius:2px;">$1</mark>');
+  
+  // Newlines to <br>
+  html = html.replace(/\n/g, '<br>');
+  
+  return html;
+}
+
+// Convert HTML back to plain text with markdown-like syntax (for saving)
+// Note: Using globalThis.Node to avoid conflict with ReactFlow's Node type
+export function htmlToText(html: string): string {
+  if (!html) return '';
+  
+  // Create a temporary element to parse HTML
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  
+  // Walk through and convert
+  function processNode(node: globalThis.Node): string {
+    if (node.nodeType === globalThis.Node.TEXT_NODE) {
+      return node.textContent || '';
+    }
+    
+    if (node.nodeType === globalThis.Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+      const children = Array.from(el.childNodes).map((child: globalThis.Node) => processNode(child)).join('');
+      
+      switch (tag) {
+        case 'strong':
+        case 'b':
+          return `**${children}**`;
+        case 'em':
+        case 'i':
+          return `_${children}_`;
+        case 'u':
+          return `~~${children}~~`;
+        case 's':
+        case 'strike':
+          return `--${children}--`;
+        case 'a':
+          return `[${children}](${el.getAttribute('href') || ''})`;
+        case 'mark':
+          return `==${children}==`;
+        case 'br':
+          return '\n';
+        case 'div':
+        case 'p':
+          return children + '\n';
+        default:
+          return children;
+      }
+    }
+    
+    return '';
+  }
+  
+  let text = processNode(temp as globalThis.Node);
+  // Clean up extra newlines
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+  return text;
+}
+
+// ============================================
+// End Rich Text Helpers
+// ============================================
+
 function MethodNode(props: any) {
   const data = props.data as NodeData & { 
     isHighlighted?: boolean; 
@@ -786,6 +906,7 @@ function DiagramContent() {
   const searchRef = useRef<HTMLDivElement>(null);
   const notesPanelRef = useRef<HTMLDivElement>(null);
   const infoPanelRef = useRef<HTMLDivElement>(null);
+  const editorFocusModeRef = useRef<HTMLDivElement>(null);
   
   // Subscribe to sync status updates from Notion service
   useEffect(() => {
@@ -808,6 +929,7 @@ function DiagramContent() {
   const [slashMenuPos, setSlashMenuPos] = useState({ x: 0, y: 0 });
   const [slashMenuFilter, setSlashMenuFilter] = useState('');
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
+  const [notePreviewMode, setNotePreviewMode] = useState(false); // Toggle between edit and preview
   const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const slashStartPos = useRef<number>(0);
   
@@ -830,7 +952,12 @@ function DiagramContent() {
       if (showNotesPanel && notesPanelRef.current && !notesPanelRef.current.contains(target)) {
         setShowNotesPanel(false);
       }
+      // Don't close selectedNode when in editor focus mode
       if (selectedNode && infoPanelRef.current && !infoPanelRef.current.contains(target)) {
+        // Check if click is inside focus mode overlay
+        if (editorFocusModeRef.current && editorFocusModeRef.current.contains(target)) {
+          return; // Don't close when clicking inside focus mode
+        }
         setSelectedNode(null);
       }
     };
@@ -3628,11 +3755,40 @@ function DiagramContent() {
                 </button>
                 )
               ))}
-              {/* Slash command hint */}
-              <div style={{ marginLeft: 'auto', fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>/</span>
-                <span>for commands</span>
-              </div>
+              {/* Preview toggle button */}
+              <button
+                title={notePreviewMode ? 'Edit mode' : 'Preview mode'}
+                onClick={() => setNotePreviewMode(!notePreviewMode)}
+                style={{
+                  marginLeft: 'auto',
+                  border: 'none',
+                  background: notePreviewMode ? 'rgba(59,130,246,0.15)' : 'transparent',
+                  cursor: 'pointer',
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  color: notePreviewMode ? '#3b82f6' : '#64748b',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!notePreviewMode) {
+                    e.currentTarget.style.background = 'rgba(59,130,246,0.08)';
+                    e.currentTarget.style.color = '#3b82f6';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!notePreviewMode) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#64748b';
+                  }
+                }}
+              >
+                {notePreviewMode ? '✏️ Edit' : '👁️ Preview'}
+              </button>
             </div>
             
             {/* Slash command menu */}
@@ -3738,7 +3894,34 @@ function DiagramContent() {
               </div>
             )}
             
-            {/* Notes textarea */}
+            {/* Preview Mode Display */}
+            {notePreviewMode ? (
+              <div
+                onClick={() => setNotePreviewMode(false)}
+                style={{
+                  width: '100%',
+                  minHeight: editorFocusMode ? '300px' : '120px',
+                  maxHeight: editorFocusMode ? '500px' : '300px',
+                  padding: '14px 16px',
+                  fontSize: '14px',
+                  border: '1px solid #e2e8f0',
+                  borderTop: 'none',
+                  borderRadius: '0 0 10px 10px',
+                  background: '#ffffff',
+                  color: '#1e293b',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  lineHeight: 1.6,
+                  boxSizing: 'border-box',
+                  overflow: 'auto',
+                  cursor: 'text',
+                }}
+                title="Click to edit"
+                dangerouslySetInnerHTML={{ 
+                  __html: content ? textToHtml(content) : '<span style="color:#94a3b8;">Click to start writing...</span>' 
+                }}
+              />
+            ) : (
+            /* Notes textarea */
             <textarea
               ref={(el) => {
                 noteTextareaRef.current = el;
@@ -4039,6 +4222,7 @@ Tips:
                 setShowSlashMenu(false);
               }}
             />
+            )}
             
             {/* Keyboard shortcuts helper */}
             <div style={{
@@ -4268,6 +4452,7 @@ Tips:
         
         return (
           <div
+            ref={editorFocusModeRef}
             style={{
               position: 'fixed',
               inset: 0,
@@ -4331,6 +4516,38 @@ Tips:
                   }} />
                   {noteSaveStatus[nodeId] === 'saving' ? 'Saving...' : 'All changes saved'}
                 </span>
+                {/* Preview toggle in focus mode */}
+                <button
+                  onClick={() => setNotePreviewMode(!notePreviewMode)}
+                  style={{
+                    background: notePreviewMode ? 'rgba(59,130,246,0.15)' : 'rgba(100,116,139,0.1)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    cursor: 'pointer',
+                    color: notePreviewMode ? '#3b82f6' : '#64748b',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!notePreviewMode) {
+                      e.currentTarget.style.background = 'rgba(59,130,246,0.1)';
+                      e.currentTarget.style.color = '#3b82f6';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!notePreviewMode) {
+                      e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
+                      e.currentTarget.style.color = '#64748b';
+                    }
+                  }}
+                >
+                  {notePreviewMode ? '✏️ Edit' : '👁️ Preview'}
+                </button>
                 <button
                   onClick={() => setEditorFocusMode(false)}
                   style={{
@@ -4355,8 +4572,33 @@ Tips:
                 </button>
               </div>
               
-              {/* Focus mode textarea */}
+              {/* Focus mode content area */}
               <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+                {notePreviewMode ? (
+                  <div
+                    onClick={() => setNotePreviewMode(false)}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      minHeight: '400px',
+                      padding: '20px',
+                      fontSize: '16px',
+                      lineHeight: 1.8,
+                      border: '2px solid #e2e8f0',
+                      borderRadius: '12px',
+                      background: 'white',
+                      color: '#1e293b',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      boxSizing: 'border-box',
+                      cursor: 'text',
+                      overflow: 'auto',
+                    }}
+                    title="Click to edit"
+                    dangerouslySetInnerHTML={{ 
+                      __html: content ? textToHtml(content) : '<span style="color:#94a3b8;">Click to start writing...</span>' 
+                    }}
+                  />
+                ) : (
                 <textarea
                   autoFocus
                   placeholder="Start writing your notes here...
@@ -4480,6 +4722,7 @@ Tips:
                     e.target.style.background = '#fafafa';
                   }}
                 />
+                )}
               </div>
               
               {/* Keyboard shortcuts footer */}
@@ -4673,60 +4916,90 @@ Tips:
                 ))}
               </div>
               
-              {/* Paths list (simplified for focus mode) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {(viewMode === 'alpha' 
-                  ? [...pathsList].sort((a, b) => a.name.localeCompare(b.name))
-                  : viewMode === 'latest'
-                  ? [...pathsList].sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
-                  : pathsList
-                ).map((path) => (
-                  <div
-                    key={path.id}
-                    onClick={() => {
-                      showPath(path.name);
-                      setSidebarFocusMode(false);
-                    }}
-                    style={{
-                      padding: '14px 16px',
-                      background: activePath === path.name 
-                        ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-                        : '#f8fafc',
-                      border: activePath === path.name 
-                        ? '1px solid rgba(59,130,246,0.3)'
-                        : '1px solid #e2e8f0',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (activePath !== path.name) {
-                        e.currentTarget.style.background = '#f1f5f9';
-                        e.currentTarget.style.borderColor = '#cbd5e1';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (activePath !== path.name) {
-                        e.currentTarget.style.background = '#f8fafc';
-                        e.currentTarget.style.borderColor = '#e2e8f0';
-                      }
-                    }}
-                  >
-                    <div style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: activePath === path.name ? '#1d4ed8' : '#334155',
-                    }}>
-                      {path.name}
-                    </div>
-                    {path.category && (
-                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                        📁 {path.category}
+              {/* Content based on view mode */}
+              {viewMode === 'folder' ? (
+                /* FolderTree for folder view - reuse the same component from sidebar */
+                <FolderTree
+                  folders={folderTree}
+                  paths={folderPathItems}
+                  activePath={activePath}
+                  expandedFolders={expandedFolders}
+                  onToggleFolder={handleToggleFolder}
+                  onSelectPath={(pathName) => {
+                    showPath(pathName);
+                    setSidebarFocusMode(false);
+                  }}
+                  onCreateFolder={handleCreateFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onMovePathToFolder={handleMovePathToFolder}
+                  onMoveFolderToFolder={handleMoveFolderToFolder}
+                  onDeletePath={(pathName) => deletePathByName(pathName)}
+                  onRenamePath={renamePath}
+                  onShowPathNotes={(pathName) => {
+                    if (activePath !== pathName) {
+                      showPath(pathName);
+                    }
+                    setNotesPathName(pathName);
+                    setShowNotesPanel(true);
+                    setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                    setSidebarFocusMode(false);
+                  }}
+                />
+              ) : (
+                /* Simple list for A-Z and Latest views */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {(viewMode === 'alpha' 
+                    ? [...pathsList].sort((a, b) => a.name.localeCompare(b.name))
+                    : [...pathsList].sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
+                  ).map((path) => (
+                    <div
+                      key={path.id}
+                      onClick={() => {
+                        showPath(path.name);
+                        setSidebarFocusMode(false);
+                      }}
+                      style={{
+                        padding: '14px 16px',
+                        background: activePath === path.name 
+                          ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
+                          : '#f8fafc',
+                        border: activePath === path.name 
+                          ? '1px solid rgba(59,130,246,0.3)'
+                          : '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (activePath !== path.name) {
+                          e.currentTarget.style.background = '#f1f5f9';
+                          e.currentTarget.style.borderColor = '#cbd5e1';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (activePath !== path.name) {
+                          e.currentTarget.style.background = '#f8fafc';
+                          e.currentTarget.style.borderColor = '#e2e8f0';
+                        }
+                      }}
+                    >
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: activePath === path.name ? '#1d4ed8' : '#334155',
+                      }}>
+                        {path.name}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {path.category && (
+                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                          📁 {path.category}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
