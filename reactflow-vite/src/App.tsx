@@ -799,6 +799,35 @@ function DiagramContent() {
   const activePathIdRef = useRef<string | null>(null);
   const [noteSaveStatus, setNoteSaveStatus] = useState<Record<string, 'saved' | 'saving'>>({});
   
+  // Advanced editor features
+  const [noteUndoStack, setNoteUndoStack] = useState<Record<string, string[]>>({});
+  const [noteRedoStack, setNoteRedoStack] = useState<Record<string, string[]>>({});
+  const [noteLastEdited, setNoteLastEdited] = useState<Record<string, number>>({});
+  const [editorFocusMode, setEditorFocusMode] = useState(false);
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashMenuPos, setSlashMenuPos] = useState({ x: 0, y: 0 });
+  const [slashMenuFilter, setSlashMenuFilter] = useState('');
+  const [slashMenuIndex, setSlashMenuIndex] = useState(0);
+  const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const slashStartPos = useRef<number>(0);
+  
+  // Helper: format relative time
+  const formatRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (seconds < 5) return 'Just now';
+    if (seconds < 60) return `${seconds}s ago`;
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+  
   // Close search dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -3306,8 +3335,35 @@ function DiagramContent() {
       {activePathId && selectedNode && (() => {
         const nodeId = selectedNode.id.replace('personalized-', '');
         const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+        const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+        const charCount = content.length; // For future character limit feature
+        const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+        const lastEdited = noteLastEdited[nodeId];
+        const canUndo = (noteUndoStack[nodeId]?.length || 0) > 0;
+        const canRedo = (noteRedoStack[nodeId]?.length || 0) > 0;
+        void charCount; // Suppress unused variable warning - available for future use
+        
+        // Slash command options
+        const slashCommands = [
+          { icon: 'B', label: 'Bold', desc: 'Make text bold', format: '**', shortcut: '⌘B' },
+          { icon: 'I', label: 'Italic', desc: 'Make text italic', format: '_', shortcut: '⌘I' },
+          { icon: '—', label: 'Strikethrough', desc: 'Cross out text', format: '~~', shortcut: null },
+          { icon: '•', label: 'Bullet list', desc: 'Create a bullet list', format: '• ', shortcut: null },
+          { icon: '1.', label: 'Numbered list', desc: 'Create a numbered list', format: '1. ', shortcut: null },
+          { icon: '>', label: 'Quote', desc: 'Add a quote block', format: '> ', shortcut: null },
+          { icon: '`', label: 'Code', desc: 'Inline code', format: '`', shortcut: null },
+          { icon: '—', label: 'Divider', desc: 'Horizontal line', format: '\n---\n', shortcut: null },
+          { icon: '[ ]', label: 'Checkbox', desc: 'Add a checkbox', format: '- [ ] ', shortcut: null },
+          { icon: '#', label: 'Heading', desc: 'Section heading', format: '## ', shortcut: null },
+        ].filter(cmd => 
+          !slashMenuFilter || 
+          cmd.label.toLowerCase().includes(slashMenuFilter.toLowerCase()) ||
+          cmd.desc.toLowerCase().includes(slashMenuFilter.toLowerCase())
+        );
+        
         return (
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '20px', position: 'relative' }}>
+            {/* Header row with title, actions, and status */}
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -3322,15 +3378,123 @@ function DiagramContent() {
               }}>
                 Your Notes
               </span>
+              
+              {/* Undo/Redo buttons */}
+              <div style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
+                <button
+                  onClick={() => {
+                    if (!canUndo) return;
+                    const stack = [...(noteUndoStack[nodeId] || [])];
+                    const prev = stack.pop();
+                    if (prev !== undefined) {
+                      setNoteUndoStack(s => ({ ...s, [nodeId]: stack }));
+                      setNoteRedoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
+                      setSidebarNodeContent(s => ({ ...s, [nodeId]: prev }));
+                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: prev } }));
+                    }
+                  }}
+                  disabled={!canUndo}
+                  title="Undo (⌘Z)"
+                  style={{
+                    border: 'none',
+                    background: canUndo ? 'rgba(59,130,246,0.1)' : 'transparent',
+                    cursor: canUndo ? 'pointer' : 'default',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    color: canUndo ? '#3b82f6' : '#cbd5e1',
+                    fontSize: '12px',
+                    opacity: canUndo ? 1 : 0.5,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  ↩
+                </button>
+                <button
+                  onClick={() => {
+                    if (!canRedo) return;
+                    const stack = [...(noteRedoStack[nodeId] || [])];
+                    const next = stack.pop();
+                    if (next !== undefined) {
+                      setNoteRedoStack(s => ({ ...s, [nodeId]: stack }));
+                      setNoteUndoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
+                      setSidebarNodeContent(s => ({ ...s, [nodeId]: next }));
+                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: next } }));
+                    }
+                  }}
+                  disabled={!canRedo}
+                  title="Redo (⌘⇧Z)"
+                  style={{
+                    border: 'none',
+                    background: canRedo ? 'rgba(59,130,246,0.1)' : 'transparent',
+                    cursor: canRedo ? 'pointer' : 'default',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    color: canRedo ? '#3b82f6' : '#cbd5e1',
+                    fontSize: '12px',
+                    opacity: canRedo ? 1 : 0.5,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  ↪
+                </button>
+              </div>
+              
+              {/* Focus mode toggle */}
+              <button
+                onClick={() => setEditorFocusMode(!editorFocusMode)}
+                title={editorFocusMode ? 'Exit focus mode' : 'Focus mode'}
+                style={{
+                  border: 'none',
+                  background: editorFocusMode ? 'rgba(59,130,246,0.15)' : 'transparent',
+                  cursor: 'pointer',
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  color: editorFocusMode ? '#3b82f6' : '#94a3b8',
+                  fontSize: '12px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {editorFocusMode ? '⊙' : '◎'}
+              </button>
+              
+              {/* Spacer */}
+              <div style={{ flex: 1 }} />
+              
+              {/* Stats: word count, reading time, last edited */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                fontSize: '10px',
+                color: '#94a3b8',
+              }}>
+                {content && (
+                  <>
+                    <span title="Word count">{wordCount} words</span>
+                    <span>·</span>
+                    <span title="Estimated reading time">{readingTime} min read</span>
+                    {lastEdited && (
+                      <>
+                        <span>·</span>
+                        <span title={new Date(lastEdited).toLocaleString()}>
+                          Edited {formatRelativeTime(lastEdited)}
+                        </span>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              {/* Save status */}
               <span style={{
                 fontSize: '11px',
                 color: noteSaveStatus[nodeId] === 'saving' ? '#f59e0b' : '#22c55e',
-                marginLeft: 'auto',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
                 fontWeight: 500,
                 transition: 'color 0.2s ease',
+                marginLeft: '8px',
               }}>
                 {noteSaveStatus[nodeId] === 'saving' ? (
                   <>
@@ -3351,7 +3515,7 @@ function DiagramContent() {
                       borderRadius: '50%',
                       background: '#22c55e',
                     }} />
-                    All changes saved
+                    Saved
                   </>
                 )}
               </span>
@@ -3363,26 +3527,38 @@ function DiagramContent() {
               gap: '2px',
               padding: '6px 8px',
               background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
-              borderRadius: '10px 10px 0 0',
+              borderRadius: editorFocusMode ? '10px 10px 0 0' : '10px 10px 0 0',
               border: '1px solid #e2e8f0',
               borderBottom: 'none',
+              flexWrap: 'wrap',
+              alignItems: 'center',
             }}>
               {[
                 { icon: 'B', title: 'Bold (⌘B)', style: { fontWeight: 700 }, format: '**' },
                 { icon: 'I', title: 'Italic (⌘I)', style: { fontStyle: 'italic' }, format: '_' },
+                { icon: 'U', title: 'Underline (⌘U)', style: { textDecoration: 'underline' }, format: '__' },
                 { icon: '—', title: 'Strikethrough', style: { textDecoration: 'line-through' }, format: '~~' },
+                { icon: 'sep', title: '', style: {}, format: '' },
+                { icon: 'H', title: 'Heading', style: { fontWeight: 700, fontSize: '11px' }, format: '## ' },
                 { icon: '•', title: 'Bullet list', style: {}, format: '• ' },
                 { icon: '1.', title: 'Numbered list', style: { fontSize: '11px' }, format: '1. ' },
+                { icon: '☐', title: 'Checkbox', style: { fontSize: '11px' }, format: '- [ ] ' },
+                { icon: 'sep', title: '', style: {}, format: '' },
                 { icon: '>', title: 'Quote', style: { fontSize: '14px' }, format: '> ' },
                 { icon: '</>', title: 'Code', style: { fontFamily: 'monospace', fontSize: '10px' }, format: '`' },
+                { icon: '—', title: 'Divider', style: { letterSpacing: '-2px' }, format: '\n---\n' },
+                { icon: '🔗', title: 'Link (⌘K)', style: { fontSize: '11px' }, format: '[](url)' },
               ].map((btn, idx) => (
+                btn.icon === 'sep' ? (
+                  <div key={idx} style={{ width: '1px', height: '16px', background: '#e2e8f0', margin: '0 4px' }} />
+                ) : (
                 <button
                   key={idx}
                   title={btn.title}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    const textarea = e.currentTarget.closest('div')?.parentElement?.querySelector('textarea');
+                    const textarea = noteTextareaRef.current;
                     if (textarea) {
                       const start = textarea.selectionStart;
                       const end = textarea.selectionEnd;
@@ -3391,23 +3567,25 @@ function DiagramContent() {
                       let newText: string;
                       let newCursorPos: number;
                       
-                      if (['• ', '1. ', '> '].includes(btn.format)) {
-                        // Line prefix formats
+                      if (['• ', '1. ', '> ', '## ', '- [ ] '].includes(btn.format)) {
                         newText = text.substring(0, start) + btn.format + selectedText + text.substring(end);
                         newCursorPos = start + btn.format.length + selectedText.length;
+                      } else if (btn.format === '[](url)') {
+                        newText = text.substring(0, start) + '[' + (selectedText || 'link text') + '](url)' + text.substring(end);
+                        newCursorPos = start + 1 + (selectedText || 'link text').length + 2;
+                      } else if (btn.format === '\n---\n') {
+                        newText = text.substring(0, start) + '\n---\n' + text.substring(end);
+                        newCursorPos = start + 5;
                       } else {
-                        // Wrap formats
                         newText = text.substring(0, start) + btn.format + selectedText + btn.format + text.substring(end);
                         newCursorPos = end + btn.format.length * 2;
                       }
                       
-                      // Trigger the onChange handler
                       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
                       nativeInputValueSetter?.call(textarea, newText);
                       const inputEvent = new Event('input', { bubbles: true });
                       textarea.dispatchEvent(inputEvent);
                       
-                      // Restore focus and selection
                       setTimeout(() => {
                         textarea.focus();
                         textarea.setSelectionRange(newCursorPos, newCursorPos);
@@ -3422,7 +3600,7 @@ function DiagramContent() {
                     borderRadius: '4px',
                     color: '#475569',
                     fontSize: '12px',
-                    minWidth: '28px',
+                    minWidth: '26px',
                     height: '26px',
                     display: 'flex',
                     alignItems: 'center',
@@ -3441,12 +3619,122 @@ function DiagramContent() {
                 >
                   {btn.icon}
                 </button>
+                )
               ))}
+              {/* Slash command hint */}
+              <div style={{ marginLeft: 'auto', fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ background: '#f1f5f9', padding: '2px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>/</span>
+                <span>for commands</span>
+              </div>
             </div>
+            
+            {/* Slash command menu */}
+            {showSlashMenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: slashMenuPos.x,
+                  top: slashMenuPos.y,
+                  zIndex: 1000,
+                  background: 'white',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                  border: '1px solid #e2e8f0',
+                  minWidth: '220px',
+                  maxHeight: '280px',
+                  overflow: 'auto',
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                  Formatting
+                </div>
+                {slashCommands.length === 0 ? (
+                  <div style={{ padding: '12px', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>
+                    No matching commands
+                  </div>
+                ) : (
+                  slashCommands.map((cmd, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        const textarea = noteTextareaRef.current;
+                        if (textarea) {
+                          const text = textarea.value;
+                          const beforeSlash = text.substring(0, slashStartPos.current);
+                          const afterCursor = text.substring(textarea.selectionStart);
+                          let newText: string;
+                          let cursorPos: number;
+                          
+                          if (['• ', '1. ', '> ', '## ', '- [ ] '].includes(cmd.format)) {
+                            newText = beforeSlash + cmd.format + afterCursor;
+                            cursorPos = beforeSlash.length + cmd.format.length;
+                          } else if (cmd.format === '\n---\n') {
+                            newText = beforeSlash + '\n---\n' + afterCursor;
+                            cursorPos = beforeSlash.length + 5;
+                          } else {
+                            newText = beforeSlash + cmd.format + cmd.format + afterCursor;
+                            cursorPos = beforeSlash.length + cmd.format.length;
+                          }
+                          
+                          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                          nativeInputValueSetter?.call(textarea, newText);
+                          const inputEvent = new Event('input', { bubbles: true });
+                          textarea.dispatchEvent(inputEvent);
+                          
+                          setShowSlashMenu(false);
+                          setSlashMenuFilter('');
+                          
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(cursorPos, cursorPos);
+                          }, 0);
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: idx === slashMenuIndex ? 'rgba(59,130,246,0.08)' : 'transparent',
+                        transition: 'background 0.1s ease',
+                      }}
+                      onMouseEnter={() => setSlashMenuIndex(idx)}
+                    >
+                      <span style={{
+                        width: '28px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: '#f8fafc',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: '#475569',
+                        fontWeight: 600,
+                      }}>
+                        {cmd.icon}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{cmd.label}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{cmd.desc}</div>
+                      </div>
+                      {cmd.shortcut && (
+                        <span style={{ fontSize: '10px', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '3px' }}>
+                          {cmd.shortcut}
+                        </span>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
             
             {/* Notes textarea */}
             <textarea
               ref={(el) => {
+                noteTextareaRef.current = el;
                 // Auto-focus and place cursor at end when popup opens
                 if (el) {
                   setTimeout(() => {
@@ -3454,25 +3742,207 @@ function DiagramContent() {
                     el.setSelectionRange(el.value.length, el.value.length);
                     // Auto-resize
                     el.style.height = 'auto';
-                    el.style.height = Math.min(el.scrollHeight, 300) + 'px';
+                    el.style.height = Math.min(el.scrollHeight, editorFocusMode ? 500 : 300) + 'px';
                   }, 50);
                 }
               }}
               placeholder="Start writing your notes here...
 
 Tips:
-• Use **bold** for emphasis
-• Use _italic_ for subtle highlights
-• Use • or 1. for lists
-• Use > for quotes"
+• Type / for formatting commands
+• ⌘B for bold, ⌘I for italic
+• ⌘Z to undo, ⌘⇧Z to redo
+• Use **bold** or _italic_ syntax"
               value={content}
               onMouseDown={(e) => e.stopPropagation()}
               onWheelCapture={(e) => {
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
               }}
+              onKeyDown={(e) => {
+                const textarea = e.currentTarget;
+                const text = textarea.value;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const selectedText = text.substring(start, end);
+                
+                // Handle slash command menu navigation
+                if (showSlashMenu) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSlashMenuIndex(i => Math.min(i + 1, slashCommands.length - 1));
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSlashMenuIndex(i => Math.max(i - 1, 0));
+                    return;
+                  }
+                  if (e.key === 'Enter' && slashCommands.length > 0) {
+                    e.preventDefault();
+                    const cmd = slashCommands[slashMenuIndex];
+                    const beforeSlash = text.substring(0, slashStartPos.current);
+                    const afterCursor = text.substring(start);
+                    let newText: string;
+                    let cursorPos: number;
+                    
+                    if (['• ', '1. ', '> ', '## ', '- [ ] '].includes(cmd.format)) {
+                      newText = beforeSlash + cmd.format + afterCursor;
+                      cursorPos = beforeSlash.length + cmd.format.length;
+                    } else if (cmd.format === '\n---\n') {
+                      newText = beforeSlash + '\n---\n' + afterCursor;
+                      cursorPos = beforeSlash.length + 5;
+                    } else {
+                      newText = beforeSlash + cmd.format + cmd.format + afterCursor;
+                      cursorPos = beforeSlash.length + cmd.format.length;
+                    }
+                    
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                    nativeInputValueSetter?.call(textarea, newText);
+                    const inputEvent = new Event('input', { bubbles: true });
+                    textarea.dispatchEvent(inputEvent);
+                    
+                    setShowSlashMenu(false);
+                    setSlashMenuFilter('');
+                    
+                    setTimeout(() => {
+                      textarea.focus();
+                      textarea.setSelectionRange(cursorPos, cursorPos);
+                    }, 0);
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setShowSlashMenu(false);
+                    setSlashMenuFilter('');
+                    return;
+                  }
+                }
+                
+                // Keyboard shortcuts
+                const isMod = e.metaKey || e.ctrlKey;
+                
+                // Undo: ⌘Z
+                if (isMod && !e.shiftKey && e.key === 'z') {
+                  e.preventDefault();
+                  if (canUndo) {
+                    const stack = [...(noteUndoStack[nodeId] || [])];
+                    const prev = stack.pop();
+                    if (prev !== undefined) {
+                      setNoteUndoStack(s => ({ ...s, [nodeId]: stack }));
+                      setNoteRedoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
+                      setSidebarNodeContent(s => ({ ...s, [nodeId]: prev }));
+                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: prev } }));
+                    }
+                  }
+                  return;
+                }
+                
+                // Redo: ⌘⇧Z
+                if (isMod && e.shiftKey && e.key === 'z') {
+                  e.preventDefault();
+                  if (canRedo) {
+                    const stack = [...(noteRedoStack[nodeId] || [])];
+                    const next = stack.pop();
+                    if (next !== undefined) {
+                      setNoteRedoStack(s => ({ ...s, [nodeId]: stack }));
+                      setNoteUndoStack(s => ({ ...s, [nodeId]: [...(s[nodeId] || []), content] }));
+                      setSidebarNodeContent(s => ({ ...s, [nodeId]: next }));
+                      setNodePathMap(s => ({ ...s, [activePathId]: { ...(s[activePathId] || {}), [nodeId]: next } }));
+                    }
+                  }
+                  return;
+                }
+                
+                // Bold: ⌘B
+                if (isMod && e.key === 'b') {
+                  e.preventDefault();
+                  const newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
+                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                  nativeInputValueSetter?.call(textarea, newText);
+                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                  setTimeout(() => textarea.setSelectionRange(start + 2, end + 2), 0);
+                  return;
+                }
+                
+                // Italic: ⌘I
+                if (isMod && e.key === 'i') {
+                  e.preventDefault();
+                  const newText = text.substring(0, start) + '_' + selectedText + '_' + text.substring(end);
+                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                  nativeInputValueSetter?.call(textarea, newText);
+                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                  setTimeout(() => textarea.setSelectionRange(start + 1, end + 1), 0);
+                  return;
+                }
+                
+                // Underline: ⌘U
+                if (isMod && e.key === 'u') {
+                  e.preventDefault();
+                  const newText = text.substring(0, start) + '__' + selectedText + '__' + text.substring(end);
+                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                  nativeInputValueSetter?.call(textarea, newText);
+                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                  setTimeout(() => textarea.setSelectionRange(start + 2, end + 2), 0);
+                  return;
+                }
+                
+                // Link: ⌘K
+                if (isMod && e.key === 'k') {
+                  e.preventDefault();
+                  const linkText = selectedText || 'link text';
+                  const newText = text.substring(0, start) + '[' + linkText + '](url)' + text.substring(end);
+                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                  nativeInputValueSetter?.call(textarea, newText);
+                  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                  const urlStart = start + 1 + linkText.length + 2;
+                  setTimeout(() => textarea.setSelectionRange(urlStart, urlStart + 3), 0);
+                  return;
+                }
+              }}
+              onInput={(e) => {
+                const textarea = e.currentTarget;
+                const text = textarea.value;
+                const pos = textarea.selectionStart;
+                
+                // Check for slash command trigger
+                const textBeforeCursor = text.substring(0, pos);
+                const lastSlash = textBeforeCursor.lastIndexOf('/');
+                
+                if (lastSlash !== -1) {
+                  const textAfterSlash = textBeforeCursor.substring(lastSlash + 1);
+                  // Only show menu if slash is at start of line or after whitespace, and no spaces in filter
+                  const charBeforeSlash = lastSlash > 0 ? text[lastSlash - 1] : '\n';
+                  if ((charBeforeSlash === '\n' || charBeforeSlash === ' ' || lastSlash === 0) && !textAfterSlash.includes(' ')) {
+                    slashStartPos.current = lastSlash;
+                    setSlashMenuFilter(textAfterSlash);
+                    setSlashMenuIndex(0);
+                    
+                    // Position the menu
+                    const rect = textarea.getBoundingClientRect();
+                    setSlashMenuPos({ x: 20, y: rect.height + 10 });
+                    setShowSlashMenu(true);
+                  } else {
+                    setShowSlashMenu(false);
+                  }
+                } else {
+                  setShowSlashMenu(false);
+                }
+              }}
               onChange={(e) => {
                 const newContent = e.target.value;
+                const prevContent = content;
+                
+                // Push to undo stack (limit to 50 entries)
+                if (prevContent !== newContent) {
+                  setNoteUndoStack(prev => {
+                    const stack = [...(prev[nodeId] || []), prevContent].slice(-50);
+                    return { ...prev, [nodeId]: stack };
+                  });
+                  // Clear redo stack on new change
+                  setNoteRedoStack(prev => ({ ...prev, [nodeId]: [] }));
+                }
+                
                 setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
                 
                 setNodePathMap(prev => ({
@@ -3485,13 +3955,16 @@ Tips:
                 
                 setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
                 
+                // Update last edited timestamp
+                setNoteLastEdited(prev => ({ ...prev, [nodeId]: Date.now() }));
+                
                 // Set status to saving
                 setNoteSaveStatus(prev => ({ ...prev, [nodeId]: 'saving' }));
                 
                 // Auto-resize
                 const textarea = e.target;
                 textarea.style.height = 'auto';
-                textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px';
+                textarea.style.height = Math.min(textarea.scrollHeight, editorFocusMode ? 500 : 300) + 'px';
                 
                 // Debounced auto-save
                 if (debounceTimerRef.current[nodeId]) {
@@ -3530,8 +4003,8 @@ Tips:
               }}
               style={{
                 width: '100%',
-                minHeight: '120px',
-                maxHeight: '300px',
+                minHeight: editorFocusMode ? '300px' : '120px',
+                maxHeight: editorFocusMode ? '500px' : '300px',
                 padding: '14px 16px',
                 fontSize: '14px',
                 border: '1px solid #e2e8f0',
@@ -3545,7 +4018,7 @@ Tips:
                 boxSizing: 'border-box',
                 overflow: 'auto',
                 outline: 'none',
-                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                transition: 'all 0.2s ease',
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = '#3b82f6';
@@ -3553,13 +4026,54 @@ Tips:
                 // Auto-resize
                 const textarea = e.target;
                 textarea.style.height = 'auto';
-                textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px';
+                textarea.style.height = Math.min(textarea.scrollHeight, editorFocusMode ? 500 : 300) + 'px';
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = '#e2e8f0';
                 e.target.style.boxShadow = 'none';
+                // Close slash menu on blur
+                setShowSlashMenu(false);
               }}
             />
+            
+            {/* Keyboard shortcuts helper */}
+            <div style={{
+              marginTop: '8px',
+              padding: '8px 12px',
+              background: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px solid #f1f5f9',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '12px',
+              fontSize: '10px',
+              color: '#64748b',
+            }}>
+              {[
+                { keys: '⌘B', label: 'Bold' },
+                { keys: '⌘I', label: 'Italic' },
+                { keys: '⌘U', label: 'Underline' },
+                { keys: '⌘K', label: 'Link' },
+                { keys: '⌘Z', label: 'Undo' },
+                { keys: '⌘⇧Z', label: 'Redo' },
+                { keys: '/', label: 'Commands' },
+              ].map((shortcut, i) => (
+                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ 
+                    background: 'white', 
+                    padding: '2px 5px', 
+                    borderRadius: '3px', 
+                    fontFamily: 'system-ui',
+                    fontWeight: 500,
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    border: '1px solid #e2e8f0',
+                  }}>
+                    {shortcut.keys}
+                  </span>
+                  <span>{shortcut.label}</span>
+                </span>
+              ))}
+            </div>
           </div>
         );
       })()}
