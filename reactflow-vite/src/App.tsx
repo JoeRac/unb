@@ -878,18 +878,20 @@ function DiagramContent() {
   const nodesRef = useRef<Node[]>([]);
   nodesRef.current = nodes;
 
-  // Handler for info button click - shows the popup (uses ref to avoid dependency on nodes)
+  // Handler for info button click - opens focus mode directly
   const handleInfoClick = useCallback((nodeId: string) => {
     const currentNodes = nodesRef.current;
     const node = currentNodes.find(n => n.id === nodeId || n.id === `personalized-${nodeId}` || nodeId === `personalized-${n.id}`);
     if (node) {
       setSelectedNode(node);
+      setEditorFocusMode(true);
     } else {
       // Try to find by stripping personalized- prefix
       const cleanId = nodeId.replace('personalized-', '');
       const foundNode = currentNodes.find(n => n.id === cleanId || n.id === nodeId);
       if (foundNode) {
         setSelectedNode(foundNode);
+        setEditorFocusMode(true);
       }
     }
   }, []); // Empty deps - uses ref instead
@@ -3583,8 +3585,8 @@ Click and type, then use the toolbar or:
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(15, 23, 42, 0.85)',
-              backdropFilter: 'blur(8px)',
+              background: 'rgba(15, 23, 42, 0.4)',
+              backdropFilter: 'blur(20px)',
             }}
             onClick={(e) => {
               if (e.target === e.currentTarget) setEditorFocusMode(false);
@@ -3592,12 +3594,12 @@ Click and type, then use the toolbar or:
           >
             <div
               style={{
-                width: '90%',
-                maxWidth: '900px',
+                width: '95%',
+                maxWidth: '1200px',
                 maxHeight: '90vh',
-                background: 'white',
+                background: 'rgba(255, 255, 255, 0.95)',
                 borderRadius: '20px',
-                boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
+                boxShadow: '0 25px 80px rgba(0,0,0,0.2)',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -3663,24 +3665,28 @@ Click and type, then use the toolbar or:
                 </button>
               </div>
               
-              {/* Focus mode WYSIWYG toolbar */}
-              <div style={{
-                padding: '12px 24px',
-                borderBottom: '1px solid #e2e8f0',
-                display: 'flex',
-                gap: '4px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                background: '#f8fafc',
-              }}>
-                {[
-                  { icon: 'B', title: 'Bold (⌘B)', command: 'bold', style: { fontWeight: 700 } },
-                  { icon: 'I', title: 'Italic (⌘I)', command: 'italic', style: { fontStyle: 'italic' } },
-                  { icon: 'U', title: 'Underline (⌘U)', command: 'underline', style: { textDecoration: 'underline' } },
-                  { icon: '—', title: 'Strikethrough', command: 'strikeThrough', style: { textDecoration: 'line-through' } },
-                  { icon: 'sep' },
-                  { icon: 'H₁', title: 'Heading 1', command: 'formatBlock', arg: 'h2', style: { fontWeight: 700 } },
-                  { icon: 'H₂', title: 'Heading 2', command: 'formatBlock', arg: 'h3', style: { fontWeight: 600, fontSize: '12px' } },
+              {/* Two-column layout */}
+              <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                {/* Left column: Notes editor */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #e2e8f0' }}>
+                  {/* Focus mode WYSIWYG toolbar */}
+                  <div style={{
+                    padding: '12px 24px',
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    gap: '4px',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    background: '#f8fafc',
+                  }}>
+                    {[
+                      { icon: 'B', title: 'Bold (⌘B)', command: 'bold', style: { fontWeight: 700 } },
+                      { icon: 'I', title: 'Italic (⌘I)', command: 'italic', style: { fontStyle: 'italic' } },
+                      { icon: 'U', title: 'Underline (⌘U)', command: 'underline', style: { textDecoration: 'underline' } },
+                      { icon: '—', title: 'Strikethrough', command: 'strikeThrough', style: { textDecoration: 'line-through' } },
+                      { icon: 'sep' },
+                      { icon: 'H₁', title: 'Heading 1', command: 'formatBlock', arg: 'h2', style: { fontWeight: 700 } },
+                      { icon: 'H₂', title: 'Heading 2', command: 'formatBlock', arg: 'h3', style: { fontWeight: 600, fontSize: '12px' } },
                   { icon: '•', title: 'Bullet list', command: 'insertUnorderedList' },
                   { icon: '1.', title: 'Numbered list', command: 'insertOrderedList', style: { fontSize: '12px' } },
                   { icon: 'sep' },
@@ -3888,6 +3894,177 @@ Use the toolbar above or keyboard shortcuts:
                   </span>
                 ))}
               </div>
+                </div>
+                
+                {/* Right column: Documentation */}
+                <div style={{ width: '380px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+                  <div style={{
+                    padding: '16px 20px',
+                    borderBottom: '1px solid #e2e8f0',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    color: '#1e293b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}>
+                    <span>📚</span>
+                    <span>Documentation</span>
+                  </div>
+                  <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+                    {/* Long description */}
+                    {selectedNodeData?.longDescription && (
+                      <p style={{ 
+                        lineHeight: 1.7, 
+                        color: '#475569',
+                        fontSize: '13px',
+                        margin: '0 0 16px',
+                        padding: '12px 14px',
+                        background: 'white',
+                        borderRadius: '8px',
+                        borderLeft: `3px solid ${selectedNodeData.color || '#3b82f6'}`,
+                      }}>
+                        {selectedNodeData.longDescription}
+                      </p>
+                    )}
+
+                    {/* Images */}
+                    {selectedNodeData?.images?.map((img) => (
+                      <img
+                        key={img.src}
+                        src={img.src}
+                        alt={img.alt || ''}
+                        style={{
+                          width: '100%',
+                          borderRadius: '10px',
+                          marginBottom: '12px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        }}
+                      />
+                    ))}
+
+                    {/* Video */}
+                    {selectedNodeData?.video && (
+                      selectedNodeData.video.type === 'html5' ? (
+                        <video
+                          controls
+                          src={selectedNodeData.video.url}
+                          style={{
+                            width: '100%',
+                            borderRadius: '10px',
+                            marginBottom: '12px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                          }}
+                        />
+                      ) : (
+                        <iframe
+                          src={selectedNodeData.video.url}
+                          style={{
+                            width: '100%',
+                            aspectRatio: '16 / 9',
+                            borderRadius: '10px',
+                            marginBottom: '12px',
+                            border: 'none',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                          }}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      )
+                    )}
+
+                    {/* External links */}
+                    {(selectedNodeData?.externalLinks?.length ?? 0) > 0 && (
+                      <div style={{ marginBottom: '12px' }}>
+                        {selectedNodeData!.externalLinks!.map((link) => (
+                          <a
+                            key={link.url}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '10px 14px',
+                              marginBottom: '8px',
+                              background: 'white',
+                              borderRadius: '8px',
+                              color: '#2563eb',
+                              fontWeight: 500,
+                              fontSize: '13px',
+                              textDecoration: 'none',
+                              transition: 'all 0.15s ease',
+                              border: '1px solid #e2e8f0',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#eff6ff';
+                              e.currentTarget.style.transform = 'translateX(4px)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.transform = 'translateX(0)';
+                            }}
+                          >
+                            <span>🔗</span>
+                            <span style={{ flex: 1 }}>{link.label}</span>
+                            <span style={{ opacity: 0.6 }}>↗</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Wiki / Documentation button */}
+                    {selectedNodeData?.wikiUrl && (
+                      <a
+                        href={selectedNodeData.wikiUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '12px 16px',
+                          background: `linear-gradient(135deg, ${selectedNodeData.color || '#3b82f6'} 0%, ${selectedNodeData.color || '#3b82f6'}dd 100%)`,
+                          color: 'white',
+                          borderRadius: '10px',
+                          fontWeight: 600,
+                          fontSize: '13px',
+                          textDecoration: 'none',
+                          boxShadow: `0 4px 14px ${selectedNodeData.color || '#3b82f6'}40`,
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = `0 6px 20px ${selectedNodeData?.color || '#3b82f6'}50`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = `0 4px 14px ${selectedNodeData?.color || '#3b82f6'}40`;
+                        }}
+                      >
+                        <span>📚</span>
+                        <span>Open Documentation</span>
+                        <span>↗</span>
+                      </a>
+                    )}
+                    
+                    {/* No documentation message */}
+                    {!selectedNodeData?.longDescription && !selectedNodeData?.images?.length && !selectedNodeData?.video && !selectedNodeData?.externalLinks?.length && !selectedNodeData?.wikiUrl && (
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '40px 20px',
+                        color: '#94a3b8',
+                        fontSize: '13px',
+                      }}>
+                        <span style={{ fontSize: '32px', display: 'block', marginBottom: '12px', opacity: 0.5 }}>📄</span>
+                        <p style={{ margin: 0 }}>No documentation available for this node.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -3920,8 +4097,8 @@ Use the toolbar above or keyboard shortcuts:
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(15, 23, 42, 0.85)',
-              backdropFilter: 'blur(8px)',
+              background: 'rgba(15, 23, 42, 0.4)',
+              backdropFilter: 'blur(20px)',
             }}
             onClick={(e) => {
               if (e.target === e.currentTarget) setPathNotesFocusMode(false);
@@ -3929,12 +4106,12 @@ Use the toolbar above or keyboard shortcuts:
           >
             <div
               style={{
-                width: '90%',
-                maxWidth: '900px',
+                width: '95%',
+                maxWidth: '1200px',
                 maxHeight: '90vh',
-                background: 'white',
+                background: 'rgba(255, 255, 255, 0.95)',
                 borderRadius: '20px',
-                boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
+                boxShadow: '0 25px 80px rgba(0,0,0,0.2)',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -4243,8 +4420,8 @@ Use the toolbar above or keyboard shortcuts:
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(15, 23, 42, 0.85)',
-            backdropFilter: 'blur(8px)',
+            background: 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(20px)',
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setSidebarFocusMode(false);
@@ -4252,12 +4429,12 @@ Use the toolbar above or keyboard shortcuts:
         >
           <div
             style={{
-              width: '90%',
-              maxWidth: '600px',
+              width: '95%',
+              maxWidth: '800px',
               height: '90vh',
-              background: 'white',
+              background: 'rgba(255, 255, 255, 0.95)',
               borderRadius: '20px',
-              boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
+              boxShadow: '0 25px 80px rgba(0,0,0,0.2)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
