@@ -663,8 +663,6 @@ function DiagramContent() {
   // Panel position and size state for draggable/resizable panels
   const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
   const [leftPanelSize, setLeftPanelSize] = useState({ width: 260, height: 600 });
-  const [infoPanelPos, setInfoPanelPos] = useState({ x: window.innerWidth - 400, y: 20 });
-  const [infoPanelSize, setInfoPanelSize] = useState({ width: 360, height: 500 });
   const [notesPathName, setNotesPathName] = useState<string | null>(null);
   const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | null>(null);
   const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info'; edge: string } | null>(null);
@@ -697,8 +695,6 @@ function DiagramContent() {
   const [noteSaveStatus, setNoteSaveStatus] = useState<Record<string, 'saved' | 'saving'>>({});
   
   // Advanced editor features
-  const [noteUndoStack, setNoteUndoStack] = useState<Record<string, string[]>>({});
-  const [noteRedoStack, setNoteRedoStack] = useState<Record<string, string[]>>({});
   const [editorFocusMode, setEditorFocusMode] = useState(false);
   const [sidebarFocusMode, setSidebarFocusMode] = useState(false);
   const [pathNotesFocusMode, setPathNotesFocusMode] = useState(false); // Focus mode for path notes
