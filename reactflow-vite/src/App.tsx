@@ -591,166 +591,7 @@ function PersonalizedNode(props: any) {
   );
 }
 
-// Path notes node - appears as first node in the path, shows path title and notes
-function PathNotesNode(props: any) {
-  const data = props.data as {
-    pathName: string;
-    pathNotes: string;
-    isEditing: boolean;
-    onStartEdit: () => void;
-    onStopEdit: () => void;
-    onNotesChange: (notes: string) => void;
-  };
-  const [localNotes, setLocalNotes] = useState(data.pathNotes || '');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
-  // Sync local notes with prop when it changes externally
-  useEffect(() => {
-    setLocalNotes(data.pathNotes || '');
-  }, [data.pathNotes]);
-  
-  // Auto-resize textarea based on content
-  useEffect(() => {
-    if (textareaRef.current && data.isEditing) {
-      const textarea = textareaRef.current;
-      textarea.style.height = 'auto';
-      const lineHeight = 15; // ~11px font * 1.4 line-height
-      const maxRows = 15;
-      const maxHeight = lineHeight * maxRows;
-      const scrollHeight = textarea.scrollHeight;
-      textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
-    }
-  }, [localNotes, data.isEditing]);
-  
-  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    e.stopPropagation();
-    const newValue = e.target.value;
-    setLocalNotes(newValue);
-    if (data.onNotesChange) {
-      data.onNotesChange(newValue);
-    }
-  };
-  
-  const previewText = (data.pathNotes || '').split('\n').slice(0, 2).join('\n') || 'Click to add path notes...';
-  const hasNotes = !!(data.pathNotes && data.pathNotes.trim());
-  
-  return (
-    <div
-      style={{
-        padding: '14px 16px',
-        fontSize: 13,
-        borderRadius: 14,
-        background: 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)',
-        color: '#1e40af',
-        border: '2px solid rgba(59, 130, 246, 0.4)',
-        minWidth: 200,
-        maxWidth: 400,
-        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.18), 0 4px 20px rgba(59, 130, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 1)',
-        position: 'relative',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{ background: '#555', opacity: 0, width: 0, height: 0 }}
-        isConnectable={false}
-      />
-      
-      {/* Path name title */}
-      <div style={{ 
-        fontWeight: 700, 
-        fontSize: 14, 
-        marginBottom: 8, 
-        textAlign: 'center',
-        color: '#1e40af',
-        borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
-        paddingBottom: 8,
-      }}>
-        📋 {data.pathName || 'Path Notes'}
-      </div>
-      
-      {/* Notes area */}
-      <div 
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!data.isEditing && data.onStartEdit) {
-            data.onStartEdit();
-          }
-        }}
-        style={{ marginTop: 4 }}
-      >
-        {data.isEditing ? (
-          <textarea
-            ref={textareaRef}
-            dir="ltr"
-            autoFocus
-            value={localNotes}
-            onChange={handleNotesChange}
-            onBlur={() => data.onStopEdit && data.onStopEdit()}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onWheelCapture={(e) => {
-              // Stop the wheel event from reaching ReactFlow
-              e.stopPropagation();
-              e.nativeEvent.stopImmediatePropagation();
-            }}
-            placeholder="Add path notes..."
-            style={{
-              width: '100%',
-              minHeight: '80px',
-              maxHeight: '225px', // ~15 rows at 15px line height
-              padding: '8px 10px',
-              fontSize: 11,
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.95)',
-              color: '#334155',
-              resize: 'both',
-              fontFamily: 'inherit',
-              lineHeight: 1.4,
-              boxSizing: 'border-box',
-              outline: 'none',
-              textAlign: 'left',
-              direction: 'ltr',
-              overflow: 'auto',
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              fontSize: 11,
-              color: hasNotes ? '#334155' : '#94a3b8',
-              fontStyle: hasNotes ? 'normal' : 'italic',
-              cursor: 'text',
-              overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical',
-              lineHeight: 1.4,
-              minHeight: '40px',
-              textAlign: 'left',
-              padding: '4px',
-              background: 'rgba(255, 255, 255, 0.5)',
-              borderRadius: 6,
-            }}
-          >
-            {previewText}
-          </div>
-        )}
-      </div>
-      
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{ background: '#555', opacity: 0, width: 0, height: 0 }}
-        isConnectable={false}
-      />
-    </div>
-  );
-}
-
-const nodeTypes = { method: MethodNode, personalizedNode: PersonalizedNode, pathNotes: PathNotesNode };
+const nodeTypes = { method: MethodNode, personalizedNode: PersonalizedNode };
 
 type PathRow = {
   id: string;
@@ -825,12 +666,9 @@ function DiagramContent() {
   const [leftPanelSize, setLeftPanelSize] = useState({ width: 260, height: 600 });
   const [infoPanelPos, setInfoPanelPos] = useState({ x: window.innerWidth - 400, y: 20 });
   const [infoPanelSize, setInfoPanelSize] = useState({ width: 360, height: 500 });
-  const [notesPanelPos, setNotesPanelPos] = useState({ x: 300, y: 20 });
-  const [notesPanelSize, setNotesPanelSize] = useState({ width: 280, height: 450 });
-  const [showNotesPanel, setShowNotesPanel] = useState(false);
   const [notesPathName, setNotesPathName] = useState<string | null>(null);
-  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | 'notes' | null>(null);
-  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info' | 'notes'; edge: string } | null>(null);
+  const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info'; edge: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, width: 0, height: 0, x: 0, y: 0 });
   
@@ -839,15 +677,10 @@ function DiagramContent() {
   
   // Path-level notes state
   const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
-  const [editingPathNotes, setEditingPathNotes] = useState<'panel' | 'node' | null>(null);
-  
-  // Path notes node ID (for the node that appears above the first node in a path)
-  const PATH_NOTES_NODE_ID = '__path_notes__';
   
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
-  const notesPanelRef = useRef<HTMLDivElement>(null);
   const infoPanelRef = useRef<HTMLDivElement>(null);
   const editorFocusModeRef = useRef<HTMLDivElement>(null);
   
@@ -869,9 +702,12 @@ function DiagramContent() {
   const [noteRedoStack, setNoteRedoStack] = useState<Record<string, string[]>>({});
   const [editorFocusMode, setEditorFocusMode] = useState(false);
   const [sidebarFocusMode, setSidebarFocusMode] = useState(false);
+  const [pathNotesFocusMode, setPathNotesFocusMode] = useState(false); // Focus mode for path notes
   const wysiwygEditorRef = useRef<HTMLDivElement | null>(null);
   const focusModeEditorRef = useRef<HTMLDivElement | null>(null);
+  const pathNotesFocusModeEditorRef = useRef<HTMLDivElement | null>(null); // Ref for path notes focus mode editor
   const focusModeInitialized = useRef(false); // Track if focus mode editor has been initialized
+  const pathNotesFocusModeInitialized = useRef(false); // Track if path notes focus mode editor has been initialized
   const mainEditorInitialized = useRef<string | null>(null); // Track which node's content is loaded in main editor
   const updatePathNodesCallbackRef = useRef<((pathId: string, pathName: string, nodeIds: Set<string>) => void) | null>(null);
   const [highlightedFolderId, setHighlightedFolderId] = useState<string | null>(null);
@@ -892,9 +728,6 @@ function DiagramContent() {
     const handleOutsidePanels = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
-      if (showNotesPanel && notesPanelRef.current && !notesPanelRef.current.contains(target)) {
-        setShowNotesPanel(false);
-      }
       // Don't close selectedNode when in editor focus mode
       if (selectedNode && infoPanelRef.current && !infoPanelRef.current.contains(target)) {
         // Check if click is inside focus mode overlay
@@ -906,7 +739,7 @@ function DiagramContent() {
     };
     document.addEventListener('mousedown', handleOutsidePanels);
     return () => document.removeEventListener('mousedown', handleOutsidePanels);
-  }, [showNotesPanel, selectedNode]);
+  }, [selectedNode]);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -967,11 +800,6 @@ function DiagramContent() {
           x: Math.max(0, e.clientX - dragOffset.x),
           y: Math.max(0, e.clientY - dragOffset.y),
         });
-      } else if (isDraggingPanel === 'notes') {
-        setNotesPanelPos({
-          x: Math.max(0, e.clientX - dragOffset.x),
-          y: Math.max(0, e.clientY - dragOffset.y),
-        });
       }
       
       if (resizeEdge) {
@@ -979,9 +807,9 @@ function DiagramContent() {
         const deltaX = e.clientX - resizeStart.mouseX;
         const deltaY = e.clientY - resizeStart.mouseY;
         
-        const setPos = panel === 'left' ? setLeftPanelPos : panel === 'info' ? setInfoPanelPos : setNotesPanelPos;
-        const setSize = panel === 'left' ? setLeftPanelSize : panel === 'info' ? setInfoPanelSize : setNotesPanelSize;
-        const minW = panel === 'left' ? 180 : panel === 'notes' ? 220 : 280;
+        const setPos = panel === 'left' ? setLeftPanelPos : setInfoPanelPos;
+        const setSize = panel === 'left' ? setLeftPanelSize : setInfoPanelSize;
+        const minW = panel === 'left' ? 180 : 280;
         const minH = 200;
         
         if (edge.includes('e')) {
@@ -1071,8 +899,8 @@ function DiagramContent() {
 
   // Handler for toggle select button - toggles node selection without opening popup
   const handleToggleSelect = useCallback((nodeId: string) => {
-    // Skip personalized nodes and path notes
-    if (nodeId.startsWith('personalized-') || nodeId === PATH_NOTES_NODE_ID) return;
+    // Skip personalized nodes
+    if (nodeId.startsWith('personalized-')) return;
     
     setManualHighlights((prev) => {
       const next = new Set(prev);
@@ -1120,16 +948,6 @@ function DiagramContent() {
 
   const handleStopEditNote = useCallback(() => {
     setEditingNoteNodeId(null);
-  }, []);
-
-  // Path notes node handlers
-  const handlePathNotesStartEdit = useCallback(() => {
-    if (!activePathId) return;
-    setEditingPathNotes('node');
-  }, [activePathId]);
-  
-  const handlePathNotesStopEdit = useCallback(() => {
-    setEditingPathNotes(null);
   }, []);
 
   const handleNodeNoteChange = useCallback((nodeId: string, note: string) => {
@@ -1278,31 +1096,6 @@ function DiagramContent() {
     });
   }, [editingNoteNodeId, sidebarNodeContent, activePathId, nodePathMap, handleNodeNoteChange, handleStartEditNote, handleStopEditNote, dataLoading]);
 
-  // Sync path notes node with editing state and path notes content
-  useEffect(() => {
-    const currentPathId = activePathId;
-    if (!currentPathId || !activePath) return;
-    
-    setNodes((nds) => {
-      return nds.map((n) => {
-        if (n.id !== PATH_NOTES_NODE_ID) return n;
-        
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            pathName: activePath,
-            pathNotes: pathNotes[currentPathId] || '',
-            isEditing: editingPathNotes === 'node',
-            onStartEdit: handlePathNotesStartEdit,
-            onStopEdit: handlePathNotesStopEdit,
-            onNotesChange: handlePathNotesChange,
-          },
-        };
-      });
-    });
-  }, [editingPathNotes, pathNotes, activePathId, activePath, handlePathNotesStartEdit, handlePathNotesStopEdit, handlePathNotesChange]);
-
 
   // Rename a path (instant UI update, background save)
   const renamePath = useCallback((oldName: string, newName: string) => {
@@ -1445,7 +1238,7 @@ function DiagramContent() {
         );
       }
       if (notesPathName === pathNameToDelete) {
-        setShowNotesPanel(false);
+        setPathNotesFocusMode(false);
         setNotesPathName(null);
       }
 
@@ -2232,8 +2025,8 @@ function DiagramContent() {
       setSelectedNode(null);
       
       // Only toggle selection, don't show popup (popup is triggered by info button)
-      // Skip personalized nodes and path notes node from toggling
-      if (node.id.startsWith('personalized-') || node.id === PATH_NOTES_NODE_ID) return;
+      // Skip personalized nodes from toggling
+      if (node.id.startsWith('personalized-')) return;
       
       setManualHighlights((prev) => {
         const next = new Set(prev);
@@ -2285,13 +2078,11 @@ function DiagramContent() {
     setActivePathId(currentPathId);
     setSidebarNodeContent({}); // Reset content when switching paths
     setPathName(pathName); // Populate path name input with loaded path name
-    setEditingPathNotes(null); // Reset editing state
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
     setNodes((nds) => {
-      // First update and layout the regular nodes
+      // Update and layout the regular nodes (no path notes node added to diagram)
       const updated = enforceRootHidden(nds)
-        .filter(n => n.id !== PATH_NOTES_NODE_ID) // Remove any existing path notes node
         .map((n) => {
           const isActive = pathNodes.includes(n.id);
           return {
@@ -2302,40 +2093,7 @@ function DiagramContent() {
             },
           };
         });
-      const layoutedNodes = getLayoutedNodes(updated, edges);
-      
-      // Find the topmost highlighted node to position the path notes node above it
-      const highlightedNodes = layoutedNodes.filter(n => pathNodes.includes(n.id));
-      const anchorNode = highlightedNodes[0] || layoutedNodes[0];
-      if (anchorNode) {
-        const topNode = highlightedNodes.length > 0
-          ? highlightedNodes.reduce((top, n) => n.position.y < top.position.y ? n : top, highlightedNodes[0])
-          : anchorNode;
-        
-        // Create the path notes node positioned above the topmost node
-        const pathNotesNode: Node = {
-          id: PATH_NOTES_NODE_ID,
-          type: 'pathNotes',
-          position: {
-            x: topNode.position.x - 20,
-            y: topNode.position.y - 140,
-          },
-          data: {
-            pathName: pathName,
-            pathNotes: pathNotes[currentPathId] || '',
-            isEditing: false,
-            onStartEdit: handlePathNotesStartEdit,
-            onStopEdit: handlePathNotesStopEdit,
-            onNotesChange: handlePathNotesChange,
-          },
-          draggable: true,
-          selectable: false,
-        };
-        
-        return [...layoutedNodes, pathNotesNode];
-      }
-      
-      return layoutedNodes;
+      return getLayoutedNodes(updated, edges);
     });
     setTimeout(() => {
       fitView({ 
@@ -2385,7 +2143,6 @@ function DiagramContent() {
 
     setManualHighlights(new Set());
     setSidebarNodeContent({});
-    setEditingPathNotes(null);
 
     // Show path immediately
     showPath(tempName);
@@ -2430,11 +2187,9 @@ function DiagramContent() {
     setManualHighlights(new Set());
     setSidebarNodeContent({});
     setPathName(''); // Clear path name input
-    setEditingPathNotes(null); // Reset editing state
     
     setNodes((nds) =>
       enforceRootHidden(nds)
-        .filter(n => n.id !== PATH_NOTES_NODE_ID) // Remove path notes node
         .map((n) => ({
           ...n,
           data: {
@@ -3025,13 +2780,12 @@ function DiagramContent() {
                 onMoveFolderToFolder={handleMoveFolderToFolder}
                 onDeletePath={(pathName) => deletePathByName(pathName)}
                 onRenamePath={renamePath}
-                onShowPathNotes={(pathName) => {
+                onDoubleClickPath={(pathName) => {
                   if (activePath !== pathName) {
                     showPath(pathName);
                   }
                   setNotesPathName(pathName);
-                  setShowNotesPanel(true);
-                  setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                  setPathNotesFocusMode(true);
                 }}
               />
             ) : (
@@ -3092,290 +2846,6 @@ function DiagramContent() {
           </div>
         </div>
         </div>
-
-        {/* Notes Panel - shows when clicking info button on a path */}
-        {showNotesPanel && notesPathName && activePathId && (
-          <div
-            ref={notesPanelRef}
-            style={{
-              position: 'absolute',
-              left: notesPanelPos.x,
-              top: notesPanelPos.y,
-              zIndex: 11,
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)',
-              padding: '18px',
-              borderRadius: '14px',
-              width: notesPanelSize.width,
-              height: notesPanelSize.height,
-              overflowY: 'auto',
-              boxShadow: '0 8px 32px rgba(15,23,42,0.12), 0 2px 8px rgba(59,130,246,0.06)',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
-              backdropFilter: 'blur(12px)',
-            }}
-          >
-            {/* Drag handle */}
-            <div
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setIsDraggingPanel('notes');
-                setDragOffset({ x: e.clientX - notesPanelPos.x, y: e.clientY - notesPanelPos.y });
-              }}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '28px',
-                cursor: 'move',
-                background: 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
-                borderTopLeftRadius: '14px',
-                borderTopRightRadius: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '2px' }} />
-            </div>
-            
-            {/* Edge resize handles */}
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'n' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 's' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 6, cursor: 'ns-resize' }} />
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'w' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, left: 0, width: 6, cursor: 'ew-resize' }} />
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'e' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 8, bottom: 8, right: 0, width: 6, cursor: 'ew-resize' }} />
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'nw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 0, left: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'ne' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'sw' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, left: 0, width: 10, height: 10, cursor: 'nesw-resize' }} />
-            <div onMouseDown={(e) => { e.preventDefault(); setResizeEdge({ panel: 'notes', edge: 'se' }); setResizeStart({ mouseX: e.clientX, mouseY: e.clientY, width: notesPanelSize.width, height: notesPanelSize.height, x: notesPanelPos.x, y: notesPanelPos.y }); }} style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' }} />
-            
-            {/* Close button */}
-            <button
-              onClick={() => setShowNotesPanel(false)}
-              style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '16px',
-                color: '#64748b',
-                padding: '4px',
-                lineHeight: 1,
-                zIndex: 1,
-              }}
-            >
-              ✕
-            </button>
-            
-            {/* Panel content */}
-            <div style={{ marginTop: '14px' }}>
-              {/* Path-level notes section - FIRST */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ 
-                  fontSize: '10px', 
-                  fontWeight: '600', 
-                  color: '#64748b',
-                  marginBottom: '6px',
-                }}>
-                  📋 Path Notes
-                </div>
-                <textarea
-                  dir="ltr"
-                  placeholder="Add path-level notes..."
-                  value={pathNotes[activePathId || ''] || ''}
-                  onClick={() => setEditingPathNotes('panel')}
-                  onBlur={() => setEditingPathNotes(null)}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onWheelCapture={(e) => {
-                    // Stop the wheel event from reaching ReactFlow
-                    e.stopPropagation();
-                    e.nativeEvent.stopImmediatePropagation();
-                  }}
-                  onChange={(e) => {
-                    handlePathNotesChange(e.target.value);
-                    // Auto-resize
-                    const textarea = e.target;
-                    textarea.style.height = 'auto';
-                    const maxHeight = 225; // ~15 rows
-                    textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-                  }}
-                  onFocus={(e) => {
-                    // Auto-resize on focus
-                    const textarea = e.target;
-                    textarea.style.height = 'auto';
-                    const maxHeight = 225;
-                    textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-                  }}
-                  style={{
-                    width: '100%',
-                    minHeight: editingPathNotes === 'panel' ? '100px' : '50px',
-                    maxHeight: '225px',
-                    padding: '8px 10px',
-                    fontSize: '11px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    background: 'white',
-                    color: '#334155',
-                    resize: 'both',
-                    fontFamily: 'inherit',
-                    lineHeight: 1.4,
-                    boxSizing: 'border-box',
-                    textAlign: 'left',
-                    direction: 'ltr',
-                    overflow: 'auto',
-                  }}
-                />
-              </div>
-              
-              {/* Node notes section - LAST */}
-              <div>
-                <div style={{ 
-                  fontSize: '10px', 
-                  fontWeight: '600', 
-                  color: '#64748b',
-                  marginBottom: '8px',
-                }}>
-                  📝 Node Notes
-                </div>
-                <div style={{ maxHeight: notesPanelSize.height - 300, overflowY: 'auto' }}>
-                {(() => {
-                  // Sort nodes by hierarchy depth (parents first)
-                  const getNodeDepth = (nodeId: string, visited = new Set<string>()): number => {
-                    if (visited.has(nodeId)) return 0;
-                    visited.add(nodeId);
-                    const parentEdges = edges.filter(e => e.target === nodeId);
-                    if (parentEdges.length === 0) return 0;
-                    return Math.max(...parentEdges.map(e => getNodeDepth(e.source, visited))) + 1;
-                  };
-                  
-                  const sortedNodeIds = Array.from(manualHighlights).sort((a, b) => {
-                    return getNodeDepth(a) - getNodeDepth(b);
-                  });
-                  
-                  if (sortedNodeIds.length === 0) {
-                    return (
-                      <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '20px' }}>
-                        No nodes in this path
-                      </div>
-                    );
-                  }
-                  
-                  const currentPathIdForPanel = activePathId;
-                  
-                  return sortedNodeIds.map((nodeId) => {
-                    const node = nodes.find(n => n.id === nodeId);
-                    const nodeData = node?.data as NodeData | undefined;
-                    const content = sidebarNodeContent[nodeId] ?? (currentPathIdForPanel ? nodePathMap[currentPathIdForPanel]?.[nodeId] || '' : '');
-                    
-                    return (
-                      <div key={nodeId} style={{ marginBottom: '12px' }}>
-                        <div style={{ 
-                          fontSize: '10px', 
-                          fontWeight: '600', 
-                          color: nodeData?.color || '#64748b',
-                          marginBottom: '4px',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}>
-                          {nodeData?.label || nodeId}
-                        </div>
-                        <textarea
-                          placeholder="Add notes..."
-                          value={content}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onWheelCapture={(e) => {
-                            // Stop the wheel event from reaching ReactFlow
-                            e.stopPropagation();
-                            e.nativeEvent.stopImmediatePropagation();
-                          }}
-                          onChange={(e) => {
-                            const newContent = e.target.value;
-                            setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
-                            
-                            if (currentPathIdForPanel) {
-                              setNodePathMap(prev => ({
-                                ...prev,
-                                [currentPathIdForPanel]: {
-                                  ...(prev[currentPathIdForPanel] || {}),
-                                  [nodeId]: newContent,
-                                },
-                              }));
-                              // Update last updated timestamp
-                              setPathLastUpdated(prev => ({ ...prev, [currentPathIdForPanel]: Date.now() }));
-                            }
-                            
-                            // Auto-resize
-                            const textarea = e.target;
-                            textarea.style.height = 'auto';
-                            const maxHeight = 225;
-                            textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-                            
-                            if (debounceTimerRef.current[nodeId]) {
-                              clearTimeout(debounceTimerRef.current[nodeId]);
-                            }
-                            debounceTimerRef.current[nodeId] = setTimeout(async () => {
-                              if (!currentPathIdForPanel) return;
-                              try {
-                                if (DATA_SOURCE === 'notion') {
-                                  await notionService.saveNodePath({
-                                    id: `${currentPathIdForPanel}_${nodeId}`,
-                                    pathId: currentPathIdForPanel,
-                                    nodeId: nodeId,
-                                    content: newContent,
-                                  });
-                                } else {
-                                  await fetch(GOOGLE_SCRIPT_URL, {
-                                    method: 'POST',
-                                    mode: 'no-cors',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      action: 'saveNodeContent',
-                                      pathId: currentPathIdForPanel,
-                                      nodeId: nodeId,
-                                      content: newContent,
-                                    }),
-                                  });
-                                }
-                              } catch (error) {
-                                console.error('Error saving node content:', error);
-                              }
-                            }, 1000);
-                          }}
-                          onFocus={(e) => {
-                            // Auto-resize on focus
-                            const textarea = e.target;
-                            textarea.style.height = 'auto';
-                            const maxHeight = 225;
-                            textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-                          }}
-                          style={{
-                            width: '100%',
-                            minHeight: '50px',
-                            maxHeight: '225px',
-                            padding: '8px 10px',
-                            fontSize: '11px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            background: 'white',
-                            color: '#334155',
-                            resize: 'both',
-                            fontFamily: 'inherit',
-                            lineHeight: 1.4,
-                            boxSizing: 'border-box',
-                            overflow: 'auto',
-                          }}
-                        />
-                      </div>
-                    );
-                  });
-                })()}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {selectedNode && selectedNodeData && (
   <div
@@ -4419,6 +3889,352 @@ Use the toolbar above or keyboard shortcuts:
         );
       })()}
       
+      {/* Full-screen Path Notes Focus Mode Overlay */}
+      {pathNotesFocusMode && notesPathName && activePathId && (() => {
+        const pathContent = pathNotes[activePathId] || '';
+        const wordCount = pathContent.trim() ? pathContent.trim().split(/\s+/).length : 0;
+        
+        // Get all node notes for this path
+        const getNodeDepth = (nodeId: string, visited = new Set<string>()): number => {
+          if (visited.has(nodeId)) return 0;
+          visited.add(nodeId);
+          const parentEdges = edges.filter(e => e.target === nodeId);
+          if (parentEdges.length === 0) return 0;
+          return Math.max(...parentEdges.map(e => getNodeDepth(e.source, visited))) + 1;
+        };
+        
+        const sortedNodeIds = Array.from(manualHighlights).sort((a, b) => {
+          return getNodeDepth(a) - getNodeDepth(b);
+        });
+        
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(8px)',
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setPathNotesFocusMode(false);
+            }}
+          >
+            <div
+              style={{
+                width: '90%',
+                maxWidth: '900px',
+                maxHeight: '90vh',
+                background: 'white',
+                borderRadius: '20px',
+                boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                background: 'linear-gradient(180deg, #f8fafc 0%, white 100%)',
+              }}>
+                <span style={{ fontSize: '24px' }}>📋</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
+                    {notesPathName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                    Path Notes · {wordCount} words · {sortedNodeIds.length} nodes
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: '12px',
+                  color: noteSaveStatus['pathNotes'] === 'saving' ? '#f59e0b' : '#22c55e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 500,
+                }}>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: noteSaveStatus['pathNotes'] === 'saving' ? '#f59e0b' : '#22c55e',
+                    animation: noteSaveStatus['pathNotes'] === 'saving' ? 'pulse 1s ease-in-out infinite' : 'none',
+                  }} />
+                  {noteSaveStatus['pathNotes'] === 'saving' ? 'Saving...' : 'All changes saved'}
+                </span>
+                <button
+                  onClick={() => setPathNotesFocusMode(false)}
+                  style={{
+                    background: 'rgba(239,68,68,0.1)',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '10px 16px',
+                    cursor: 'pointer',
+                    color: '#ef4444',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                  }}
+                >
+                  Exit Focus Mode
+                </button>
+              </div>
+              
+              {/* Content area */}
+              <div style={{
+                flex: 1,
+                padding: '24px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px',
+              }}>
+                {/* Path-level notes section */}
+                <div>
+                  <div style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    color: '#1e293b',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}>
+                    <span>📋</span>
+                    <span>Path Notes</span>
+                  </div>
+                  <textarea
+                    dir="ltr"
+                    placeholder="Add path-level notes..."
+                    value={pathNotes[activePathId || ''] || ''}
+                    onChange={(e) => {
+                      handlePathNotesChange(e.target.value);
+                      // Auto-resize
+                      const textarea = e.target;
+                      textarea.style.height = 'auto';
+                      const maxHeight = 300;
+                      textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                    }}
+                    onFocus={(e) => {
+                      const textarea = e.target;
+                      textarea.style.height = 'auto';
+                      const maxHeight = 300;
+                      textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                    }}
+                    style={{
+                      width: '100%',
+                      minHeight: '120px',
+                      maxHeight: '300px',
+                      padding: '16px',
+                      fontSize: '14px',
+                      border: '2px solid #e2e8f0',
+                      borderRadius: '12px',
+                      background: 'white',
+                      color: '#1e293b',
+                      resize: 'vertical',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      lineHeight: 1.6,
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                      textAlign: 'left',
+                      direction: 'ltr',
+                      overflow: 'auto',
+                      transition: 'border-color 0.2s ease',
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+                
+                {/* Node notes section */}
+                <div>
+                  <div style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    color: '#1e293b',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}>
+                    <span>📝</span>
+                    <span>Node Notes</span>
+                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 400 }}>
+                      ({sortedNodeIds.length} nodes)
+                    </span>
+                  </div>
+                  
+                  {sortedNodeIds.length === 0 ? (
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#94a3b8', 
+                      textAlign: 'center', 
+                      padding: '40px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                    }}>
+                      No nodes in this path yet. Click nodes on the diagram to add them.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {sortedNodeIds.map((nodeId) => {
+                        const node = nodes.find(n => n.id === nodeId);
+                        const nodeData = node?.data as NodeData | undefined;
+                        const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+                        
+                        return (
+                          <div key={nodeId} style={{ 
+                            background: '#f8fafc',
+                            borderRadius: '12px',
+                            padding: '16px',
+                            border: '1px solid #e2e8f0',
+                          }}>
+                            <div style={{ 
+                              fontSize: '13px', 
+                              fontWeight: '600', 
+                              color: nodeData?.color || '#1e293b',
+                              marginBottom: '10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}>
+                              <span style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: nodeData?.color || '#64748b',
+                              }} />
+                              {nodeData?.label || nodeId}
+                            </div>
+                            <textarea
+                              placeholder="Add notes for this node..."
+                              value={content}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                const newContent = e.target.value;
+                                setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
+                                
+                                setNodePathMap(prev => ({
+                                  ...prev,
+                                  [activePathId]: {
+                                    ...(prev[activePathId] || {}),
+                                    [nodeId]: newContent,
+                                  },
+                                }));
+                                setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
+                                
+                                // Auto-resize
+                                const textarea = e.target;
+                                textarea.style.height = 'auto';
+                                const maxHeight = 200;
+                                textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                                
+                                if (debounceTimerRef.current[nodeId]) {
+                                  clearTimeout(debounceTimerRef.current[nodeId]);
+                                }
+                                debounceTimerRef.current[nodeId] = setTimeout(async () => {
+                                  try {
+                                    if (DATA_SOURCE === 'notion') {
+                                      await notionService.saveNodePath({
+                                        id: `${activePathId}_${nodeId}`,
+                                        pathId: activePathId,
+                                        nodeId: nodeId,
+                                        content: newContent,
+                                      });
+                                    } else {
+                                      await fetch(GOOGLE_SCRIPT_URL, {
+                                        method: 'POST',
+                                        mode: 'no-cors',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          action: 'saveNodeContent',
+                                          pathId: activePathId,
+                                          nodeId: nodeId,
+                                          content: newContent,
+                                        }),
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error('Error saving node content:', error);
+                                  }
+                                }, 1000);
+                              }}
+                              onFocus={(e) => {
+                                const textarea = e.target;
+                                textarea.style.height = 'auto';
+                                const maxHeight = 200;
+                                textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+                              }}
+                              style={{
+                                width: '100%',
+                                minHeight: '60px',
+                                maxHeight: '200px',
+                                padding: '12px',
+                                fontSize: '13px',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                background: 'white',
+                                color: '#334155',
+                                resize: 'vertical',
+                                fontFamily: 'inherit',
+                                lineHeight: 1.5,
+                                boxSizing: 'border-box',
+                                outline: 'none',
+                                overflow: 'auto',
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Footer */}
+              <div style={{
+                padding: '12px 24px',
+                borderTop: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                display: 'flex',
+                gap: '16px',
+                fontSize: '11px',
+                color: '#64748b',
+              }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ 
+                    background: 'white', 
+                    padding: '3px 6px', 
+                    borderRadius: '4px',
+                    border: '1px solid #e2e8f0',
+                    fontWeight: 500,
+                  }}>Esc</span>
+                  <span>Exit</span>
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>Double-click a path to open this view</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      
       {/* Full-screen Sidebar Focus Mode Overlay */}
       {sidebarFocusMode && (
         <div
@@ -4596,13 +4412,12 @@ Use the toolbar above or keyboard shortcuts:
                   onMoveFolderToFolder={handleMoveFolderToFolder}
                   onDeletePath={(pathName) => deletePathByName(pathName)}
                   onRenamePath={renamePath}
-                  onShowPathNotes={(pathName) => {
+                  onDoubleClickPath={(pathName) => {
                     if (activePath !== pathName) {
                       showPath(pathName);
                     }
                     setNotesPathName(pathName);
-                    setShowNotesPanel(true);
-                    setNotesPanelPos({ x: leftPanelPos.x + leftPanelSize.width + 10, y: leftPanelPos.y });
+                    setPathNotesFocusMode(true);
                     setSidebarFocusMode(false);
                   }}
                 />

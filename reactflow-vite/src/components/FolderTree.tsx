@@ -37,7 +37,7 @@ interface FolderTreeProps {
   onMoveFolderToFolder: (folderId: string, targetParentId: string | null) => Promise<void>;
   onDeletePath: (pathName: string) => void;
   onRenamePath: (oldName: string, newName: string) => void;
-  onShowPathNotes: (pathName: string) => void;
+  onDoubleClickPath: (pathName: string) => void; // Double-click opens path notes focus mode
 }
 
 // ============================================
@@ -101,14 +101,6 @@ const EditIcon = ({ size = 12 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-  </svg>
-);
-
-const NotesIcon = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="16" x2="12" y2="12" />
-    <line x1="12" y1="8" x2="12.01" y2="8" />
   </svg>
 );
 
@@ -264,7 +256,7 @@ interface FolderItemProps {
   onMoveFolderToFolder: (folderId: string, targetParentId: string | null) => void;
   onDeletePath: (pathName: string) => void;
   onRenamePath: (oldName: string, newName: string) => void;
-  onShowPathNotes: (pathName: string) => void;
+  onDoubleClickPath: (pathName: string) => void;
   allFolders: FolderTreeNode[];
   expandedFolders: Record<string, boolean>;
   onToggleFolder: (folderId: string) => void;
@@ -286,7 +278,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
   onMoveFolderToFolder,
   onDeletePath,
   onRenamePath,
-  onShowPathNotes,
+  onDoubleClickPath,
   allFolders,
   expandedFolders,
   onToggleFolder,
@@ -483,7 +475,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
               onMoveFolderToFolder={onMoveFolderToFolder}
               onDeletePath={onDeletePath}
               onRenamePath={onRenamePath}
-              onShowPathNotes={onShowPathNotes}
+              onDoubleClickPath={onDoubleClickPath}
               allFolders={allFolders}
               expandedFolders={expandedFolders}
               onToggleFolder={onToggleFolder}
@@ -500,7 +492,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
               onSelect={() => onSelectPath(path.name)}
               onDelete={() => onDeletePath(path.name)}
               onRename={(newName) => onRenamePath(path.name, newName)}
-              onShowNotes={() => onShowPathNotes(path.name)}
+              onDoubleClick={() => onDoubleClickPath(path.name)}
               onDragStart={(e) => {
                 e.dataTransfer.setData('pathName', path.name);
                 e.dataTransfer.effectAllowed = 'move';
@@ -524,7 +516,7 @@ interface PathItemRowProps {
   onSelect: () => void;
   onDelete: () => void;
   onRename: (newName: string) => void;
-  onShowNotes: () => void;
+  onDoubleClick: () => void; // Double-click opens path notes focus mode
   onDragStart: (e: React.DragEvent) => void;
 }
 
@@ -535,7 +527,7 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
   onSelect,
   onDelete,
   onRename,
-  onShowNotes,
+  onDoubleClick,
   onDragStart,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -568,6 +560,10 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={isEditing ? undefined : onSelect}
+      onDoubleClick={isEditing ? undefined : (e) => {
+        e.stopPropagation();
+        onDoubleClick();
+      }}
       style={{
         ...styles.pathRow,
         ...(isActive ? styles.pathRowActive : {}),
@@ -609,7 +605,7 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
         </span>
       )}
 
-      {/* Actions */}
+      {/* Actions - removed notes button, double-click opens notes instead */}
       {!isEditing && (
         <div style={{ ...styles.folderActions, ...(isHovered ? styles.folderActionsVisible : {}) }}>
           <button
@@ -618,13 +614,6 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
             title="Edit path"
           >
             <EditIcon />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onShowNotes(); }}
-            style={styles.actionButton}
-            title="View notes"
-          >
-            <NotesIcon />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -658,7 +647,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   onMoveFolderToFolder,
   onDeletePath,
   onRenamePath,
-  onShowPathNotes,
+  onDoubleClickPath,
 }) => {
   const [isAddingRoot, setIsAddingRoot] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -725,7 +714,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           onMoveFolderToFolder={(fId, targetId) => onMoveFolderToFolder(fId, targetId)}
           onDeletePath={onDeletePath}
           onRenamePath={onRenamePath}
-          onShowPathNotes={onShowPathNotes}
+          onDoubleClickPath={onDoubleClickPath}
           allFolders={folders}
           expandedFolders={expandedFolders}
           onToggleFolder={onToggleFolder}
@@ -783,7 +772,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
               onSelect={() => onSelectPath(path.name)}
               onDelete={() => onDeletePath(path.name)}
               onRename={(newName) => onRenamePath(path.name, newName)}
-              onShowNotes={() => onShowPathNotes(path.name)}
+              onDoubleClick={() => onDoubleClickPath(path.name)}
               onDragStart={(e) => {
                 e.dataTransfer.setData('pathName', path.name);
                 e.dataTransfer.effectAllowed = 'move';
