@@ -705,9 +705,7 @@ function DiagramContent() {
   const [pathNotesFocusMode, setPathNotesFocusMode] = useState(false); // Focus mode for path notes
   const wysiwygEditorRef = useRef<HTMLDivElement | null>(null);
   const focusModeEditorRef = useRef<HTMLDivElement | null>(null);
-  const pathNotesFocusModeEditorRef = useRef<HTMLDivElement | null>(null); // Ref for path notes focus mode editor
   const focusModeInitialized = useRef(false); // Track if focus mode editor has been initialized
-  const pathNotesFocusModeInitialized = useRef(false); // Track if path notes focus mode editor has been initialized
   const mainEditorInitialized = useRef<string | null>(null); // Track which node's content is loaded in main editor
   const updatePathNodesCallbackRef = useRef<((pathId: string, pathName: string, nodeIds: Set<string>) => void) | null>(null);
   const [highlightedFolderId, setHighlightedFolderId] = useState<string | null>(null);
