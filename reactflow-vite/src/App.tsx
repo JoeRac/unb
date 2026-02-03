@@ -1298,6 +1298,9 @@ function DiagramContent() {
     }
   };
 
+  // Debounce ref for priority updates
+  const priorityUpdateRef = useRef<NodeJS.Timeout | null>(null);
+
   // Update path priority
   const updatePathPriorityHandler = async (pathId: string, newPriority: number) => {
     // Update local state immediately for responsive UI
@@ -1305,14 +1308,22 @@ function DiagramContent() {
       p.id === pathId ? { ...p, priority: newPriority } : p
     ));
     
-    // Then save to backend
-    try {
-      if (DATA_SOURCE === 'notion') {
-        await notionService.updatePathPriority(pathId, newPriority);
-      }
-    } catch (error) {
-      console.error('Error updating path priority:', error);
+    // Debounce the backend save to avoid flooding the API
+    if (priorityUpdateRef.current) {
+      clearTimeout(priorityUpdateRef.current);
     }
+    
+    priorityUpdateRef.current = setTimeout(async () => {
+      try {
+        if (DATA_SOURCE === 'notion') {
+          console.log('Saving priority to Notion:', { pathId, newPriority });
+          await notionService.updatePathPriority(pathId, newPriority);
+          console.log('Priority saved successfully');
+        }
+      } catch (error) {
+        console.error('Error updating path priority:', error);
+      }
+    }, 500); // Wait 500ms after user stops dragging
   };
 
   // Create a new folder (category) with optional parent
@@ -2692,7 +2703,7 @@ function DiagramContent() {
                 {searchResults.folders.length > 0 && (
                   <div>
                     <div style={{ padding: '8px 12px', fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #f1f5f9' }}>
-                      📁 Folders
+                      Folders
                     </div>
                     {searchResults.folders.map((folder, idx) => {
                       const globalIdx = searchResults.paths.length + searchResults.nodes.length + idx;
