@@ -20,6 +20,7 @@ export interface PathItem {
   id: string;
   name: string;
   category?: string;
+  priority?: number; // 0-100, higher = more important
 }
 
 interface FolderTreeProps {
@@ -575,6 +576,21 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
       <span style={{ color: isActive ? '#3b82f6' : '#64748b', display: 'flex' }}>
         <FileIcon />
       </span>
+      
+      {/* Priority indicator dot */}
+      {path.priority !== undefined && (
+        <span 
+          title={`Priority: ${path.priority}`}
+          style={{ 
+            width: '6px', 
+            height: '6px', 
+            borderRadius: '50%', 
+            flexShrink: 0,
+            background: `rgb(${Math.round(239 * (path.priority / 100) + 59 * (1 - path.priority / 100))}, ${Math.round(68 * (path.priority / 100) + 130 * (1 - path.priority / 100))}, ${Math.round(68 * (path.priority / 100) + 246 * (1 - path.priority / 100))})`,
+            boxShadow: `0 0 4px rgba(${Math.round(239 * (path.priority / 100) + 59 * (1 - path.priority / 100))}, ${Math.round(68 * (path.priority / 100) + 130 * (1 - path.priority / 100))}, ${Math.round(68 * (path.priority / 100) + 246 * (1 - path.priority / 100))}, 0.4)`,
+          }} 
+        />
+      )}
 
       {/* Path name or edit input */}
       {isEditing ? (

@@ -155,6 +155,7 @@ export interface PathRecord {
   status?: string;
   dateUpdated?: string;
   lastModified?: string;
+  priority?: number; // 0-100, higher = more important (red), lower = less important (blue)
 }
 
 // Category data from Notion

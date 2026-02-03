@@ -86,6 +86,15 @@ function extractDate(property: NotionProperty | undefined): string {
 }
 
 /**
+ * Extract number value
+ */
+function extractNumber(property: NotionProperty | undefined): number | undefined {
+  if (!property || property.type !== 'number') return undefined;
+  const num = (property as { number: number | null }).number;
+  return num !== null ? num : undefined;
+}
+
+/**
  * Parse JSON safely, returning default value on error
  */
 function safeParseJSON<T>(value: string, defaultValue: T): T {
@@ -217,6 +226,7 @@ export function notionPageToPath(page: NotionPage): PathRecord {
     status: extractStatus(props['status']) || extractSelect(props['status']) || extractRichText(props['status']) || undefined,
     dateUpdated: extractDate(props['date_updated']) || extractDate(props['dateUpdated']) || undefined,
     lastModified: page.last_edited_time,
+    priority: extractNumber(props['priority']),
   };
 }
 
@@ -368,6 +378,9 @@ export function pathToNotionProperties(path: Partial<PathRecord>): Record<string
   }
   if (path.dateUpdated !== undefined) {
     props['date_updated'] = createDateProperty(path.dateUpdated || new Date().toISOString());
+  }
+  if (path.priority !== undefined) {
+    props['priority'] = { number: path.priority };
   }
   
   return props;

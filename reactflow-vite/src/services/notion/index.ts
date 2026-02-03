@@ -92,6 +92,7 @@ export {
   savePath,
   updatePathNodes,
   updatePathCategory,
+  updatePathPriority,
   renamePath,
   savePathNotes,
   deletePath,

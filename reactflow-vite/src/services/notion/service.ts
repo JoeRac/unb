@@ -366,6 +366,28 @@ export async function updatePathCategory(
 }
 
 /**
+ * Update path priority
+ */
+export async function updatePathPriority(
+  pathId: string,
+  priority: number
+): Promise<void> {
+  const existingPage = await findPathByAppId(pathId);
+  
+  if (!existingPage) {
+    console.error('Path not found for priority update:', pathId);
+    return;
+  }
+  
+  await updatePage(existingPage.id, {
+    priority: { number: priority },
+  });
+  
+  // Invalidate cache
+  cache.paths = null;
+}
+
+/**
  * Rename a path
  */
 export async function renamePath(
