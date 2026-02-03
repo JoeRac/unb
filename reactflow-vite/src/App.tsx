@@ -34,7 +34,7 @@ import {
 } from './services/notion';
 
 // Import FolderTree component for unified folder/path navigation
-import { FolderTree, type FolderTreeNode, type PathItem } from './components/FolderTree';
+import { FolderTree, UnassignedPathsSection, type FolderTreeNode, type PathItem } from './components/FolderTree';
 
 // Dagre layout helper
 const dagreGraph = new dagre.graphlib.Graph();
@@ -2884,7 +2884,9 @@ function DiagramContent() {
           {/* End of sticky header */}
 
           {/* Scrollable content based on view mode */}
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {/* Main scrollable area */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
             {viewMode === 'folder' ? (
               /* FolderTree - unified folder/path navigation */
               <FolderTree
@@ -2909,6 +2911,7 @@ function DiagramContent() {
                   setNotesPathName(pathName);
                   setPathNotesFocusMode(true);
                 }}
+                hideUnassigned={true}
               />
             ) : (
               /* Plain list view for A-Z, Latest, and Priority modes */
@@ -2995,6 +2998,26 @@ function DiagramContent() {
                   </div>
                 )}
               </div>
+            )}
+            </div>
+            
+            {/* Sticky Unassigned Paths Section (only in folder view) */}
+            {viewMode === 'folder' && (
+              <UnassignedPathsSection
+                paths={folderPathItems}
+                activePath={activePath}
+                onSelectPath={(pathName) => showPath(pathName)}
+                onMovePathToFolder={handleMovePathToFolder}
+                onDeletePath={(pathName) => deletePathByName(pathName)}
+                onRenamePath={renamePath}
+                onDoubleClickPath={(pathName) => {
+                  if (activePath !== pathName) {
+                    showPath(pathName);
+                  }
+                  setNotesPathName(pathName);
+                  setPathNotesFocusMode(true);
+                }}
+              />
             )}
           </div>
         </div>

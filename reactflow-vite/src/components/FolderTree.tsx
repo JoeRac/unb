@@ -39,6 +39,7 @@ interface FolderTreeProps {
   onDeletePath: (pathName: string) => void;
   onRenamePath: (oldName: string, newName: string) => void;
   onDoubleClickPath: (pathName: string) => void; // Double-click opens path notes focus mode
+  hideUnassigned?: boolean; // If true, don't render unassigned paths (they're rendered separately)
 }
 
 // ============================================
@@ -664,6 +665,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   onDeletePath,
   onRenamePath,
   onDoubleClickPath,
+  hideUnassigned = false,
 }) => {
   const [isAddingRoot, setIsAddingRoot] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -768,7 +770,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
       </div>
 
       {/* Uncategorized paths */}
-      {uncategorizedPaths.length > 0 && (
+      {!hideUnassigned && uncategorizedPaths.length > 0 && (
         <div
           style={{
             ...styles.uncategorizedSection,
@@ -797,6 +799,109 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// ============================================
+// Standalone Unassigned Paths Section Component
+// ============================================
+
+interface UnassignedPathsSectionProps {
+  paths: PathItem[];
+  activePath: string | null;
+  onSelectPath: (pathName: string) => void;
+  onMovePathToFolder: (pathName: string, folderId: string | null) => Promise<void>;
+  onDeletePath: (pathName: string) => void;
+  onRenamePath: (oldName: string, newName: string) => void;
+  onDoubleClickPath: (pathName: string) => void;
+}
+
+export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
+  paths,
+  activePath,
+  onSelectPath,
+  onMovePathToFolder,
+  onDeletePath,
+  onRenamePath,
+  onDoubleClickPath,
+}) => {
+  const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Only show paths without a category
+  const uncategorizedPaths = paths.filter(p => !p.category);
+  
+  if (uncategorizedPaths.length === 0) return null;
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const pathName = e.dataTransfer.getData('pathName');
+    if (pathName) {
+      // Move path to uncategorized (no folder)
+      onMovePathToFolder(pathName, '');
+    }
+  };
+
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        background: 'rgba(254, 243, 199, 0.5)',
+        borderTop: '2px solid rgba(245, 158, 11, 0.3)',
+        borderRadius: '0 0 8px 8px',
+        ...(isDragOver ? { background: 'rgba(59, 130, 246, 0.1)', borderTopColor: 'rgba(59, 130, 246, 0.4)' } : {}),
+      }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div style={{
+        fontSize: '9px',
+        fontWeight: 600,
+        color: '#b45309',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        marginBottom: '6px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+      }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="12" y1="18" x2="12" y2="12" />
+          <line x1="9" y1="15" x2="15" y2="15" />
+        </svg>
+        <span>Unassigned ({uncategorizedPaths.length})</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        {uncategorizedPaths.map((path) => (
+          <PathItemRow
+            key={path.id}
+            path={path}
+            level={0}
+            isActive={activePath === path.name}
+            onSelect={() => onSelectPath(path.name)}
+            onDelete={() => onDeletePath(path.name)}
+            onRename={(newName) => onRenamePath(path.name, newName)}
+            onDoubleClick={() => onDoubleClickPath(path.name)}
+            onDragStart={(e) => {
+              e.dataTransfer.setData('pathName', path.name);
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 };
