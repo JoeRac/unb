@@ -56,7 +56,15 @@ function getLayoutedNodes(
   edges: FlowEdge[],
   direction: 'TB' | 'LR' = 'TB'
 ): FlowNode[] {
-  dagreGraph.setGraph({ rankdir: direction });
+  // Configure dagre with better alignment and compact spacing
+  dagreGraph.setGraph({ 
+    rankdir: direction,
+    align: 'UL', // Upper-left alignment for more consistent positioning
+    nodesep: 40, // Horizontal spacing between nodes (smaller = more compact)
+    ranksep: 60, // Vertical spacing between ranks (smaller = more compact)
+    marginx: 20,
+    marginy: 20,
+  });
   nodes.forEach((node: FlowNode) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
   });
@@ -633,25 +641,26 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
       const grouping = (node.data as NodeData)?.grouping;
       if (!grouping || node.hidden) return;
       
-      // Estimate node dimensions (adjust based on your actual node sizes)
-      const nodeWidth = 180;
-      const nodeHeight = 80;
+      // Use consistent node dimensions matching the dagre layout
+      // Add extra height buffer for nodes with content (like notes)
+      const nodeW = 240;
+      const nodeH = 100; // Increased to account for potential notes/content
       
       if (!groups[grouping]) {
         groups[grouping] = {
           nodes: [],
           minX: node.position.x,
-          maxX: node.position.x + nodeWidth,
+          maxX: node.position.x + nodeW,
           minY: node.position.y,
-          maxY: node.position.y + nodeHeight,
+          maxY: node.position.y + nodeH,
         };
       }
       
       groups[grouping].nodes.push(node);
       groups[grouping].minX = Math.min(groups[grouping].minX, node.position.x);
-      groups[grouping].maxX = Math.max(groups[grouping].maxX, node.position.x + nodeWidth);
+      groups[grouping].maxX = Math.max(groups[grouping].maxX, node.position.x + nodeW);
       groups[grouping].minY = Math.min(groups[grouping].minY, node.position.y);
-      groups[grouping].maxY = Math.max(groups[grouping].maxY, node.position.y + nodeHeight);
+      groups[grouping].maxY = Math.max(groups[grouping].maxY, node.position.y + nodeH);
     });
     
     return groups;
@@ -668,17 +677,18 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        zIndex: 0,
+        zIndex: -1, // Ensure groups render BEHIND nodes
       }}
     >
       <g transform={`translate(${x}, ${y}) scale(${zoom})`}>
         {Object.entries(groupBounds).map(([groupName, bounds]) => {
           const colors = GROUP_COLORS[groupName.toLowerCase()] || DEFAULT_GROUP_COLOR;
-          const padding = 20;
+          const padding = 30; // Increased padding to prevent overlap
+          const labelHeight = 28; // Space for group label
           const rectX = bounds.minX - padding;
-          const rectY = bounds.minY - padding - 24; // Extra space for label
+          const rectY = bounds.minY - padding - labelHeight;
           const rectWidth = bounds.maxX - bounds.minX + padding * 2;
-          const rectHeight = bounds.maxY - bounds.minY + padding * 2 + 24;
+          const rectHeight = bounds.maxY - bounds.minY + padding * 2 + labelHeight;
           
           return (
             <g key={groupName}>
@@ -697,8 +707,8 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
               />
               {/* Group label */}
               <text
-                x={rectX + 12}
-                y={rectY + 18}
+                x={rectX + 14}
+                y={rectY + 20}
                 fill={colors.label}
                 fontSize={12}
                 fontWeight={600}
@@ -3507,6 +3517,7 @@ function DiagramContent() {
                     wordWrap: 'break-word',
                     textAlign: 'left',
                     direction: 'ltr',
+                    unicodeBidi: 'plaintext',
                   }}
                 />
               </div>
@@ -4116,6 +4127,7 @@ function DiagramContent() {
                       outline: 'none',
                       textAlign: 'left',
                       direction: 'ltr',
+                      unicodeBidi: 'plaintext',
                       overflow: 'auto',
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
@@ -4329,6 +4341,7 @@ function DiagramContent() {
                                 overflow: 'auto',
                                 textAlign: 'left',
                                 direction: 'ltr',
+                                unicodeBidi: 'plaintext',
                               }}
                               suppressContentEditableWarning={true}
                             />

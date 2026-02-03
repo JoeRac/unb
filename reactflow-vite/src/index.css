@@ -11,6 +11,17 @@ body,
   margin: 0;
 }
 
+/* Force LTR text direction for all text inputs to prevent backwards typing */
+input[type="text"],
+input:not([type]),
+textarea,
+[contenteditable="true"],
+[contenteditable] {
+  direction: ltr !important;
+  unicode-bidi: plaintext !important;
+  text-align: left !important;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;

@@ -203,6 +203,9 @@ const styles = {
     borderRadius: '6px',
     outline: 'none',
     background: 'white',
+    direction: 'ltr' as const,
+    unicodeBidi: 'plaintext' as const,
+    textAlign: 'left' as const,
   },
   rootActions: {
     display: 'flex',
