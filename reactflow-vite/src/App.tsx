@@ -2419,7 +2419,7 @@ function DiagramContent() {
               color: '#1e293b',
               letterSpacing: '0.05em',
             }}>
-              Vanguard Apex
+              A.P.E.X
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
@@ -2864,7 +2864,7 @@ function DiagramContent() {
                 transition: 'all 0.15s ease',
               }}
             >
-              🔥 Priority
+              Priority
             </button>
           </div>
           </div>
@@ -3705,7 +3705,39 @@ function DiagramContent() {
                     gap: '6px',
                     width: '160px',
                   }}>
+                    <style>{`
+                      .priority-slider::-webkit-slider-thumb {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 50%;
+                        background: white;
+                        cursor: pointer;
+                        border: 2px solid #8b5cf6;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                        margin-top: -5px;
+                      }
+                      .priority-slider::-moz-range-thumb {
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 50%;
+                        background: white;
+                        cursor: pointer;
+                        border: 2px solid #8b5cf6;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                      }
+                      .priority-slider::-webkit-slider-runnable-track {
+                        height: 6px;
+                        border-radius: 3px;
+                      }
+                      .priority-slider::-moz-range-track {
+                        height: 6px;
+                        border-radius: 3px;
+                      }
+                    `}</style>
                     <input
+                      className="priority-slider"
                       type="range"
                       min="0"
                       max="100"
