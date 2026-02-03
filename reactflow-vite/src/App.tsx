@@ -2437,7 +2437,7 @@ function DiagramContent() {
               color: '#1e293b',
               letterSpacing: '0.05em',
             }}>
-              The Access
+              CINAP's
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
