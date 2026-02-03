@@ -856,10 +856,10 @@ export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
     <div
       style={{
         padding: '8px 12px',
-        background: 'rgba(254, 243, 199, 0.5)',
-        borderTop: '2px solid rgba(245, 158, 11, 0.3)',
+        background: 'rgba(248, 250, 252, 0.9)',
+        borderTop: '1px solid rgba(203, 213, 225, 0.5)',
         borderRadius: '0 0 8px 8px',
-        ...(isDragOver ? { background: 'rgba(59, 130, 246, 0.1)', borderTopColor: 'rgba(59, 130, 246, 0.4)' } : {}),
+        ...(isDragOver ? { background: 'rgba(59, 130, 246, 0.08)', borderTopColor: 'rgba(59, 130, 246, 0.4)' } : {}),
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -868,7 +868,7 @@ export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
       <div style={{
         fontSize: '9px',
         fontWeight: 600,
-        color: '#b45309',
+        color: '#64748b',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
         marginBottom: '6px',

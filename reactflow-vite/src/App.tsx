@@ -4430,6 +4430,8 @@ function DiagramContent() {
               </div>
               
               {/* Content based on view mode */}
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {viewMode === 'folder' ? (
                 /* FolderTree for folder view - reuse the same component from sidebar */
                 <FolderTree
@@ -4458,6 +4460,7 @@ function DiagramContent() {
                     setPathNotesFocusMode(true);
                     setSidebarFocusMode(false);
                   }}
+                  hideUnassigned={true}
                 />
               ) : (
                 /* Simple list for A-Z and Latest views */
@@ -4513,6 +4516,31 @@ function DiagramContent() {
                   ))}
                 </div>
               )}
+              </div>
+              
+              {/* Sticky Unassigned Paths Section (only in folder view) */}
+              {viewMode === 'folder' && (
+                <UnassignedPathsSection
+                  paths={folderPathItems}
+                  activePath={activePath}
+                  onSelectPath={(pathName) => {
+                    showPath(pathName);
+                    setSidebarFocusMode(false);
+                  }}
+                  onMovePathToFolder={handleMovePathToFolder}
+                  onDeletePath={(pathName) => deletePathByName(pathName)}
+                  onRenamePath={renamePath}
+                  onDoubleClickPath={(pathName) => {
+                    if (activePath !== pathName) {
+                      showPath(pathName);
+                    }
+                    setNotesPathName(pathName);
+                    setPathNotesFocusMode(true);
+                    setSidebarFocusMode(false);
+                  }}
+                />
+              )}
+              </div>
             </div>
           </div>
         </div>
