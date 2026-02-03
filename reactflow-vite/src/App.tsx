@@ -300,8 +300,16 @@ function MethodNode(props: any) {
     }
   };
 
-  // Get first line for preview
-  const firstLine = (data.nodeNote || '').split('\n')[0];
+  // Get first line for preview - strip HTML and get plain text
+  const getPlainTextPreview = (html: string): string => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    const text = temp.textContent || temp.innerText || '';
+    // Get first line, trim and limit length
+    const firstLine = text.split(/[\n\r]/).find(line => line.trim()) || '';
+    return firstLine.trim().substring(0, 50) + (firstLine.length > 50 ? '...' : '');
+  };
+  const firstLine = getPlainTextPreview(data.nodeNote || '');
   const hasNote = !!(data.nodeNote && data.nodeNote.trim());
 
   return (
@@ -404,8 +412,9 @@ function MethodNode(props: any) {
             whiteSpace: 'nowrap',
             color: '#64748b',
           }}
-          dangerouslySetInnerHTML={{ __html: firstLine }}
-        />
+        >
+          {firstLine}
+        </div>
       )}
       
       {/* Inline note area - only visible when highlighted */}
@@ -463,8 +472,9 @@ function MethodNode(props: any) {
                 whiteSpace: 'nowrap',
                 cursor: 'text',
               }}
-              dangerouslySetInnerHTML={{ __html: hasNote ? firstLine : '...' }}
-            />
+            >
+              {hasNote ? firstLine : '...'}
+            </div>
           )}
         </div>
       )}
@@ -2390,25 +2400,24 @@ function DiagramContent() {
                   width: '32px',
                   height: '32px',
                   fontSize: '14px',
-                  background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                  background: 'transparent',
                   color: '#64748b',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
+                  border: 'none',
+                  borderRadius: '50%',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)';
                   e.currentTarget.style.color = '#3b82f6';
-                  e.currentTarget.style.borderColor = 'rgba(59,130,246,0.3)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
                   e.currentTarget.style.color = '#64748b';
-                  e.currentTarget.style.borderColor = '#e2e8f0';
                 }}
               >
-                ◎
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="4" />
+                </svg>
               </button>
               <button
                 onClick={createNewPath}
@@ -3034,69 +3043,116 @@ function DiagramContent() {
                       { icon: 'B', title: 'Bold (⌘B)', command: 'bold', style: { fontWeight: 700 } },
                       { icon: 'I', title: 'Italic (⌘I)', command: 'italic', style: { fontStyle: 'italic' } },
                       { icon: 'U', title: 'Underline (⌘U)', command: 'underline', style: { textDecoration: 'underline' } },
-                      { icon: '—', title: 'Strikethrough', command: 'strikeThrough', style: { textDecoration: 'line-through' } },
+                      { icon: 'S', title: 'Strikethrough', command: 'strikeThrough', style: { textDecoration: 'line-through' } },
                       { icon: 'sep' },
-                      { icon: 'H₁', title: 'Heading 1', command: 'formatBlock', arg: 'h2', style: { fontWeight: 700 } },
-                      { icon: 'H₂', title: 'Heading 2', command: 'formatBlock', arg: 'h3', style: { fontWeight: 600, fontSize: '12px' } },
-                  { icon: '•', title: 'Bullet list', command: 'insertUnorderedList' },
-                  { icon: '1.', title: 'Numbered list', command: 'insertOrderedList', style: { fontSize: '12px' } },
-                  { icon: 'sep' },
-                  { icon: '❝', title: 'Quote', command: 'formatBlock', arg: 'blockquote' },
-                  { icon: '🔗', title: 'Link (⌘K)', command: 'createLink' },
-                  { icon: '⊘', title: 'Remove formatting', command: 'removeFormat' },
-                ].map((btn, idx) => (
-                  btn.icon === 'sep' ? (
-                    <div key={idx} style={{ width: '1px', height: '18px', background: 'rgba(226,232,240,0.8)', margin: '0 4px' }} />
-                  ) : (
-                  <button
-                    key={idx}
-                    title={btn.title}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      const editor = focusModeEditorRef.current;
-                      if (editor) {
-                        editor.focus();
-                        if (btn.command === 'createLink') {
-                          const url = prompt('Enter URL:', 'https://');
-                          if (url) document.execCommand('createLink', false, url);
-                        } else if (btn.arg) {
-                          document.execCommand(btn.command!, false, btn.arg);
-                        } else {
-                          document.execCommand(btn.command!, false);
-                        }
-                      }
-                    }}
-                    style={{
-                      border: 'none',
-                      background: 'rgba(255,255,255,0.9)',
-                      cursor: 'pointer',
-                      padding: '5px 8px',
-                      borderRadius: '5px',
-                      color: '#64748b',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      minWidth: '28px',
-                      height: '28px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.1s ease',
-                      ...btn.style,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(59,130,246,0.15)';
-                      e.currentTarget.style.color = '#3b82f6';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
-                      e.currentTarget.style.color = '#64748b';
-                    }}
-                  >
-                    {btn.icon}
-                  </button>
-                  )
-                ))}
-              </div>
+                      { icon: 'H1', title: 'Heading 1', command: 'formatBlock', arg: 'h1', style: { fontWeight: 700, fontSize: '11px' } },
+                      { icon: 'H2', title: 'Heading 2', command: 'formatBlock', arg: 'h2', style: { fontWeight: 600, fontSize: '11px' } },
+                      { icon: 'H3', title: 'Heading 3', command: 'formatBlock', arg: 'h3', style: { fontWeight: 500, fontSize: '10px' } },
+                      { icon: '¶', title: 'Paragraph', command: 'formatBlock', arg: 'p' },
+                      { icon: 'sep' },
+                      { icon: '•', title: 'Bullet list', command: 'insertUnorderedList' },
+                      { icon: '1.', title: 'Numbered list', command: 'insertOrderedList', style: { fontSize: '11px' } },
+                      { icon: '☐', title: 'Task list', command: 'insertHTML', arg: '<ul style="list-style:none;padding-left:20px"><li>☐ </li></ul>' },
+                      { icon: 'sep' },
+                      { icon: '❝', title: 'Block quote', command: 'formatBlock', arg: 'blockquote' },
+                      { icon: '⟨/⟩', title: 'Code block', command: 'formatBlock', arg: 'pre', style: { fontFamily: 'monospace', fontSize: '10px' } },
+                      { icon: '—', title: 'Horizontal line', command: 'insertHorizontalRule' },
+                      { icon: 'sep' },
+                      { icon: '🔗', title: 'Insert link (⌘K)', command: 'createLink' },
+                      { icon: '🖼', title: 'Insert image URL', command: 'insertImage' },
+                      { icon: '📹', title: 'Embed video', command: 'insertVideo' },
+                      { icon: 'sep' },
+                      { icon: '←', title: 'Align left', command: 'justifyLeft' },
+                      { icon: '↔', title: 'Align center', command: 'justifyCenter' },
+                      { icon: '→', title: 'Align right', command: 'justifyRight' },
+                      { icon: '⇔', title: 'Justify', command: 'justifyFull' },
+                      { icon: 'sep' },
+                      { icon: '⇤', title: 'Decrease indent', command: 'outdent' },
+                      { icon: '⇥', title: 'Increase indent', command: 'indent' },
+                      { icon: 'sep' },
+                      { icon: 'x²', title: 'Superscript', command: 'superscript', style: { fontSize: '10px' } },
+                      { icon: 'x₂', title: 'Subscript', command: 'subscript', style: { fontSize: '10px' } },
+                      { icon: 'sep' },
+                      { icon: '🎨', title: 'Text color', command: 'foreColor' },
+                      { icon: '🖍', title: 'Highlight', command: 'hiliteColor' },
+                      { icon: 'sep' },
+                      { icon: '⟲', title: 'Undo (⌘Z)', command: 'undo' },
+                      { icon: '⟳', title: 'Redo (⌘⇧Z)', command: 'redo' },
+                      { icon: '⊘', title: 'Remove formatting', command: 'removeFormat' },
+                    ].map((btn, idx) => (
+                      btn.icon === 'sep' ? (
+                        <div key={idx} style={{ width: '1px', height: '18px', background: 'rgba(226,232,240,0.8)', margin: '0 4px' }} />
+                      ) : (
+                        <button
+                          key={idx}
+                          title={btn.title}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            const editor = focusModeEditorRef.current;
+                            if (editor) {
+                              editor.focus();
+                              if (btn.command === 'createLink') {
+                                const url = prompt('Enter URL:', 'https://');
+                                if (url) document.execCommand('createLink', false, url);
+                              } else if (btn.command === 'insertImage') {
+                                const url = prompt('Enter image URL:', 'https://');
+                                if (url) document.execCommand('insertImage', false, url);
+                              } else if (btn.command === 'insertVideo') {
+                                const url = prompt('Enter YouTube or video URL:', 'https://www.youtube.com/watch?v=');
+                                if (url) {
+                                  const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+                                  if (youtubeMatch) {
+                                    const iframe = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeMatch[1]}" frameborder="0" allowfullscreen style="max-width:100%;border-radius:8px;margin:10px 0;"></iframe>`;
+                                    document.execCommand('insertHTML', false, iframe);
+                                  } else {
+                                    const video = `<video controls src="${url}" style="max-width:100%;border-radius:8px;margin:10px 0;"></video>`;
+                                    document.execCommand('insertHTML', false, video);
+                                  }
+                                }
+                              } else if (btn.command === 'foreColor') {
+                                const color = prompt('Enter color (hex or name):', '#3b82f6');
+                                if (color) document.execCommand('foreColor', false, color);
+                              } else if (btn.command === 'hiliteColor') {
+                                const color = prompt('Enter highlight color:', '#fef08a');
+                                if (color) document.execCommand('hiliteColor', false, color);
+                              } else if (btn.arg) {
+                                document.execCommand(btn.command!, false, btn.arg);
+                              } else {
+                                document.execCommand(btn.command!, false);
+                              }
+                            }
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'rgba(255,255,255,0.9)',
+                            cursor: 'pointer',
+                            padding: '5px 8px',
+                            borderRadius: '5px',
+                            color: '#64748b',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            minWidth: '28px',
+                            height: '28px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.1s ease',
+                            ...btn.style,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(59,130,246,0.15)';
+                            e.currentTarget.style.color = '#3b82f6';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
+                            e.currentTarget.style.color = '#64748b';
+                          }}
+                        >
+                          {btn.icon}
+                        </button>
+                      )
+                    ))}
+                  </div>
               
               {/* Focus mode WYSIWYG editor */}
               <div style={{ flex: 1, padding: '20px', overflow: 'auto', background: 'rgba(248,250,252,0.5)' }}>
@@ -3586,47 +3642,108 @@ function DiagramContent() {
                     <span>📋</span>
                     <span>Path Notes</span>
                   </div>
-                  {/* Mini toolbar */}
+                  {/* Rich text toolbar */}
                   <div style={{
                     display: 'flex',
                     gap: '2px',
                     padding: '8px 12px',
                     background: 'rgba(248,250,252,0.6)',
                     borderBottom: '1px solid rgba(226,232,240,0.4)',
+                    flexWrap: 'wrap',
                   }}>
                     {[
-                      { icon: 'B', cmd: 'bold', style: { fontWeight: 700 } },
-                      { icon: 'I', cmd: 'italic', style: { fontStyle: 'italic' } },
-                      { icon: 'U', cmd: 'underline', style: { textDecoration: 'underline' } },
-                      { icon: '•', cmd: 'insertUnorderedList' },
-                      { icon: '🔗', cmd: 'createLink' },
+                      { icon: 'B', cmd: 'bold', title: 'Bold', style: { fontWeight: 700 } },
+                      { icon: 'I', cmd: 'italic', title: 'Italic', style: { fontStyle: 'italic' } },
+                      { icon: 'U', cmd: 'underline', title: 'Underline', style: { textDecoration: 'underline' } },
+                      { icon: 'S', cmd: 'strikeThrough', title: 'Strikethrough', style: { textDecoration: 'line-through' } },
+                      { icon: 'sep' },
+                      { icon: 'H1', cmd: 'formatBlock', arg: 'h1', title: 'Heading 1', style: { fontWeight: 700, fontSize: '9px' } },
+                      { icon: 'H2', cmd: 'formatBlock', arg: 'h2', title: 'Heading 2', style: { fontWeight: 600, fontSize: '9px' } },
+                      { icon: 'H3', cmd: 'formatBlock', arg: 'h3', title: 'Heading 3', style: { fontWeight: 500, fontSize: '9px' } },
+                      { icon: 'sep' },
+                      { icon: '•', cmd: 'insertUnorderedList', title: 'Bullet list' },
+                      { icon: '1.', cmd: 'insertOrderedList', title: 'Numbered list', style: { fontSize: '9px' } },
+                      { icon: '❝', cmd: 'formatBlock', arg: 'blockquote', title: 'Quote' },
+                      { icon: '⟨/⟩', cmd: 'formatBlock', arg: 'pre', title: 'Code', style: { fontFamily: 'monospace', fontSize: '8px' } },
+                      { icon: 'sep' },
+                      { icon: '🔗', cmd: 'createLink', title: 'Insert link' },
+                      { icon: '🖼', cmd: 'insertImage', title: 'Insert image' },
+                      { icon: '📹', cmd: 'insertVideo', title: 'Embed video' },
+                      { icon: 'sep' },
+                      { icon: '←', cmd: 'justifyLeft', title: 'Align left' },
+                      { icon: '↔', cmd: 'justifyCenter', title: 'Center' },
+                      { icon: '→', cmd: 'justifyRight', title: 'Align right' },
+                      { icon: 'sep' },
+                      { icon: '🎨', cmd: 'foreColor', title: 'Text color' },
+                      { icon: '🖍', cmd: 'hiliteColor', title: 'Highlight' },
+                      { icon: '⊘', cmd: 'removeFormat', title: 'Remove formatting' },
                     ].map((btn, i) => (
-                      <button
-                        key={i}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          if (btn.cmd === 'createLink') {
-                            const url = prompt('Enter URL:', 'https://');
-                            if (url) document.execCommand('createLink', false, url);
-                          } else {
-                            document.execCommand(btn.cmd, false);
-                          }
-                        }}
-                        style={{
-                          border: 'none',
-                          background: 'rgba(255,255,255,0.8)',
-                          cursor: 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          color: '#64748b',
-                          fontSize: '11px',
-                          minWidth: '24px',
-                          height: '24px',
-                          ...btn.style,
-                        }}
-                      >
-                        {btn.icon}
-                      </button>
+                      btn.icon === 'sep' ? (
+                        <div key={i} style={{ width: '1px', height: '18px', background: 'rgba(226,232,240,0.8)', margin: '0 2px' }} />
+                      ) : (
+                        <button
+                          key={i}
+                          title={btn.title}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (btn.cmd === 'createLink') {
+                              const url = prompt('Enter URL:', 'https://');
+                              if (url) document.execCommand('createLink', false, url);
+                            } else if (btn.cmd === 'insertImage') {
+                              const url = prompt('Enter image URL:', 'https://');
+                              if (url) document.execCommand('insertImage', false, url);
+                            } else if (btn.cmd === 'insertVideo') {
+                              const url = prompt('Enter YouTube or video URL:', 'https://www.youtube.com/watch?v=');
+                              if (url) {
+                                const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+                                if (youtubeMatch) {
+                                  const iframe = `<iframe width="100%" height="200" src="https://www.youtube.com/embed/${youtubeMatch[1]}" frameborder="0" allowfullscreen style="border-radius:8px;margin:8px 0;"></iframe>`;
+                                  document.execCommand('insertHTML', false, iframe);
+                                } else {
+                                  const video = `<video controls src="${url}" style="max-width:100%;border-radius:8px;margin:8px 0;"></video>`;
+                                  document.execCommand('insertHTML', false, video);
+                                }
+                              }
+                            } else if (btn.cmd === 'foreColor') {
+                              const color = prompt('Enter color (hex or name):', '#3b82f6');
+                              if (color) document.execCommand('foreColor', false, color);
+                            } else if (btn.cmd === 'hiliteColor') {
+                              const color = prompt('Enter highlight color:', '#fef08a');
+                              if (color) document.execCommand('hiliteColor', false, color);
+                            } else if (btn.arg) {
+                              document.execCommand(btn.cmd!, false, btn.arg);
+                            } else {
+                              document.execCommand(btn.cmd!, false);
+                            }
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'rgba(255,255,255,0.8)',
+                            cursor: 'pointer',
+                            padding: '4px 6px',
+                            borderRadius: '4px',
+                            color: '#64748b',
+                            fontSize: '10px',
+                            minWidth: '22px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.1s ease',
+                            ...btn.style,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(59,130,246,0.15)';
+                            e.currentTarget.style.color = '#3b82f6';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.8)';
+                            e.currentTarget.style.color = '#64748b';
+                          }}
+                        >
+                          {btn.icon}
+                        </button>
+                      )
                     ))}
                   </div>
                   <div
@@ -3718,49 +3835,104 @@ function DiagramContent() {
                               alignItems: 'center',
                               gap: '6px',
                             }}>
-                              <span style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                background: nodeData?.color || '#64748b',
-                              }} />
                               {nodeData?.label || nodeId}
                             </div>
-                            {/* Mini toolbar */}
+                            {/* Rich text toolbar */}
                             <div style={{
                               display: 'flex',
                               gap: '2px',
                               padding: '6px 10px',
                               background: 'rgba(248,250,252,0.5)',
                               borderBottom: '1px solid rgba(226,232,240,0.3)',
+                              flexWrap: 'wrap',
                             }}>
                               {[
-                                { icon: 'B', cmd: 'bold', style: { fontWeight: 700 } },
-                                { icon: 'I', cmd: 'italic', style: { fontStyle: 'italic' } },
-                                { icon: 'U', cmd: 'underline', style: { textDecoration: 'underline' } },
-                                { icon: '•', cmd: 'insertUnorderedList' },
+                                { icon: 'B', cmd: 'bold', title: 'Bold', style: { fontWeight: 700 } },
+                                { icon: 'I', cmd: 'italic', title: 'Italic', style: { fontStyle: 'italic' } },
+                                { icon: 'U', cmd: 'underline', title: 'Underline', style: { textDecoration: 'underline' } },
+                                { icon: 'S', cmd: 'strikeThrough', title: 'Strikethrough', style: { textDecoration: 'line-through' } },
+                                { icon: 'sep' },
+                                { icon: 'H1', cmd: 'formatBlock', arg: 'h1', title: 'Heading 1', style: { fontWeight: 700, fontSize: '8px' } },
+                                { icon: 'H2', cmd: 'formatBlock', arg: 'h2', title: 'Heading 2', style: { fontWeight: 600, fontSize: '8px' } },
+                                { icon: 'sep' },
+                                { icon: '•', cmd: 'insertUnorderedList', title: 'Bullet list' },
+                                { icon: '1.', cmd: 'insertOrderedList', title: 'Numbered list', style: { fontSize: '8px' } },
+                                { icon: '❝', cmd: 'formatBlock', arg: 'blockquote', title: 'Quote' },
+                                { icon: 'sep' },
+                                { icon: '🔗', cmd: 'createLink', title: 'Insert link' },
+                                { icon: '🖼', cmd: 'insertImage', title: 'Insert image' },
+                                { icon: '📹', cmd: 'insertVideo', title: 'Embed video' },
+                                { icon: 'sep' },
+                                { icon: '🎨', cmd: 'foreColor', title: 'Text color' },
+                                { icon: '🖍', cmd: 'hiliteColor', title: 'Highlight' },
+                                { icon: '⊘', cmd: 'removeFormat', title: 'Remove formatting' },
                               ].map((btn, i) => (
-                                <button
-                                  key={i}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    document.execCommand(btn.cmd, false);
-                                  }}
-                                  style={{
-                                    border: 'none',
-                                    background: 'rgba(255,255,255,0.8)',
-                                    cursor: 'pointer',
-                                    padding: '3px 6px',
-                                    borderRadius: '3px',
-                                    color: '#64748b',
-                                    fontSize: '10px',
-                                    minWidth: '20px',
-                                    height: '20px',
-                                    ...btn.style,
-                                  }}
-                                >
-                                  {btn.icon}
-                                </button>
+                                btn.icon === 'sep' ? (
+                                  <div key={i} style={{ width: '1px', height: '16px', background: 'rgba(226,232,240,0.8)', margin: '0 2px' }} />
+                                ) : (
+                                  <button
+                                    key={i}
+                                    title={btn.title}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      if (btn.cmd === 'createLink') {
+                                        const url = prompt('Enter URL:', 'https://');
+                                        if (url) document.execCommand('createLink', false, url);
+                                      } else if (btn.cmd === 'insertImage') {
+                                        const url = prompt('Enter image URL:', 'https://');
+                                        if (url) document.execCommand('insertImage', false, url);
+                                      } else if (btn.cmd === 'insertVideo') {
+                                        const url = prompt('Enter YouTube or video URL:', 'https://www.youtube.com/watch?v=');
+                                        if (url) {
+                                          const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+                                          if (youtubeMatch) {
+                                            const iframe = `<iframe width="100%" height="150" src="https://www.youtube.com/embed/${youtubeMatch[1]}" frameborder="0" allowfullscreen style="border-radius:6px;margin:6px 0;"></iframe>`;
+                                            document.execCommand('insertHTML', false, iframe);
+                                          } else {
+                                            const video = `<video controls src="${url}" style="max-width:100%;border-radius:6px;margin:6px 0;"></video>`;
+                                            document.execCommand('insertHTML', false, video);
+                                          }
+                                        }
+                                      } else if (btn.cmd === 'foreColor') {
+                                        const color = prompt('Enter color (hex or name):', '#3b82f6');
+                                        if (color) document.execCommand('foreColor', false, color);
+                                      } else if (btn.cmd === 'hiliteColor') {
+                                        const color = prompt('Enter highlight color:', '#fef08a');
+                                        if (color) document.execCommand('hiliteColor', false, color);
+                                      } else if (btn.arg) {
+                                        document.execCommand(btn.cmd!, false, btn.arg);
+                                      } else {
+                                        document.execCommand(btn.cmd!, false);
+                                      }
+                                    }}
+                                    style={{
+                                      border: 'none',
+                                      background: 'rgba(255,255,255,0.8)',
+                                      cursor: 'pointer',
+                                      padding: '3px 5px',
+                                      borderRadius: '3px',
+                                      color: '#64748b',
+                                      fontSize: '9px',
+                                      minWidth: '18px',
+                                      height: '18px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      transition: 'all 0.1s ease',
+                                      ...btn.style,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.background = 'rgba(59,130,246,0.15)';
+                                      e.currentTarget.style.color = '#3b82f6';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.background = 'rgba(255,255,255,0.8)';
+                                      e.currentTarget.style.color = '#64748b';
+                                    }}
+                                  >
+                                    {btn.icon}
+                                  </button>
+                                )
                               ))}
                             </div>
                             <div
