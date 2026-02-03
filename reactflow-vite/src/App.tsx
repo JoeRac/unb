@@ -2498,7 +2498,6 @@ function DiagramContent() {
                 title="Create new path"
               >
                 <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span>
-                <span>New Path</span>
               </button>
             </div>
           </div>
