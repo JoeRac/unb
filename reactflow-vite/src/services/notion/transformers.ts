@@ -191,6 +191,7 @@ export function notionPageToNode(page: NotionPage): NodeRecord {
     video: parseVideo(extractRichText(props['video'])),
     hidden_by_default: extractCheckbox(props['hidden_by_default']) || 
                        extractRichText(props['hidden_by_default'])?.toLowerCase() === 'true',
+    grouping: extractRichText(props['grouping']) || extractSelect(props['grouping']) || undefined,
     lastModified: page.last_edited_time,
   };
 }

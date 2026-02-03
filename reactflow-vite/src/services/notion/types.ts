@@ -124,6 +124,7 @@ export interface NodeRecord {
   images: ImageData[];
   video?: VideoData;
   hidden_by_default: boolean;
+  grouping?: string; // Group name for visual grouping (e.g., "group1", "group2")
   lastModified?: string;
 }
 

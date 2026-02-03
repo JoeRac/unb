@@ -87,6 +87,7 @@ import {
   Node,
   Edge,
   useReactFlow,
+  useViewport,
   ReactFlowProvider,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -114,6 +115,9 @@ type NodeData = {
     type: 'youtube' | 'vimeo' | 'html5';
     url: string;
   };
+  
+  // Visual grouping
+  grouping?: string;
 };
 
 type SheetRow = {
@@ -131,6 +135,7 @@ type SheetRow = {
   images?: string;
   video?: string;
   hidden_by_default?: string | boolean;
+  grouping?: string;
 };
 
 // Helper to format nodeIds for Google Sheets - adds trailing comma for single nodes
@@ -597,6 +602,115 @@ function PersonalizedNode(props: any) {
         }}
       />
     </div>
+  );
+}
+
+// Group colors for visual distinction
+const GROUP_COLORS: Record<string, { fill: string; stroke: string; label: string }> = {
+  group1: { fill: 'rgba(59, 130, 246, 0.08)', stroke: 'rgba(59, 130, 246, 0.4)', label: '#3b82f6' },
+  group2: { fill: 'rgba(16, 185, 129, 0.08)', stroke: 'rgba(16, 185, 129, 0.4)', label: '#10b981' },
+  group3: { fill: 'rgba(245, 158, 11, 0.08)', stroke: 'rgba(245, 158, 11, 0.4)', label: '#f59e0b' },
+  group4: { fill: 'rgba(239, 68, 68, 0.08)', stroke: 'rgba(239, 68, 68, 0.4)', label: '#ef4444' },
+  group5: { fill: 'rgba(168, 85, 247, 0.08)', stroke: 'rgba(168, 85, 247, 0.4)', label: '#a855f7' },
+  group6: { fill: 'rgba(236, 72, 153, 0.08)', stroke: 'rgba(236, 72, 153, 0.4)', label: '#ec4899' },
+  group7: { fill: 'rgba(20, 184, 166, 0.08)', stroke: 'rgba(20, 184, 166, 0.4)', label: '#14b8a6' },
+  group8: { fill: 'rgba(99, 102, 241, 0.08)', stroke: 'rgba(99, 102, 241, 0.4)', label: '#6366f1' },
+};
+
+// Default color for unknown groups
+const DEFAULT_GROUP_COLOR = { fill: 'rgba(100, 116, 139, 0.08)', stroke: 'rgba(100, 116, 139, 0.4)', label: '#64748b' };
+
+// Component to render grouping rectangles behind nodes
+function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
+  const { x, y, zoom } = useViewport();
+  
+  // Calculate bounding boxes for each group
+  const groupBounds = useMemo(() => {
+    const groups: Record<string, { nodes: Node[]; minX: number; maxX: number; minY: number; maxY: number }> = {};
+    
+    // Collect nodes by group
+    nodes.forEach((node) => {
+      const grouping = (node.data as NodeData)?.grouping;
+      if (!grouping || node.hidden) return;
+      
+      // Estimate node dimensions (adjust based on your actual node sizes)
+      const nodeWidth = 180;
+      const nodeHeight = 80;
+      
+      if (!groups[grouping]) {
+        groups[grouping] = {
+          nodes: [],
+          minX: node.position.x,
+          maxX: node.position.x + nodeWidth,
+          minY: node.position.y,
+          maxY: node.position.y + nodeHeight,
+        };
+      }
+      
+      groups[grouping].nodes.push(node);
+      groups[grouping].minX = Math.min(groups[grouping].minX, node.position.x);
+      groups[grouping].maxX = Math.max(groups[grouping].maxX, node.position.x + nodeWidth);
+      groups[grouping].minY = Math.min(groups[grouping].minY, node.position.y);
+      groups[grouping].maxY = Math.max(groups[grouping].maxY, node.position.y + nodeHeight);
+    });
+    
+    return groups;
+  }, [nodes]);
+  
+  if (Object.keys(groupBounds).length === 0) return null;
+  
+  return (
+    <svg
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}
+    >
+      <g transform={`translate(${x}, ${y}) scale(${zoom})`}>
+        {Object.entries(groupBounds).map(([groupName, bounds]) => {
+          const colors = GROUP_COLORS[groupName.toLowerCase()] || DEFAULT_GROUP_COLOR;
+          const padding = 20;
+          const rectX = bounds.minX - padding;
+          const rectY = bounds.minY - padding - 24; // Extra space for label
+          const rectWidth = bounds.maxX - bounds.minX + padding * 2;
+          const rectHeight = bounds.maxY - bounds.minY + padding * 2 + 24;
+          
+          return (
+            <g key={groupName}>
+              {/* Background rectangle */}
+              <rect
+                x={rectX}
+                y={rectY}
+                width={rectWidth}
+                height={rectHeight}
+                rx={12}
+                ry={12}
+                fill={colors.fill}
+                stroke={colors.stroke}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+              />
+              {/* Group label */}
+              <text
+                x={rectX + 12}
+                y={rectY + 18}
+                fill={colors.label}
+                fontSize={12}
+                fontWeight={600}
+                fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+              >
+                {groupName}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    </svg>
   );
 }
 
@@ -1733,6 +1847,7 @@ function DiagramContent() {
           row._normalized?.video?.toString().trim(),
         hidden_by_default:
           row._normalized?.hiddenbydefault ?? row._normalized?.hidden,
+        grouping: row._normalized?.grouping?.toString().trim(),
       }))
       .filter((row) => row.id);
 
@@ -1769,6 +1884,7 @@ function DiagramContent() {
             url: normalizedUrl || parsed.url,
           };
         })(),
+        grouping: row.grouping || undefined,
       },
     }));
 
@@ -1824,6 +1940,7 @@ function DiagramContent() {
               video: n.video,
               hidden_by_default: n.hidden_by_default,
               wikiUrl: n.wikiUrl,
+              grouping: n.grouping,
             } as NodeData,
             hidden: n.hidden_by_default,
           }));
@@ -2351,6 +2468,8 @@ function DiagramContent() {
         snapToGrid={false}
       >
         <Controls />
+        {/* Node grouping overlay - draws rectangles around grouped nodes */}
+        <NodeGroupingOverlay nodes={nodes} />
         {/* <Background color="#222" gap={16} /> */}
 
         {/* Left sidebar - draggable and resizable */}
@@ -2437,7 +2556,7 @@ function DiagramContent() {
               color: '#1e293b',
               letterSpacing: '0.05em',
             }}>
-              CINAP's
+              CINAPs
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
