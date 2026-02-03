@@ -2556,7 +2556,7 @@ function DiagramContent() {
               color: '#1e293b',
               letterSpacing: '0.05em',
             }}>
-              CINAPs
+              CINAPS
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
@@ -3403,6 +3403,7 @@ function DiagramContent() {
                 <div
                   ref={focusModeEditorRef}
                   contentEditable
+                  dir="ltr"
                   suppressContentEditableWarning
                   data-placeholder="Start writing your notes here..."
                   onKeyDown={(e) => {
@@ -3504,6 +3505,8 @@ function DiagramContent() {
                     transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
                     whiteSpace: 'pre-wrap',
                     wordWrap: 'break-word',
+                    textAlign: 'left',
+                    direction: 'ltr',
                   }}
                 />
               </div>
@@ -4264,6 +4267,7 @@ function DiagramContent() {
                             </div>
                             <div
                               contentEditable
+                              dir="ltr"
                               dangerouslySetInnerHTML={{ __html: content || '' }}
                               onMouseDown={(e) => e.stopPropagation()}
                               onInput={(e) => {
@@ -4323,6 +4327,8 @@ function DiagramContent() {
                                 boxSizing: 'border-box',
                                 outline: 'none',
                                 overflow: 'auto',
+                                textAlign: 'left',
+                                direction: 'ltr',
                               }}
                               suppressContentEditableWarning={true}
                             />
