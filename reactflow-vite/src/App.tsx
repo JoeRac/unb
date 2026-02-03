@@ -56,14 +56,11 @@ function getLayoutedNodes(
   edges: FlowEdge[],
   direction: 'TB' | 'LR' = 'TB'
 ): FlowNode[] {
-  // Configure dagre with better alignment and compact spacing
+  // Configure dagre - no align setting to center children under parents
   dagreGraph.setGraph({ 
     rankdir: direction,
-    align: 'UL', // Upper-left alignment for more consistent positioning
-    nodesep: 40, // Horizontal spacing between nodes (smaller = more compact)
-    ranksep: 60, // Vertical spacing between ranks (smaller = more compact)
-    marginx: 20,
-    marginy: 20,
+    nodesep: 50, // Horizontal spacing between nodes
+    ranksep: 70, // Vertical spacing between ranks
   });
   nodes.forEach((node: FlowNode) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -838,6 +835,10 @@ function DiagramContent() {
   const [pathNotesFocusMode, setPathNotesFocusMode] = useState(false); // Focus mode for path notes
   const wysiwygEditorRef = useRef<HTMLDivElement | null>(null);
   const focusModeEditorRef = useRef<HTMLDivElement | null>(null);
+  const pathNotesEditorRef = useRef<HTMLDivElement | null>(null); // Ref for path notes in focus mode
+  const nodeNotesRefs = useRef<Record<string, HTMLDivElement | null>>({}); // Refs for node notes in focus mode
+  const pathNotesInitialized = useRef<string | null>(null); // Track which path's notes are initialized
+  const nodeNotesInitialized = useRef<Set<string>>(new Set()); // Track which node notes are initialized
   const focusModeInitialized = useRef(false); // Track if focus mode editor has been initialized
   const mainEditorInitialized = useRef<string | null>(null); // Track which node's content is loaded in main editor
   const updatePathNodesCallbackRef = useRef<((pathId: string, pathName: string, nodeIds: Set<string>) => void) | null>(null);
@@ -899,6 +900,24 @@ function DiagramContent() {
       mainEditorInitialized.current = null;
     }
   }, [editorFocusMode, selectedNode, activePathId]);
+
+  // Initialize path notes editor when path notes focus mode opens
+  useEffect(() => {
+    if (pathNotesFocusMode && activePathId) {
+      // Initialize path notes editor
+      if (pathNotesEditorRef.current && pathNotesInitialized.current !== activePathId) {
+        pathNotesEditorRef.current.innerHTML = pathNotes[activePathId] || '';
+        pathNotesInitialized.current = activePathId;
+      }
+      // Initialize node notes editors
+      nodeNotesInitialized.current.clear();
+    }
+    // Reset when closing
+    if (!pathNotesFocusMode) {
+      pathNotesInitialized.current = null;
+      nodeNotesInitialized.current.clear();
+    }
+  }, [pathNotesFocusMode, activePathId, pathNotes]);
 
   // Initialize main WYSIWYG editor content when popup opens, node changes, or focus mode exits
   useEffect(() => {
@@ -4101,9 +4120,16 @@ function DiagramContent() {
                     ))}
                   </div>
                   <div
+                    ref={(el) => {
+                      pathNotesEditorRef.current = el;
+                      // Initialize content when ref is set
+                      if (el && pathNotesInitialized.current !== activePathId) {
+                        el.innerHTML = pathNotes[activePathId || ''] || '';
+                        pathNotesInitialized.current = activePathId;
+                      }
+                    }}
                     contentEditable
                     dir="ltr"
-                    dangerouslySetInnerHTML={{ __html: pathNotes[activePathId || ''] || '' }}
                     onInput={(e) => {
                       const content = (e.target as HTMLDivElement).innerHTML;
                       handlePathNotesChange(content);
@@ -4278,9 +4304,16 @@ function DiagramContent() {
                               ))}
                             </div>
                             <div
+                              ref={(el) => {
+                                nodeNotesRefs.current[nodeId] = el;
+                                // Initialize content when ref is set
+                                if (el && !nodeNotesInitialized.current.has(nodeId)) {
+                                  el.innerHTML = content || '';
+                                  nodeNotesInitialized.current.add(nodeId);
+                                }
+                              }}
                               contentEditable
                               dir="ltr"
-                              dangerouslySetInnerHTML={{ __html: content || '' }}
                               onMouseDown={(e) => e.stopPropagation()}
                               onInput={(e) => {
                                 const newContent = (e.target as HTMLDivElement).innerHTML;

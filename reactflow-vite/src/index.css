@@ -18,8 +18,22 @@ textarea,
 [contenteditable="true"],
 [contenteditable] {
   direction: ltr !important;
-  unicode-bidi: plaintext !important;
+  unicode-bidi: bidi-override !important;
   text-align: left !important;
+  writing-mode: horizontal-tb !important;
+  -webkit-writing-mode: horizontal-tb !important;
+}
+
+/* Additional fix for contenteditable specifically */
+[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+  display: block;
+}
+
+[contenteditable]:focus {
+  direction: ltr !important;
 }
 
 @keyframes pulse {
