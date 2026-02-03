@@ -2828,7 +2828,7 @@ function DiagramContent() {
                 transition: 'all 0.15s ease',
               }}
             >
-              📁 Folders
+              Folders
             </button>
             <button
               onClick={() => setViewMode('alpha')}
