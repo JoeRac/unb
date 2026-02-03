@@ -2432,7 +2432,7 @@ function DiagramContent() {
               color: '#1e293b',
               letterSpacing: '0.05em',
             }}>
-              FRAMEWORK
+              THE ACCESS
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
@@ -4348,9 +4348,9 @@ function DiagramContent() {
             </div>
             
             {/* Content - reuse FolderTree */}
-            <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '20px 24px' }}>
               {/* Quick actions */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexShrink: 0 }}>
                 <button
                   onClick={createNewPath}
                   style={{
@@ -4402,6 +4402,7 @@ function DiagramContent() {
                 background: '#f1f5f9',
                 borderRadius: '10px',
                 marginBottom: '16px',
+                flexShrink: 0,
               }}>
                 {[
                   { mode: 'folder' as const, label: '📁 Folders', icon: '📁' },
@@ -4429,8 +4430,7 @@ function DiagramContent() {
                 ))}
               </div>
               
-              {/* Content based on view mode */}
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              {/* Scrollable content area */}
               <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {viewMode === 'folder' ? (
                 /* FolderTree for folder view - reuse the same component from sidebar */
@@ -4520,6 +4520,7 @@ function DiagramContent() {
               
               {/* Sticky Unassigned Paths Section (only in folder view) */}
               {viewMode === 'folder' && (
+                <div style={{ flexShrink: 0 }}>
                 <UnassignedPathsSection
                   paths={folderPathItems}
                   activePath={activePath}
@@ -4539,8 +4540,8 @@ function DiagramContent() {
                     setSidebarFocusMode(false);
                   }}
                 />
+                </div>
               )}
-              </div>
             </div>
           </div>
         </div>
