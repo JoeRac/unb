@@ -4272,8 +4272,8 @@ function DiagramContent() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(15, 23, 42, 0.4)',
-            backdropFilter: 'blur(20px)',
+            background: 'rgba(15, 23, 42, 0.5)',
+            backdropFilter: 'blur(24px)',
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setSidebarFocusMode(false);
@@ -4282,13 +4282,14 @@ function DiagramContent() {
           <div
             style={{
               width: '95%',
-              maxWidth: '800px',
-              height: '90vh',
-              background: 'rgba(255, 255, 255, 0.92)',
-              backdropFilter: 'blur(20px)',
-              borderRadius: '16px',
-              boxShadow: '0 25px 80px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset',
-              border: '1px solid rgba(255,255,255,0.3)',
+              maxWidth: '520px',
+              height: '85vh',
+              maxHeight: '700px',
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.92) 100%)',
+              backdropFilter: 'blur(40px)',
+              borderRadius: '20px',
+              boxShadow: '0 32px 100px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.6) inset, 0 1px 0 rgba(255,255,255,0.8) inset',
+              border: '1px solid rgba(148,163,184,0.2)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
@@ -4297,142 +4298,165 @@ function DiagramContent() {
           >
             {/* Header */}
             <div style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid rgba(226,232,240,0.6)',
+              padding: '14px 18px',
+              borderBottom: '1px solid rgba(203,213,225,0.4)',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              background: 'rgba(248,250,252,0.8)',
-              backdropFilter: 'blur(10px)',
+              gap: '10px',
+              background: 'transparent',
               flexShrink: 0,
             }}>
               <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(59,130,246,0.1) 100%)',
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.05) 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '18px',
               }}>
-                📁
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b', letterSpacing: '-0.01em' }}>
                   Path Manager
                 </div>
-                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>
                   {pathsList.length} paths
                 </div>
               </div>
+              {/* Compact action buttons */}
+              <button
+                onClick={createNewPath}
+                title="New Path"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 10px',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(59,130,246,0.3)';
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New
+              </button>
+              <button
+                onClick={() => {
+                  resetView();
+                  setSelectedNodeFilter(null);
+                  setSelectedNodeFilterLabel('');
+                }}
+                title="Clear View"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '6px 8px',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  background: 'rgba(100,116,139,0.08)',
+                  color: '#64748b',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(100,116,139,0.15)';
+                  e.currentTarget.style.color = '#475569';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(100,116,139,0.08)';
+                  e.currentTarget.style.color = '#64748b';
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                </svg>
+              </button>
               <button
                 onClick={() => setSidebarFocusMode(false)}
                 title="Close (Esc)"
                 style={{
-                  background: 'rgba(100,116,139,0.1)',
+                  background: 'transparent',
                   border: 'none',
-                  borderRadius: '8px',
-                  width: '32px',
-                  height: '32px',
+                  borderRadius: '6px',
+                  width: '26px',
+                  height: '26px',
                   cursor: 'pointer',
-                  color: '#64748b',
-                  fontSize: '16px',
+                  color: '#94a3b8',
+                  fontSize: '14px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(100,116,139,0.2)';
-                  e.currentTarget.style.color = '#475569';
-                }}
-                onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
                   e.currentTarget.style.color = '#64748b';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#94a3b8';
                 }}
               >
                 ✕
               </button>
             </div>
             
-            {/* Content - reuse FolderTree */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '20px 24px' }}>
-              {/* Quick actions */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexShrink: 0 }}>
-                <button
-                  onClick={createNewPath}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <span style={{ fontSize: '16px' }}>+</span>
-                  New Path
-                </button>
-                <button
-                  onClick={() => {
-                    resetView();
-                    setSelectedNodeFilter(null);
-                    setSelectedNodeFilterLabel('');
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    background: '#f1f5f9',
-                    color: '#64748b',
-                    border: 'none',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Clear View
-                </button>
-              </div>
-              
-              {/* View mode selector */}
+            {/* Content */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '12px 16px' }}>
+              {/* View mode selector - refined pill style */}
               <div style={{
                 display: 'flex',
-                gap: '4px',
-                padding: '4px',
-                background: '#f1f5f9',
-                borderRadius: '10px',
-                marginBottom: '16px',
+                gap: '2px',
+                padding: '3px',
+                background: 'rgba(241,245,249,0.8)',
+                borderRadius: '8px',
+                marginBottom: '12px',
                 flexShrink: 0,
               }}>
                 {[
-                  { mode: 'folder' as const, label: '📁 Folders', icon: '📁' },
-                  { mode: 'alpha' as const, label: '🔤 A-Z', icon: '🔤' },
-                  { mode: 'latest' as const, label: '🕐 Latest', icon: '🕐' },
-                  { mode: 'priority' as const, label: '⭐ Priority', icon: '⭐' },
+                  { mode: 'folder' as const, label: 'Folders' },
+                  { mode: 'alpha' as const, label: 'A-Z' },
+                  { mode: 'latest' as const, label: 'Recent' },
+                  { mode: 'priority' as const, label: 'Priority' },
                 ].map((v) => (
                   <button
                     key={v.mode}
                     onClick={() => setViewMode(v.mode)}
                     style={{
                       flex: 1,
-                      padding: '10px',
-                      fontSize: '12px',
+                      padding: '6px 8px',
+                      fontSize: '10px',
                       fontWeight: viewMode === v.mode ? 600 : 500,
                       background: viewMode === v.mode ? 'white' : 'transparent',
                       color: viewMode === v.mode ? '#1d4ed8' : '#64748b',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
-                      boxShadow: viewMode === v.mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      boxShadow: viewMode === v.mode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                      transition: 'all 0.15s ease',
+                      letterSpacing: '0.01em',
                     }}
                   >
                     {v.label}
@@ -4475,15 +4499,17 @@ function DiagramContent() {
                   onAutoEditComplete={() => setAutoEditPathId(null)}
                 />
               ) : (
-                /* Simple list for A-Z, Latest, and Priority views */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                /* Sleek list for A-Z, Latest, and Priority views */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                   {(viewMode === 'alpha' 
                     ? [...pathsList].sort((a, b) => a.name.localeCompare(b.name))
                     : viewMode === 'priority'
                     ? [...pathsList].sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50))
                     : [...pathsList].sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
-                  ).map((path) => {
+                  ).map((path, index) => {
                     const priorityColor = `rgb(${Math.round(239 * ((path.priority ?? 50) / 100) + 59 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 130 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 246 * (1 - (path.priority ?? 50) / 100))})`;
+                    const isFirst = index === 0;
+                    const isLast = index === pathsList.length - 1;
                     return (
                     <div
                       key={path.id}
@@ -4492,120 +4518,141 @@ function DiagramContent() {
                         setSidebarFocusMode(false);
                       }}
                       style={{
-                        padding: '14px 16px',
+                        padding: '8px 12px',
                         background: activePath === path.name 
-                          ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-                          : '#f8fafc',
-                        border: activePath === path.name 
-                          ? '1px solid rgba(59,130,246,0.3)'
-                          : '1px solid #e2e8f0',
-                        borderRadius: '10px',
+                          ? 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.04) 100%)'
+                          : 'transparent',
+                        borderRadius: isFirst ? '8px 8px 0 0' : isLast ? '0 0 8px 8px' : '0',
                         cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        position: 'relative',
+                        transition: 'all 0.1s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        borderLeft: activePath === path.name 
+                          ? '2px solid #3b82f6' 
+                          : '2px solid transparent',
                       }}
                       onMouseEnter={(e) => {
                         if (activePath !== path.name) {
-                          e.currentTarget.style.background = '#f1f5f9';
-                          e.currentTarget.style.borderColor = '#cbd5e1';
+                          e.currentTarget.style.background = 'rgba(241,245,249,0.8)';
                         }
                         // Show priority slider on hover in priority view
-                        const slider = e.currentTarget.querySelector('.priority-slider-container') as HTMLElement;
-                        if (slider) slider.style.opacity = '1';
+                        const slider = e.currentTarget.querySelector('.priority-slider-inline') as HTMLElement;
+                        if (slider) {
+                          slider.style.opacity = '1';
+                          slider.style.width = '80px';
+                        }
                       }}
                       onMouseLeave={(e) => {
                         if (activePath !== path.name) {
-                          e.currentTarget.style.background = '#f8fafc';
-                          e.currentTarget.style.borderColor = '#e2e8f0';
+                          e.currentTarget.style.background = 'transparent';
                         }
-                        // Hide priority slider on mouse leave
-                        const slider = e.currentTarget.querySelector('.priority-slider-container') as HTMLElement;
-                        if (slider) slider.style.opacity = '0';
+                        // Hide priority slider
+                        const slider = e.currentTarget.querySelector('.priority-slider-inline') as HTMLElement;
+                        if (slider) {
+                          slider.style.opacity = '0';
+                          slider.style.width = '0';
+                        }
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {/* Priority indicator dot */}
-                        {path.priority !== undefined && (
-                          <span 
-                            title={`Priority: ${path.priority}`}
+                      {/* File icon */}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={activePath === path.name ? '#3b82f6' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      
+                      {/* Priority indicator dot - only show if set */}
+                      {path.priority !== undefined && (
+                        <span 
+                          style={{ 
+                            width: '5px', 
+                            height: '5px', 
+                            borderRadius: '50%', 
+                            flexShrink: 0,
+                            background: priorityColor,
+                          }} 
+                        />
+                      )}
+                      
+                      {/* Path name */}
+                      <span style={{ 
+                        fontSize: '11px', 
+                        fontWeight: activePath === path.name ? 600 : 500, 
+                        color: activePath === path.name ? '#1d4ed8' : '#475569',
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {path.name}
+                      </span>
+                      
+                      {/* Latest view: show date */}
+                      {viewMode === 'latest' && pathLastUpdated[path.id] && (
+                        <span style={{ fontSize: '9px', color: '#94a3b8', flexShrink: 0 }}>
+                          {new Date(pathLastUpdated[path.id]).toLocaleDateString()}
+                        </span>
+                      )}
+                      
+                      {/* Priority view: show value and inline slider on hover */}
+                      {viewMode === 'priority' && (
+                        <>
+                          <div 
+                            className="priority-slider-inline"
                             style={{ 
-                              width: '8px', 
-                              height: '8px', 
-                              borderRadius: '50%', 
+                              opacity: 0,
+                              width: 0,
+                              overflow: 'hidden',
+                              transition: 'all 0.15s ease',
+                              display: 'flex',
+                              alignItems: 'center',
                               flexShrink: 0,
-                              background: priorityColor,
-                              boxShadow: `0 0 6px ${priorityColor}40`,
-                            }} 
-                          />
-                        )}
-                        <div style={{ flex: 1 }}>
-                          <div style={{
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: activePath === path.name ? '#1d4ed8' : '#334155',
-                          }}>
-                            {path.name}
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              className="priority-slider"
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={path.priority ?? 50}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const newPriority = parseInt(e.target.value);
+                                updatePathPriorityHandler(path.id, newPriority);
+                              }}
+                              style={{
+                                width: '70px',
+                                height: '4px',
+                                appearance: 'none',
+                                WebkitAppearance: 'none',
+                                background: `linear-gradient(to right, #3b82f6 0%, #ef4444 100%)`,
+                                borderRadius: '2px',
+                                cursor: 'pointer',
+                              }}
+                            />
                           </div>
-                          {path.category && (
-                            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                              📁 {path.category}
-                            </div>
-                          )}
-                        </div>
-                        {/* Priority value shown in priority view */}
-                        {viewMode === 'priority' && (
                           <span style={{ 
-                            fontSize: '12px', 
+                            fontSize: '9px', 
                             color: priorityColor,
                             fontWeight: 600,
                             flexShrink: 0,
-                            minWidth: '28px',
+                            minWidth: '20px',
                             textAlign: 'right',
                           }}>
                             {path.priority ?? 50}
                           </span>
-                        )}
-                      </div>
-                      {/* Inline priority slider - only in priority view */}
-                      {viewMode === 'priority' && (
-                        <div 
-                          className="priority-slider-container"
-                          style={{ 
-                            marginTop: '10px', 
-                            opacity: 0, 
-                            transition: 'opacity 0.15s ease',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <span style={{ fontSize: '10px', color: '#64748b' }}>Priority:</span>
-                          <input
-                            className="priority-slider"
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={path.priority ?? 50}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              const newPriority = parseInt(e.target.value);
-                              updatePathPriorityHandler(path.id, newPriority);
-                            }}
-                            style={{
-                              flex: 1,
-                              height: '6px',
-                              appearance: 'none',
-                              WebkitAppearance: 'none',
-                              background: `linear-gradient(to right, #3b82f6 0%, #ef4444 100%)`,
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                            }}
-                          />
-                        </div>
+                        </>
                       )}
                     </div>
                   )})}
+                  
+                  {/* Empty state */}
+                  {pathsList.length === 0 && (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
+                      No paths found
+                    </div>
+                  )}
                 </div>
               )}
               </div>
