@@ -1300,14 +1300,16 @@ function DiagramContent() {
 
   // Update path priority
   const updatePathPriorityHandler = async (pathId: string, newPriority: number) => {
+    // Update local state immediately for responsive UI
+    setPathsList(prev => prev.map(p => 
+      p.id === pathId ? { ...p, priority: newPriority } : p
+    ));
+    
+    // Then save to backend
     try {
       if (DATA_SOURCE === 'notion') {
         await notionService.updatePathPriority(pathId, newPriority);
       }
-      // Update local state
-      setPathsList(prev => prev.map(p => 
-        p.id === pathId ? { ...p, priority: newPriority } : p
-      ));
     } catch (error) {
       console.error('Error updating path priority:', error);
     }
