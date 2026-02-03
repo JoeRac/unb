@@ -686,6 +686,9 @@ function DiagramContent() {
   // Path-level notes state
   const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
   
+  // Track newly created path for auto-edit mode
+  const [autoEditPathId, setAutoEditPathId] = useState<string | null>(null);
+  
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -2251,7 +2254,9 @@ function DiagramContent() {
 
     // Show path immediately
     showPath(tempName);
-    // Note: auto-edit mode for new paths is handled by FolderTree
+    
+    // Trigger auto-edit mode for the new path
+    setAutoEditPathId(newId);
 
     // Save to backend in background
     (async () => {
@@ -2432,7 +2437,7 @@ function DiagramContent() {
               color: '#1e293b',
               letterSpacing: '0.05em',
             }}>
-              THE ACCESS
+              The Access
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
@@ -2912,6 +2917,8 @@ function DiagramContent() {
                   setPathNotesFocusMode(true);
                 }}
                 hideUnassigned={true}
+                autoEditPathId={autoEditPathId}
+                onAutoEditComplete={() => setAutoEditPathId(null)}
               />
             ) : (
               /* Plain list view for A-Z, Latest, and Priority modes */
@@ -3017,6 +3024,8 @@ function DiagramContent() {
                   setNotesPathName(pathName);
                   setPathNotesFocusMode(true);
                 }}
+                autoEditPathId={autoEditPathId}
+                onAutoEditComplete={() => setAutoEditPathId(null)}
               />
             )}
           </div>
@@ -4408,6 +4417,7 @@ function DiagramContent() {
                   { mode: 'folder' as const, label: '📁 Folders', icon: '📁' },
                   { mode: 'alpha' as const, label: '🔤 A-Z', icon: '🔤' },
                   { mode: 'latest' as const, label: '🕐 Latest', icon: '🕐' },
+                  { mode: 'priority' as const, label: '⭐ Priority', icon: '⭐' },
                 ].map((v) => (
                   <button
                     key={v.mode}
@@ -4461,14 +4471,20 @@ function DiagramContent() {
                     setSidebarFocusMode(false);
                   }}
                   hideUnassigned={true}
+                  autoEditPathId={autoEditPathId}
+                  onAutoEditComplete={() => setAutoEditPathId(null)}
                 />
               ) : (
-                /* Simple list for A-Z and Latest views */
+                /* Simple list for A-Z, Latest, and Priority views */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {(viewMode === 'alpha' 
                     ? [...pathsList].sort((a, b) => a.name.localeCompare(b.name))
+                    : viewMode === 'priority'
+                    ? [...pathsList].sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50))
                     : [...pathsList].sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
-                  ).map((path) => (
+                  ).map((path) => {
+                    const priorityColor = `rgb(${Math.round(239 * ((path.priority ?? 50) / 100) + 59 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 130 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 246 * (1 - (path.priority ?? 50) / 100))})`;
+                    return (
                     <div
                       key={path.id}
                       onClick={() => {
@@ -4486,34 +4502,110 @@ function DiagramContent() {
                         borderRadius: '10px',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
+                        position: 'relative',
                       }}
                       onMouseEnter={(e) => {
                         if (activePath !== path.name) {
                           e.currentTarget.style.background = '#f1f5f9';
                           e.currentTarget.style.borderColor = '#cbd5e1';
                         }
+                        // Show priority slider on hover in priority view
+                        const slider = e.currentTarget.querySelector('.priority-slider-container') as HTMLElement;
+                        if (slider) slider.style.opacity = '1';
                       }}
                       onMouseLeave={(e) => {
                         if (activePath !== path.name) {
                           e.currentTarget.style.background = '#f8fafc';
                           e.currentTarget.style.borderColor = '#e2e8f0';
                         }
+                        // Hide priority slider on mouse leave
+                        const slider = e.currentTarget.querySelector('.priority-slider-container') as HTMLElement;
+                        if (slider) slider.style.opacity = '0';
                       }}
                     >
-                      <div style={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: activePath === path.name ? '#1d4ed8' : '#334155',
-                      }}>
-                        {path.name}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {/* Priority indicator dot */}
+                        {path.priority !== undefined && (
+                          <span 
+                            title={`Priority: ${path.priority}`}
+                            style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              borderRadius: '50%', 
+                              flexShrink: 0,
+                              background: priorityColor,
+                              boxShadow: `0 0 6px ${priorityColor}40`,
+                            }} 
+                          />
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <div style={{
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: activePath === path.name ? '#1d4ed8' : '#334155',
+                          }}>
+                            {path.name}
+                          </div>
+                          {path.category && (
+                            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                              📁 {path.category}
+                            </div>
+                          )}
+                        </div>
+                        {/* Priority value shown in priority view */}
+                        {viewMode === 'priority' && (
+                          <span style={{ 
+                            fontSize: '12px', 
+                            color: priorityColor,
+                            fontWeight: 600,
+                            flexShrink: 0,
+                            minWidth: '28px',
+                            textAlign: 'right',
+                          }}>
+                            {path.priority ?? 50}
+                          </span>
+                        )}
                       </div>
-                      {path.category && (
-                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                          📁 {path.category}
+                      {/* Inline priority slider - only in priority view */}
+                      {viewMode === 'priority' && (
+                        <div 
+                          className="priority-slider-container"
+                          style={{ 
+                            marginTop: '10px', 
+                            opacity: 0, 
+                            transition: 'opacity 0.15s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span style={{ fontSize: '10px', color: '#64748b' }}>Priority:</span>
+                          <input
+                            className="priority-slider"
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={path.priority ?? 50}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              const newPriority = parseInt(e.target.value);
+                              updatePathPriorityHandler(path.id, newPriority);
+                            }}
+                            style={{
+                              flex: 1,
+                              height: '6px',
+                              appearance: 'none',
+                              WebkitAppearance: 'none',
+                              background: `linear-gradient(to right, #3b82f6 0%, #ef4444 100%)`,
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                            }}
+                          />
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
               </div>
@@ -4539,6 +4631,8 @@ function DiagramContent() {
                     setPathNotesFocusMode(true);
                     setSidebarFocusMode(false);
                   }}
+                  autoEditPathId={autoEditPathId}
+                  onAutoEditComplete={() => setAutoEditPathId(null)}
                 />
                 </div>
               )}

@@ -40,6 +40,8 @@ interface FolderTreeProps {
   onRenamePath: (oldName: string, newName: string) => void;
   onDoubleClickPath: (pathName: string) => void; // Double-click opens path notes focus mode
   hideUnassigned?: boolean; // If true, don't render unassigned paths (they're rendered separately)
+  autoEditPathId?: string | null; // If set, automatically start editing this path name
+  onAutoEditComplete?: () => void; // Called when auto-edit is complete
 }
 
 // ============================================
@@ -262,6 +264,8 @@ interface FolderItemProps {
   allFolders: FolderTreeNode[];
   expandedFolders: Record<string, boolean>;
   onToggleFolder: (folderId: string) => void;
+  autoEditPathId?: string | null;
+  onAutoEditComplete?: () => void;
 }
 
 const FolderItem: React.FC<FolderItemProps> = ({
@@ -284,6 +288,8 @@ const FolderItem: React.FC<FolderItemProps> = ({
   allFolders,
   expandedFolders,
   onToggleFolder,
+  autoEditPathId,
+  onAutoEditComplete,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -481,6 +487,8 @@ const FolderItem: React.FC<FolderItemProps> = ({
               allFolders={allFolders}
               expandedFolders={expandedFolders}
               onToggleFolder={onToggleFolder}
+              autoEditPathId={autoEditPathId}
+              onAutoEditComplete={onAutoEditComplete}
             />
           ))}
 
@@ -499,6 +507,8 @@ const FolderItem: React.FC<FolderItemProps> = ({
                 e.dataTransfer.setData('pathName', path.name);
                 e.dataTransfer.effectAllowed = 'move';
               }}
+              autoEdit={autoEditPathId === path.id}
+              onAutoEditComplete={onAutoEditComplete}
             />
           ))}
         </div>
@@ -520,6 +530,8 @@ interface PathItemRowProps {
   onRename: (newName: string) => void;
   onDoubleClick: () => void; // Double-click opens path notes focus mode
   onDragStart: (e: React.DragEvent) => void;
+  autoEdit?: boolean; // If true, automatically start editing when mounted
+  onAutoEditComplete?: () => void; // Called when auto-edit is complete
 }
 
 const PathItemRow: React.FC<PathItemRowProps> = ({
@@ -531,10 +543,20 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
   onRename,
   onDoubleClick,
   onDragStart,
+  autoEdit = false,
+  onAutoEditComplete,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(autoEdit);
   const [editValue, setEditValue] = useState(path.name);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  
+  // Auto-edit mode: start editing immediately and select all text
+  React.useEffect(() => {
+    if (autoEdit && inputRef.current) {
+      inputRef.current.select();
+    }
+  }, [autoEdit]);
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -548,11 +570,13 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
       onRename(trimmed);
     }
     setIsEditing(false);
+    onAutoEditComplete?.();
   };
 
   const handleCancelEdit = () => {
     setEditValue(path.name);
     setIsEditing(false);
+    onAutoEditComplete?.();
   };
 
   return (
@@ -596,6 +620,7 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
       {/* Path name or edit input */}
       {isEditing ? (
         <input
+          ref={inputRef}
           type="text"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
@@ -613,7 +638,8 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
             border: '1px solid #3b82f6',
             borderRadius: '4px',
             outline: 'none',
-            background: 'white',
+            background: autoEdit ? '#eff6ff' : 'white',
+            color: autoEdit ? '#1d4ed8' : 'inherit',
           }}
         />
       ) : (
@@ -666,6 +692,8 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   onRenamePath,
   onDoubleClickPath,
   hideUnassigned = false,
+  autoEditPathId,
+  onAutoEditComplete,
 }) => {
   const [isAddingRoot, setIsAddingRoot] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -736,6 +764,8 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           allFolders={folders}
           expandedFolders={expandedFolders}
           onToggleFolder={onToggleFolder}
+          autoEditPathId={autoEditPathId}
+          onAutoEditComplete={onAutoEditComplete}
         />
       ))}
 
@@ -795,6 +825,8 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                 e.dataTransfer.setData('pathName', path.name);
                 e.dataTransfer.effectAllowed = 'move';
               }}
+              autoEdit={autoEditPathId === path.id}
+              onAutoEditComplete={onAutoEditComplete}
             />
           ))}
         </div>
@@ -815,6 +847,8 @@ interface UnassignedPathsSectionProps {
   onDeletePath: (pathName: string) => void;
   onRenamePath: (oldName: string, newName: string) => void;
   onDoubleClickPath: (pathName: string) => void;
+  autoEditPathId?: string | null;
+  onAutoEditComplete?: () => void;
 }
 
 export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
@@ -825,6 +859,8 @@ export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
   onDeletePath,
   onRenamePath,
   onDoubleClickPath,
+  autoEditPathId,
+  onAutoEditComplete,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   
@@ -899,6 +935,8 @@ export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
               e.dataTransfer.setData('pathName', path.name);
               e.dataTransfer.effectAllowed = 'move';
             }}
+            autoEdit={autoEditPathId === path.id}
+            onAutoEditComplete={onAutoEditComplete}
           />
         ))}
       </div>
