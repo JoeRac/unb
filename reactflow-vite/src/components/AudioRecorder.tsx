@@ -70,7 +70,8 @@ interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
   onRecordingStart?: () => void;
   onRecordingCancel?: () => void;
-  existingAudioUrl?: string;
+  existingAudioUrls?: string[]; // Multiple audio recordings
+  onDeleteAudio?: (index: number) => void; // Optional delete handler
   darkMode?: boolean;
   compact?: boolean;
 }
@@ -86,7 +87,8 @@ export function AudioRecorder({
   onRecordingComplete,
   onRecordingStart,
   onRecordingCancel,
-  existingAudioUrl,
+  existingAudioUrls = [],
+  onDeleteAudio,
   darkMode = false,
   compact = false,
 }: AudioRecorderProps) {
@@ -96,7 +98,7 @@ export function AudioRecorder({
     duration: 0,
     audioLevel: 0,
   });
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -105,7 +107,7 @@ export function AudioRecorder({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRefs = useRef<Record<number, HTMLAudioElement>>({});
   const isRecordingRef = useRef(false);
   
   // Cleanup on unmount
@@ -253,22 +255,28 @@ export function AudioRecorder({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
   
-  const playExistingAudio = useCallback(() => {
-    if (!existingAudioUrl) return;
+  const playAudio = useCallback((index: number) => {
+    const url = existingAudioUrls[index];
+    if (!url) return;
     
-    if (!audioRef.current) {
-      audioRef.current = new Audio(existingAudioUrl);
-      audioRef.current.onended = () => setIsPlaying(false);
+    // Stop any currently playing audio
+    if (playingIndex !== null && audioRefs.current[playingIndex]) {
+      audioRefs.current[playingIndex].pause();
     }
     
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
+    if (!audioRefs.current[index]) {
+      audioRefs.current[index] = new Audio(url);
+      audioRefs.current[index].onended = () => setPlayingIndex(null);
+    }
+    
+    if (playingIndex === index) {
+      audioRefs.current[index].pause();
+      setPlayingIndex(null);
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      audioRefs.current[index].play();
+      setPlayingIndex(index);
     }
-  }, [existingAudioUrl, isPlaying]);
+  }, [existingAudioUrls, playingIndex]);
   
   // Theme colors
   const colors = {
@@ -430,48 +438,89 @@ export function AudioRecorder({
   }
   
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 6 : 8 }}>
-      {/* Existing audio playback */}
-      {existingAudioUrl && (
-        <button
-          onClick={playExistingAudio}
-          title={isPlaying ? 'Pause' : 'Play audio note'}
-          style={{
-            width: compact ? 28 : 32,
-            height: compact ? 28 : 32,
-            borderRadius: 6,
-            border: `1px solid ${colors.border}`,
-            background: isPlaying ? colors.primary : 'transparent',
-            color: isPlaying ? 'white' : colors.primary,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            if (!isPlaying) {
-              e.currentTarget.style.background = `${colors.primary}15`;
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isPlaying) {
-              e.currentTarget.style.background = 'transparent';
-            }
-          }}
-        >
-          {isPlaying ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="4" width="4" height="16" rx="1"/>
-              <rect x="14" y="4" width="4" height="16" rx="1"/>
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5,3 19,12 5,21"/>
-            </svg>
+    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 6 : 8, flexWrap: 'wrap' }}>
+      {/* Existing audio playback buttons - one for each recording */}
+      {existingAudioUrls.map((url, index) => (
+        <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <button
+            onClick={() => playAudio(index)}
+            title={playingIndex === index ? 'Pause' : `Play audio note ${index + 1}`}
+            style={{
+              width: compact ? 26 : 30,
+              height: compact ? 26 : 30,
+              borderRadius: 6,
+              border: `1px solid ${colors.border}`,
+              background: playingIndex === index ? colors.primary : 'transparent',
+              color: playingIndex === index ? 'white' : colors.primary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease',
+              fontSize: compact ? 10 : 11,
+              fontWeight: 500,
+              position: 'relative',
+            }}
+            onMouseEnter={(e) => {
+              if (playingIndex !== index) {
+                e.currentTarget.style.background = `${colors.primary}15`;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (playingIndex !== index) {
+                e.currentTarget.style.background = 'transparent';
+              }
+            }}
+          >
+            {playingIndex === index ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" rx="1"/>
+                <rect x="14" y="4" width="4" height="16" rx="1"/>
+              </svg>
+            ) : (
+              <>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: 1 }}>
+                  <polygon points="5,3 19,12 5,21"/>
+                </svg>
+                <span style={{ fontSize: 9 }}>{index + 1}</span>
+              </>
+            )}
+          </button>
+          {onDeleteAudio && (
+            <button
+              onClick={() => onDeleteAudio(index)}
+              title={`Delete audio note ${index + 1}`}
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: 4,
+                border: 'none',
+                background: 'transparent',
+                color: colors.textSecondary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                opacity: 0.6,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = colors.danger;
+                e.currentTarget.style.opacity = '1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = colors.textSecondary;
+                e.currentTarget.style.opacity = '0.6';
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           )}
-        </button>
-      )}
+        </div>
+      ))}
       
       {/* Record button */}
       <button
@@ -507,7 +556,7 @@ export function AudioRecorder({
         </svg>
       </button>
       
-      {!existingAudioUrl && !compact && (
+      {existingAudioUrls.length === 0 && !compact && (
         <span style={{ fontSize: 11, color: colors.textSecondary }}>
           Record voice note
         </span>

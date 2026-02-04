@@ -533,17 +533,19 @@ export function buildNodePathMap(nodePaths: NodePathRecord[]): Record<string, Re
 
 /**
  * Build node-path audio notes map from records
- * Returns a map of pathId -> nodeId -> audio URL
+ * Returns a map of pathId -> nodeId -> array of audio URLs
  */
-export function buildNodePathAudioMap(nodePaths: NodePathRecord[]): Record<string, Record<string, string | undefined>> {
-  const map: Record<string, Record<string, string | undefined>> = {};
+export function buildNodePathAudioMap(nodePaths: NodePathRecord[]): Record<string, Record<string, string[]>> {
+  const map: Record<string, Record<string, string[]>> = {};
   
   nodePaths.forEach(np => {
-    if (np.audioNote?.url) {
+    if (np.audioNotes && np.audioNotes.length > 0) {
       if (!map[np.pathId]) {
         map[np.pathId] = {};
       }
-      map[np.pathId][np.nodeId] = np.audioNote.url;
+      map[np.pathId][np.nodeId] = np.audioNotes
+        .filter(note => note.url)
+        .map(note => note.url!);
     }
   });
   
@@ -552,14 +554,16 @@ export function buildNodePathAudioMap(nodePaths: NodePathRecord[]): Record<strin
 
 /**
  * Build path audio notes map from records
- * Returns a map of pathId -> audio URL
+ * Returns a map of pathId -> array of audio URLs
  */
-export function buildPathAudioMap(paths: PathRecord[]): Record<string, string | undefined> {
-  const map: Record<string, string | undefined> = {};
+export function buildPathAudioMap(paths: PathRecord[]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
   
   paths.forEach(p => {
-    if (p.audioNote?.url) {
-      map[p.id] = p.audioNote.url;
+    if (p.audioNotes && p.audioNotes.length > 0) {
+      map[p.id] = p.audioNotes
+        .filter(note => note.url)
+        .map(note => note.url!);
     }
   });
   
@@ -742,7 +746,7 @@ export async function uploadAudioNote(
 }
 
 /**
- * Save audio note to a NodePath record
+ * Save audio note to a NodePath record (appends to existing audio notes)
  */
 export async function saveNodePathAudioNote(
   nodePathId: string,
@@ -751,29 +755,41 @@ export async function saveNodePathAudioNote(
   audioBlob: Blob
 ): Promise<NodePathRecord> {
   // First upload the audio file
-  const audioNote = await uploadAudioNote(audioBlob);
+  const newAudioNote = await uploadAudioNote(audioBlob);
   
-  // Then save the node path with the audio reference
+  // Fetch existing node path to get current audio notes
+  const existingNodePaths = await fetchNodePaths();
+  const existingNodePath = existingNodePaths.find(np => np.id === nodePathId);
+  
+  // Combine existing audio notes with new one
+  const existingAudioNotes = existingNodePath?.audioNotes || [];
+  const allAudioNotes = [...existingAudioNotes, newAudioNote];
+  
+  // Then save the node path with all audio references
   const nodePath: NodePathRecord = {
     id: nodePathId,
     pathId,
     nodeId,
-    content: '', // Keep existing content or empty
-    audioNote,
+    content: existingNodePath?.content || '', // Keep existing content
+    audioNotes: allAudioNotes,
   };
   
   return saveNodePath(nodePath);
 }
 
 /**
- * Save audio note to a Path record
+ * Save audio note to a Path record (appends to existing audio notes)
  */
 export async function savePathAudioNote(
   pathId: string,
   audioBlob: Blob
 ): Promise<void> {
   // First upload the audio file
-  const audioNote = await uploadAudioNote(audioBlob);
+  const newAudioNote = await uploadAudioNote(audioBlob);
+  
+  // Fetch existing path to get current audio notes
+  const paths = await fetchPaths();
+  const existingPath = paths.find(p => p.id === pathId);
   
   // Find the path's Notion page ID
   const existingPage = await findPathByAppId(pathId);
@@ -782,14 +798,23 @@ export async function savePathAudioNote(
     throw new Error(`Path not found: ${pathId}`);
   }
   
-  // Update the path with the audio note
+  // Combine existing audio notes with new one
+  const existingAudioNotes = existingPath?.audioNotes || [];
+  const allAudioNotes = [...existingAudioNotes, newAudioNote];
+  
+  // Build files array with all audio notes
+  const filesArray = allAudioNotes
+    .filter(note => note.fileUploadId)
+    .map(note => ({
+      type: 'file_upload',
+      file_upload: { id: note.fileUploadId! },
+      name: note.filename || 'audio_note.wav',
+    }));
+  
+  // Update the path with all audio notes
   const properties = {
     audioNote: {
-      files: [{
-        type: 'file_upload',
-        file_upload: { id: audioNote.fileUploadId },
-        name: audioNote.filename || 'audio_note.webm',
-      }],
+      files: filesArray,
     },
   };
   

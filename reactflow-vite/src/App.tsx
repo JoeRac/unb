@@ -963,9 +963,9 @@ function DiagramContent() {
   // Path-level notes state
   const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
   
-  // Audio notes state
-  const [pathAudioUrls, setPathAudioUrls] = useState<Record<string, string | undefined>>({}); // pathId -> audio URL
-  const [nodePathAudioUrls, setNodePathAudioUrls] = useState<Record<string, Record<string, string | undefined>>>({}); // pathId -> nodeId -> audio URL
+  // Audio notes state (arrays of URLs for multiple recordings)
+  const [pathAudioUrls, setPathAudioUrls] = useState<Record<string, string[]>>({}); // pathId -> array of audio URLs
+  const [nodePathAudioUrls, setNodePathAudioUrls] = useState<Record<string, Record<string, string[]>>>({}); // pathId -> nodeId -> array of audio URLs
   
   // Track newly created path for auto-edit mode
   const [autoEditPathId, setAutoEditPathId] = useState<string | null>(null);
@@ -4643,7 +4643,7 @@ function DiagramContent() {
                         }
                       }
                     }}
-                    existingAudioUrl={activePathId ? pathAudioUrls[activePathId] : undefined}
+                    existingAudioUrls={activePathId ? pathAudioUrls[activePathId] || [] : []}
                     compact={false}
                   />
                   
@@ -4835,7 +4835,7 @@ function DiagramContent() {
                                 <AudioRecorder
                                   compact
                                   darkMode={false}
-                                  existingAudioUrl={nodePathAudioUrls[activePathId]?.[nodeId]}
+                                  existingAudioUrls={nodePathAudioUrls[activePathId]?.[nodeId] || []}
                                   onRecordingComplete={async (audioBlob, _duration) => {
                                     try {
                                       if (DATA_SOURCE === 'notion') {

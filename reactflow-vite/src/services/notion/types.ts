@@ -153,7 +153,7 @@ export interface PathRecord {
   subcategory?: string;
   subsubcategory?: string;
   notes?: string;
-  audioNote?: AudioNoteData; // Audio recording for voice notes
+  audioNotes?: AudioNoteData[]; // Multiple audio recordings for voice notes
   status?: string;
   dateUpdated?: string;
   lastModified?: string;
@@ -184,7 +184,7 @@ export interface NodePathRecord {
   pathId: string;
   nodeId: string;
   content: string;
-  audioNote?: AudioNoteData; // Audio recording for voice notes
+  audioNotes?: AudioNoteData[]; // Multiple audio recordings for voice notes
   lastModified?: string;
 }
 

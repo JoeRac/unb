@@ -98,8 +98,8 @@ function extractNumber(property: NotionProperty | undefined): number | undefined
 /**
  * Extract files property for audio notes
  */
-function extractFilesProperty(property: NotionProperty | undefined): AudioNoteData | undefined {
-  if (!property || property.type !== 'files') return undefined;
+function extractFilesProperty(property: NotionProperty | undefined): AudioNoteData[] {
+  if (!property || property.type !== 'files') return [];
   
   interface NotionFile {
     name?: string;
@@ -111,35 +111,35 @@ function extractFilesProperty(property: NotionProperty | undefined): AudioNoteDa
   
   const filesProperty = property as unknown as { files: NotionFile[] };
   const files = filesProperty.files;
-  if (!files || files.length === 0) return undefined;
+  if (!files || files.length === 0) return [];
   
-  const firstFile = files[0];
+  const audioNotes: AudioNoteData[] = [];
   
-  // Handle Notion-hosted files (uploaded via API)
-  if (firstFile.file) {
-    return {
-      url: firstFile.file.url,
-      filename: firstFile.name || 'audio_note.webm',
-    };
+  for (const file of files) {
+    // Handle Notion-hosted files (uploaded via API)
+    if (file.file) {
+      audioNotes.push({
+        url: file.file.url,
+        filename: file.name || 'audio_note.wav',
+      });
+    }
+    // Handle file_upload references
+    else if (file.file_upload) {
+      audioNotes.push({
+        fileUploadId: file.file_upload.id,
+        filename: file.name || 'audio_note.wav',
+      });
+    }
+    // Handle external files
+    else if (file.external) {
+      audioNotes.push({
+        url: file.external.url,
+        filename: file.name || 'audio_note.wav',
+      });
+    }
   }
   
-  // Handle file_upload references
-  if (firstFile.file_upload) {
-    return {
-      fileUploadId: firstFile.file_upload.id,
-      filename: firstFile.name || 'audio_note.webm',
-    };
-  }
-  
-  // Handle external files
-  if (firstFile.external) {
-    return {
-      url: firstFile.external.url,
-      filename: firstFile.name || 'audio_note.webm',
-    };
-  }
-  
-  return undefined;
+  return audioNotes;
 }
 
 /**
@@ -263,10 +263,14 @@ export function notionPageToPath(page: NotionPage): PathRecord {
   // Get nodeIds
   const nodeIdsRaw = extractRichText(props['nodeIds']) || extractRichText(props['node_ids']);
   
-  // Debug: log audioNote extraction
-  const audioNote = extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']);
-  if (audioNote) {
-    console.log('[transformers] Found audioNote for path:', name, audioNote);
+  // Extract audio notes (can be multiple)
+  const audioNotesFromAudioNote = extractFilesProperty(props['audioNote']);
+  const audioNotesFromAudioNotes = extractFilesProperty(props['audioNotes']);
+  const audioNotesFromSnakeCase = extractFilesProperty(props['audio_note']);
+  const audioNotes = [...audioNotesFromAudioNote, ...audioNotesFromAudioNotes, ...audioNotesFromSnakeCase];
+  
+  if (audioNotes.length > 0) {
+    console.log('[transformers] Found audioNotes for path:', name, audioNotes);
   }
   
   return {
@@ -278,7 +282,7 @@ export function notionPageToPath(page: NotionPage): PathRecord {
     subcategory: extractRichText(props['subcategory']) || extractSelect(props['subcategory']) || undefined,
     subsubcategory: extractRichText(props['subsubcategory']) || extractSelect(props['subsubcategory']) || undefined,
     notes: extractRichText(props['notes']) || extractRichText(props['Notes']) || undefined,
-    audioNote,
+    audioNotes: audioNotes.length > 0 ? audioNotes : undefined,
     status: extractStatus(props['status']) || extractSelect(props['status']) || extractRichText(props['status']) || undefined,
     dateUpdated: extractDate(props['date_updated']) || extractDate(props['dateUpdated']) || undefined,
     lastModified: page.last_edited_time,
@@ -295,10 +299,14 @@ export function notionPageToNodePath(page: NotionPage): NodePathRecord {
   const pathId = extractRichText(props['pathId']) || extractTitle(props['pathId']) || '';
   const nodeId = extractRichText(props['nodeId']) || extractTitle(props['nodeId']) || '';
   
-  // Debug: log audioNote extraction
-  const audioNote = extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']);
-  if (audioNote) {
-    console.log('[transformers] Found audioNote for nodePath:', pathId, nodeId, audioNote);
+  // Extract audio notes (can be multiple)
+  const audioNotesFromAudioNote = extractFilesProperty(props['audioNote']);
+  const audioNotesFromAudioNotes = extractFilesProperty(props['audioNotes']);
+  const audioNotesFromSnakeCase = extractFilesProperty(props['audio_note']);
+  const audioNotes = [...audioNotesFromAudioNote, ...audioNotesFromAudioNotes, ...audioNotesFromSnakeCase];
+  
+  if (audioNotes.length > 0) {
+    console.log('[transformers] Found audioNotes for nodePath:', pathId, nodeId, audioNotes);
   }
   
   return {
@@ -307,7 +315,7 @@ export function notionPageToNodePath(page: NotionPage): NodePathRecord {
     pathId,
     nodeId,
     content: extractRichText(props['content']) || '',
-    audioNote,
+    audioNotes: audioNotes.length > 0 ? audioNotes : undefined,
     lastModified: page.last_edited_time,
   };
 }
@@ -436,13 +444,15 @@ export function pathToNotionProperties(path: Partial<PathRecord>): Record<string
   if (path.notes !== undefined) {
     props['notes'] = createRichTextProperty(path.notes || '');
   }
-  if (path.audioNote?.fileUploadId) {
+  if (path.audioNotes && path.audioNotes.length > 0) {
     props['audioNote'] = {
-      files: [{
-        type: 'file_upload',
-        file_upload: { id: path.audioNote.fileUploadId },
-        name: path.audioNote.filename || 'audio_note.webm',
-      }],
+      files: path.audioNotes
+        .filter(note => note.fileUploadId)
+        .map(note => ({
+          type: 'file_upload',
+          file_upload: { id: note.fileUploadId! },
+          name: note.filename || 'audio_note.wav',
+        })),
     };
   }
   if (path.status !== undefined) {
@@ -477,13 +487,15 @@ export function nodePathToNotionProperties(nodePath: Partial<NodePathRecord>): R
   if (nodePath.content !== undefined) {
     props['content'] = createRichTextProperty(nodePath.content);
   }
-  if (nodePath.audioNote?.fileUploadId) {
+  if (nodePath.audioNotes && nodePath.audioNotes.length > 0) {
     props['audioNote'] = {
-      files: [{
-        type: 'file_upload',
-        file_upload: { id: nodePath.audioNote.fileUploadId },
-        name: nodePath.audioNote.filename || 'audio_note.webm',
-      }],
+      files: nodePath.audioNotes
+        .filter(note => note.fileUploadId)
+        .map(note => ({
+          type: 'file_upload',
+          file_upload: { id: note.fileUploadId! },
+          name: note.filename || 'audio_note.wav',
+        })),
     };
   }
   
