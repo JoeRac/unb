@@ -532,6 +532,41 @@ export function buildNodePathMap(nodePaths: NodePathRecord[]): Record<string, Re
 }
 
 /**
+ * Build node-path audio notes map from records
+ * Returns a map of pathId -> nodeId -> audio URL
+ */
+export function buildNodePathAudioMap(nodePaths: NodePathRecord[]): Record<string, Record<string, string | undefined>> {
+  const map: Record<string, Record<string, string | undefined>> = {};
+  
+  nodePaths.forEach(np => {
+    if (np.audioNote?.url) {
+      if (!map[np.pathId]) {
+        map[np.pathId] = {};
+      }
+      map[np.pathId][np.nodeId] = np.audioNote.url;
+    }
+  });
+  
+  return map;
+}
+
+/**
+ * Build path audio notes map from records
+ * Returns a map of pathId -> audio URL
+ */
+export function buildPathAudioMap(paths: PathRecord[]): Record<string, string | undefined> {
+  const map: Record<string, string | undefined> = {};
+  
+  paths.forEach(p => {
+    if (p.audioNote?.url) {
+      map[p.id] = p.audioNote.url;
+    }
+  });
+  
+  return map;
+}
+
+/**
  * Find existing node-path by ID
  */
 async function findNodePathById(id: string): Promise<NotionPage | null> {

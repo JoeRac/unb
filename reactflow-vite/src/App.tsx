@@ -33,6 +33,8 @@ import {
   type CategoryRecord,
   saveNodePathAudioNote,
   savePathAudioNote,
+  buildNodePathAudioMap,
+  buildPathAudioMap,
 } from './services/notion';
 
 // Import FolderTree component for unified folder/path navigation
@@ -961,9 +963,13 @@ function DiagramContent() {
   // Path-level notes state
   const [pathNotes, setPathNotes] = useState<Record<string, string>>({}); // pathId -> notes
   
+  // Audio notes state
+  const [pathAudioUrls, setPathAudioUrls] = useState<Record<string, string | undefined>>({}); // pathId -> audio URL
+  const [nodePathAudioUrls, setNodePathAudioUrls] = useState<Record<string, Record<string, string | undefined>>>({}); // pathId -> nodeId -> audio URL
+  
   // Track newly created path for auto-edit mode
   const [autoEditPathId, setAutoEditPathId] = useState<string | null>(null);
-  
+
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -2277,6 +2283,10 @@ function DiagramContent() {
           setPathsMap(map);
           setPathNotes(notesMap);
           setPathLastUpdated(updatedMap);
+          
+          // Load path audio URLs
+          const pathAudioMap = buildPathAudioMap(paths);
+          setPathAudioUrls(pathAudioMap);
         } else {
           // Load from Google Sheets (legacy)
           const response = await fetch(PATHS_CSV_URL);
@@ -2336,6 +2346,10 @@ function DiagramContent() {
           const nodePaths = await notionService.fetchNodePaths();
           const map = notionService.buildNodePathMap(nodePaths);
           setNodePathMap(map);
+          
+          // Load node-path audio URLs
+          const audioMap = buildNodePathAudioMap(nodePaths);
+          setNodePathAudioUrls(audioMap);
         } else {
           // Load from Google Sheets (legacy)
           const response = await fetch(NODE_PATH_GVIZ_URL);
@@ -4620,11 +4634,16 @@ function DiagramContent() {
                         try {
                           await savePathAudioNote(activePathId, audioBlob);
                           console.log('Path audio note saved successfully');
+                          // Refresh the audio URL after upload
+                          const paths = await notionService.fetchPaths();
+                          const newAudioMap = buildPathAudioMap(paths);
+                          setPathAudioUrls(newAudioMap);
                         } catch (error) {
                           console.error('Failed to save path audio note:', error);
                         }
                       }
                     }}
+                    existingAudioUrl={activePathId ? pathAudioUrls[activePathId] : undefined}
                     compact={false}
                   />
                   
@@ -4816,6 +4835,7 @@ function DiagramContent() {
                                 <AudioRecorder
                                   compact
                                   darkMode={false}
+                                  existingAudioUrl={nodePathAudioUrls[activePathId]?.[nodeId]}
                                   onRecordingComplete={async (audioBlob, _duration) => {
                                     try {
                                       if (DATA_SOURCE === 'notion') {
@@ -4825,6 +4845,10 @@ function DiagramContent() {
                                           nodeId,
                                           audioBlob
                                         );
+                                        // Refresh the audio URLs after upload
+                                        const nodePaths = await notionService.fetchNodePaths();
+                                        const newAudioMap = buildNodePathAudioMap(nodePaths);
+                                        setNodePathAudioUrls(newAudioMap);
                                       }
                                     } catch (error) {
                                       console.error('Error saving audio note:', error);

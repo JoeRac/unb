@@ -95,6 +95,8 @@ export {
   deleteCategory,
   updateCategory,
   buildNodePathMap,
+  buildNodePathAudioMap,
+  buildPathAudioMap,
   savePath,
   updatePathNodes,
   updatePathCategory,

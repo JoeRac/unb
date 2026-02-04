@@ -263,6 +263,12 @@ export function notionPageToPath(page: NotionPage): PathRecord {
   // Get nodeIds
   const nodeIdsRaw = extractRichText(props['nodeIds']) || extractRichText(props['node_ids']);
   
+  // Debug: log audioNote extraction
+  const audioNote = extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']);
+  if (audioNote) {
+    console.log('[transformers] Found audioNote for path:', name, audioNote);
+  }
+  
   return {
     id,
     notionPageId: page.id,
@@ -272,7 +278,7 @@ export function notionPageToPath(page: NotionPage): PathRecord {
     subcategory: extractRichText(props['subcategory']) || extractSelect(props['subcategory']) || undefined,
     subsubcategory: extractRichText(props['subsubcategory']) || extractSelect(props['subsubcategory']) || undefined,
     notes: extractRichText(props['notes']) || extractRichText(props['Notes']) || undefined,
-    audioNote: extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']),
+    audioNote,
     status: extractStatus(props['status']) || extractSelect(props['status']) || extractRichText(props['status']) || undefined,
     dateUpdated: extractDate(props['date_updated']) || extractDate(props['dateUpdated']) || undefined,
     lastModified: page.last_edited_time,
@@ -289,13 +295,19 @@ export function notionPageToNodePath(page: NotionPage): NodePathRecord {
   const pathId = extractRichText(props['pathId']) || extractTitle(props['pathId']) || '';
   const nodeId = extractRichText(props['nodeId']) || extractTitle(props['nodeId']) || '';
   
+  // Debug: log audioNote extraction
+  const audioNote = extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']);
+  if (audioNote) {
+    console.log('[transformers] Found audioNote for nodePath:', pathId, nodeId, audioNote);
+  }
+  
   return {
     id: `${pathId}_${nodeId}`,
     notionPageId: page.id,
     pathId,
     nodeId,
     content: extractRichText(props['content']) || '',
-    audioNote: extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']),
+    audioNote,
     lastModified: page.last_edited_time,
   };
 }
