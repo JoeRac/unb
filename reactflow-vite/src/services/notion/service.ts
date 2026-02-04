@@ -726,7 +726,7 @@ export async function savePathAudioNote(
   const audioNote = await uploadAudioNote(audioBlob);
   
   // Find the path's Notion page ID
-  const existingPage = await findPathById(pathId);
+  const existingPage = await findPathByAppId(pathId);
   
   if (!existingPage) {
     throw new Error(`Path not found: ${pathId}`);

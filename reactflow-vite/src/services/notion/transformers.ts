@@ -109,7 +109,8 @@ function extractFilesProperty(property: NotionProperty | undefined): AudioNoteDa
     external?: { url: string };
   }
   
-  const files = (property as { files: NotionFile[] }).files;
+  const filesProperty = property as unknown as { files: NotionFile[] };
+  const files = filesProperty.files;
   if (!files || files.length === 0) return undefined;
   
   const firstFile = files[0];

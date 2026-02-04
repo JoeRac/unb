@@ -4816,7 +4816,7 @@ function DiagramContent() {
                                 <AudioRecorder
                                   compact
                                   darkMode={false}
-                                  onRecordingComplete={async (audioBlob, duration) => {
+                                  onRecordingComplete={async (audioBlob, _duration) => {
                                     try {
                                       if (DATA_SOURCE === 'notion') {
                                         await saveNodePathAudioNote(
