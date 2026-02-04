@@ -803,13 +803,22 @@ export async function savePathAudioNote(
   const allAudioNotes = [...existingAudioNotes, newAudioNote];
   
   // Build files array with all audio notes
-  const filesArray = allAudioNotes
-    .filter(note => note.fileUploadId)
-    .map(note => ({
-      type: 'file_upload',
-      file_upload: { id: note.fileUploadId! },
-      name: note.filename || 'audio_note.wav',
-    }));
+  const filesArray: unknown[] = [];
+  
+  for (const note of allAudioNotes) {
+    // For existing files with rawNotionFile, use the original object
+    if (note.rawNotionFile) {
+      filesArray.push(note.rawNotionFile);
+    }
+    // For new uploads, create file_upload reference
+    else if (note.fileUploadId) {
+      filesArray.push({
+        type: 'file_upload',
+        file_upload: { id: note.fileUploadId },
+        name: note.filename || 'audio_note.wav',
+      });
+    }
+  }
   
   // Update the path with all audio notes
   const properties = {

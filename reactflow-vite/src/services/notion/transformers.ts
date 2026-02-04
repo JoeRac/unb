@@ -105,7 +105,7 @@ function extractFilesProperty(property: NotionProperty | undefined): AudioNoteDa
     name?: string;
     type?: string;
     file_upload?: { id: string };
-    file?: { url: string; expiry_time: string };
+    file?: { url: string; expiry_time?: string };
     external?: { url: string };
   }
   
@@ -116,11 +116,21 @@ function extractFilesProperty(property: NotionProperty | undefined): AudioNoteDa
   const audioNotes: AudioNoteData[] = [];
   
   for (const file of files) {
+    // Preserve the raw Notion file object for re-saving
+    const rawNotionFile = {
+      type: file.type,
+      name: file.name,
+      file: file.file,
+      file_upload: file.file_upload,
+      external: file.external,
+    };
+    
     // Handle Notion-hosted files (uploaded via API)
     if (file.file) {
       audioNotes.push({
         url: file.file.url,
         filename: file.name || 'audio_note.wav',
+        rawNotionFile,
       });
     }
     // Handle file_upload references
@@ -128,6 +138,7 @@ function extractFilesProperty(property: NotionProperty | undefined): AudioNoteDa
       audioNotes.push({
         fileUploadId: file.file_upload.id,
         filename: file.name || 'audio_note.wav',
+        rawNotionFile,
       });
     }
     // Handle external files
@@ -135,6 +146,7 @@ function extractFilesProperty(property: NotionProperty | undefined): AudioNoteDa
       audioNotes.push({
         url: file.external.url,
         filename: file.name || 'audio_note.wav',
+        rawNotionFile,
       });
     }
   }
@@ -488,15 +500,26 @@ export function nodePathToNotionProperties(nodePath: Partial<NodePathRecord>): R
     props['content'] = createRichTextProperty(nodePath.content);
   }
   if (nodePath.audioNotes && nodePath.audioNotes.length > 0) {
-    props['audioNote'] = {
-      files: nodePath.audioNotes
-        .filter(note => note.fileUploadId)
-        .map(note => ({
+    const filesArray: unknown[] = [];
+    
+    for (const note of nodePath.audioNotes) {
+      // For existing files with rawNotionFile, use the original object
+      if (note.rawNotionFile) {
+        filesArray.push(note.rawNotionFile);
+      }
+      // For new uploads, create file_upload reference
+      else if (note.fileUploadId) {
+        filesArray.push({
           type: 'file_upload',
-          file_upload: { id: note.fileUploadId! },
+          file_upload: { id: note.fileUploadId },
           name: note.filename || 'audio_note.wav',
-        })),
-    };
+        });
+      }
+    }
+    
+    if (filesArray.length > 0) {
+      props['audioNote'] = { files: filesArray };
+    }
   }
   
   return props;

@@ -162,11 +162,19 @@ export interface PathRecord {
 
 // Audio note data
 export interface AudioNoteData {
-  fileUploadId?: string; // Notion file upload ID
+  fileUploadId?: string; // Notion file upload ID (for new uploads)
   url?: string; // Temporary download URL (expires after 1 hour)
   filename?: string;
   duration?: number; // Duration in seconds
   createdAt?: string;
+  // Raw Notion file object - preserved for re-saving existing files
+  rawNotionFile?: {
+    type?: string;
+    name?: string;
+    file?: { url: string; expiry_time?: string };
+    file_upload?: { id: string };
+    external?: { url: string };
+  };
 }
 
 // Category data from Notion
