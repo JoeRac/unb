@@ -9,6 +9,7 @@ import {
   updatePage,
   archivePage,
   NotionAPIError,
+  uploadFile,
 } from './client';
 import {
   notionPagesToNodes,
@@ -25,6 +26,7 @@ import type {
   NodePathRecord,
   CategoryRecord,
   NotionPage,
+  AudioNoteData,
 } from './types';
 
 // ============================================
@@ -659,6 +661,92 @@ export async function checkConnection(): Promise<boolean> {
     }
     return false;
   }
+}
+
+// ============================================
+// Audio Note Operations
+// ============================================
+
+/**
+ * Upload an audio note and return the AudioNoteData
+ */
+export async function uploadAudioNote(
+  audioBlob: Blob,
+  filename?: string
+): Promise<AudioNoteData> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const finalFilename = filename || `audio_note_${timestamp}.webm`;
+  
+  try {
+    const fileUploadId = await uploadFile(audioBlob, finalFilename);
+    
+    return {
+      fileUploadId,
+      filename: finalFilename,
+      createdAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('Error uploading audio note:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save audio note to a NodePath record
+ */
+export async function saveNodePathAudioNote(
+  nodePathId: string,
+  pathId: string,
+  nodeId: string,
+  audioBlob: Blob
+): Promise<NodePathRecord> {
+  // First upload the audio file
+  const audioNote = await uploadAudioNote(audioBlob);
+  
+  // Then save the node path with the audio reference
+  const nodePath: NodePathRecord = {
+    id: nodePathId,
+    pathId,
+    nodeId,
+    content: '', // Keep existing content or empty
+    audioNote,
+  };
+  
+  return saveNodePath(nodePath);
+}
+
+/**
+ * Save audio note to a Path record
+ */
+export async function savePathAudioNote(
+  pathId: string,
+  audioBlob: Blob
+): Promise<void> {
+  // First upload the audio file
+  const audioNote = await uploadAudioNote(audioBlob);
+  
+  // Find the path's Notion page ID
+  const existingPage = await findPathById(pathId);
+  
+  if (!existingPage) {
+    throw new Error(`Path not found: ${pathId}`);
+  }
+  
+  // Update the path with the audio note
+  const properties = {
+    audioNote: {
+      files: [{
+        type: 'file_upload',
+        file_upload: { id: audioNote.fileUploadId },
+        name: audioNote.filename || 'audio_note.webm',
+      }],
+    },
+  };
+  
+  await updatePage(existingPage.id, properties);
+  
+  // Invalidate cache
+  cache.paths = null;
 }
 
 // Export everything needed

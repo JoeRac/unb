@@ -23,6 +23,7 @@ export type {
   ExternalLink,
   ImageData,
   VideoData,
+  AudioNoteData,
   
   // Sync types
   SyncStatus,
@@ -51,6 +52,11 @@ export {
   forceSyncQueue,
   clearPendingChanges,
   NotionAPIError,
+  // File upload functions
+  createFileUpload,
+  sendFileUpload,
+  uploadFile,
+  createFilesPropertyValue,
 } from './client';
 
 // Transformers
@@ -102,6 +108,10 @@ export {
   refreshAllData,
   checkConnection,
   clearCache,
+  // Audio note operations
+  uploadAudioNote,
+  saveNodePathAudioNote,
+  savePathAudioNote,
 } from './service';
 
 // Create a default service instance for easy importing

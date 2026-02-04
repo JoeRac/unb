@@ -31,10 +31,15 @@ import {
   type SyncStatus,
   type PathRecord,
   type CategoryRecord,
+  saveNodePathAudioNote,
+  savePathAudioNote,
 } from './services/notion';
 
 // Import FolderTree component for unified folder/path navigation
 import { FolderTree, UnassignedPathsSection, type FolderTreeNode, type PathItem } from './components/FolderTree';
+
+// Import AudioRecorder component
+import { AudioRecorder } from './components/AudioRecorder';
 
 // Dagre layout helper
 const dagreGraph = new dagre.graphlib.Graph();
@@ -4607,6 +4612,22 @@ function DiagramContent() {
                       )
                     ))}
                   </div>
+                  
+                  {/* Audio Recorder for path notes */}
+                  <AudioRecorder
+                    onRecordingComplete={async (audioBlob) => {
+                      if (DATA_SOURCE === 'notion' && activePathId) {
+                        try {
+                          await savePathAudioNote(activePathId, audioBlob);
+                          console.log('Path audio note saved successfully');
+                        } catch (error) {
+                          console.error('Failed to save path audio note:', error);
+                        }
+                      }
+                    }}
+                    compact={false}
+                  />
+                  
                   <div
                     ref={(el) => {
                       pathNotesEditorRef.current = el;
@@ -4790,6 +4811,27 @@ function DiagramContent() {
                                   </button>
                                 )
                               ))}
+                              {/* Audio recorder for voice notes */}
+                              <div style={{ marginLeft: 'auto', paddingLeft: '8px' }}>
+                                <AudioRecorder
+                                  compact
+                                  darkMode={false}
+                                  onRecordingComplete={async (audioBlob, duration) => {
+                                    try {
+                                      if (DATA_SOURCE === 'notion') {
+                                        await saveNodePathAudioNote(
+                                          `${activePathId}_${nodeId}`,
+                                          activePathId,
+                                          nodeId,
+                                          audioBlob
+                                        );
+                                      }
+                                    } catch (error) {
+                                      console.error('Error saving audio note:', error);
+                                    }
+                                  }}
+                                />
+                              </div>
                             </div>
                             <div
                               ref={(el) => {

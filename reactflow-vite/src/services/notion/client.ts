@@ -418,3 +418,132 @@ export function clearPendingChanges(): void {
   requestQueue.length = 0;
   updateSyncStatus('idle');
 }
+
+// ============================================
+// File Upload Operations
+// ============================================
+
+interface FileUploadObject {
+  object: 'file_upload';
+  id: string;
+  created_time: string;
+  last_edited_time: string;
+  expiry_time: string;
+  upload_url: string;
+  archived: boolean;
+  status: 'pending' | 'uploaded';
+  filename: string | null;
+  content_type: string | null;
+  content_length: string | null;
+}
+
+/**
+ * Create a file upload object
+ * Step 1 of the file upload process
+ */
+export async function createFileUpload(): Promise<FileUploadObject> {
+  return notionRequest<FileUploadObject>({
+    method: 'POST',
+    path: '/file_uploads',
+    body: {},
+  });
+}
+
+/**
+ * Send file contents to Notion
+ * Step 2 of the file upload process
+ * This requires special handling with multipart/form-data
+ */
+export async function sendFileUpload(
+  fileUploadId: string,
+  file: Blob,
+  filename: string
+): Promise<FileUploadObject> {
+  const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+  
+  const formData = new FormData();
+  formData.append('file', file, filename);
+  
+  let url: string;
+  let headers: Record<string, string>;
+  
+  if (isDev) {
+    // Development: Use Vite proxy
+    url = `/notion-api/v1/file_uploads/${fileUploadId}/send`;
+    headers = {
+      // Don't set Content-Type for FormData - browser will set it with boundary
+    };
+  } else {
+    // Production: Use Vercel serverless function
+    // We need to handle this through our API proxy since FormData can't easily go through JSON
+    url = `/api/notion`;
+    
+    // For production, we'll use a special endpoint that handles file uploads
+    // This requires a separate API route
+    throw new NotionAPIError(
+      'File uploads in production require a dedicated file upload API endpoint',
+      501,
+      'NOT_IMPLEMENTED'
+    );
+  }
+  
+  updateSyncStatus('syncing', 'Uploading audio...');
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new NotionAPIError(
+      errorData.message || `File upload failed: ${response.status}`,
+      response.status,
+      errorData.code
+    );
+  }
+  
+  const result = await response.json();
+  updateSyncStatus('success', 'Audio uploaded');
+  
+  return result as FileUploadObject;
+}
+
+/**
+ * Upload a file to Notion and get the file upload ID
+ * Combines steps 1 and 2
+ */
+export async function uploadFile(file: Blob, filename: string): Promise<string> {
+  // Step 1: Create file upload object
+  const fileUpload = await createFileUpload();
+  
+  // Step 2: Send the file
+  const uploadedFile = await sendFileUpload(fileUpload.id, file, filename);
+  
+  if (uploadedFile.status !== 'uploaded') {
+    throw new NotionAPIError('File upload did not complete', 500, 'UPLOAD_INCOMPLETE');
+  }
+  
+  return uploadedFile.id;
+}
+
+/**
+ * Create a files property value for Notion page update
+ * Use this when attaching an uploaded file to a page property
+ */
+export function createFilesPropertyValue(
+  fileUploadId: string,
+  filename: string
+): { type: 'files'; files: Array<{ type: 'file_upload'; file_upload: { id: string }; name: string }> } {
+  return {
+    type: 'files',
+    files: [
+      {
+        type: 'file_upload',
+        file_upload: { id: fileUploadId },
+        name: filename,
+      },
+    ],
+  };
+}

@@ -153,10 +153,20 @@ export interface PathRecord {
   subcategory?: string;
   subsubcategory?: string;
   notes?: string;
+  audioNote?: AudioNoteData; // Audio recording for voice notes
   status?: string;
   dateUpdated?: string;
   lastModified?: string;
   priority?: number; // 0-100, higher = more important (red), lower = less important (blue)
+}
+
+// Audio note data
+export interface AudioNoteData {
+  fileUploadId?: string; // Notion file upload ID
+  url?: string; // Temporary download URL (expires after 1 hour)
+  filename?: string;
+  duration?: number; // Duration in seconds
+  createdAt?: string;
 }
 
 // Category data from Notion
@@ -174,6 +184,7 @@ export interface NodePathRecord {
   pathId: string;
   nodeId: string;
   content: string;
+  audioNote?: AudioNoteData; // Audio recording for voice notes
   lastModified?: string;
 }
 

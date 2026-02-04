@@ -13,6 +13,7 @@ import type {
   ExternalLink,
   ImageData,
   VideoData,
+  AudioNoteData,
 } from './types';
 
 // ============================================
@@ -92,6 +93,52 @@ function extractNumber(property: NotionProperty | undefined): number | undefined
   if (!property || property.type !== 'number') return undefined;
   const num = (property as { number: number | null }).number;
   return num !== null ? num : undefined;
+}
+
+/**
+ * Extract files property for audio notes
+ */
+function extractFilesProperty(property: NotionProperty | undefined): AudioNoteData | undefined {
+  if (!property || property.type !== 'files') return undefined;
+  
+  interface NotionFile {
+    name?: string;
+    type?: string;
+    file_upload?: { id: string };
+    file?: { url: string; expiry_time: string };
+    external?: { url: string };
+  }
+  
+  const files = (property as { files: NotionFile[] }).files;
+  if (!files || files.length === 0) return undefined;
+  
+  const firstFile = files[0];
+  
+  // Handle Notion-hosted files (uploaded via API)
+  if (firstFile.file) {
+    return {
+      url: firstFile.file.url,
+      filename: firstFile.name || 'audio_note.webm',
+    };
+  }
+  
+  // Handle file_upload references
+  if (firstFile.file_upload) {
+    return {
+      fileUploadId: firstFile.file_upload.id,
+      filename: firstFile.name || 'audio_note.webm',
+    };
+  }
+  
+  // Handle external files
+  if (firstFile.external) {
+    return {
+      url: firstFile.external.url,
+      filename: firstFile.name || 'audio_note.webm',
+    };
+  }
+  
+  return undefined;
 }
 
 /**
@@ -224,6 +271,7 @@ export function notionPageToPath(page: NotionPage): PathRecord {
     subcategory: extractRichText(props['subcategory']) || extractSelect(props['subcategory']) || undefined,
     subsubcategory: extractRichText(props['subsubcategory']) || extractSelect(props['subsubcategory']) || undefined,
     notes: extractRichText(props['notes']) || extractRichText(props['Notes']) || undefined,
+    audioNote: extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']),
     status: extractStatus(props['status']) || extractSelect(props['status']) || extractRichText(props['status']) || undefined,
     dateUpdated: extractDate(props['date_updated']) || extractDate(props['dateUpdated']) || undefined,
     lastModified: page.last_edited_time,
@@ -246,6 +294,7 @@ export function notionPageToNodePath(page: NotionPage): NodePathRecord {
     pathId,
     nodeId,
     content: extractRichText(props['content']) || '',
+    audioNote: extractFilesProperty(props['audioNote']) || extractFilesProperty(props['audio_note']),
     lastModified: page.last_edited_time,
   };
 }
@@ -374,6 +423,15 @@ export function pathToNotionProperties(path: Partial<PathRecord>): Record<string
   if (path.notes !== undefined) {
     props['notes'] = createRichTextProperty(path.notes || '');
   }
+  if (path.audioNote?.fileUploadId) {
+    props['audioNote'] = {
+      files: [{
+        type: 'file_upload',
+        file_upload: { id: path.audioNote.fileUploadId },
+        name: path.audioNote.filename || 'audio_note.webm',
+      }],
+    };
+  }
   if (path.status !== undefined) {
     props['status'] = createStatusProperty(path.status || 'active');
   }
@@ -405,6 +463,15 @@ export function nodePathToNotionProperties(nodePath: Partial<NodePathRecord>): R
   }
   if (nodePath.content !== undefined) {
     props['content'] = createRichTextProperty(nodePath.content);
+  }
+  if (nodePath.audioNote?.fileUploadId) {
+    props['audioNote'] = {
+      files: [{
+        type: 'file_upload',
+        file_upload: { id: nodePath.audioNote.fileUploadId },
+        name: nodePath.audioNote.filename || 'audio_note.webm',
+      }],
+    };
   }
   
   return props;
