@@ -675,7 +675,22 @@ export async function uploadAudioNote(
   filename?: string
 ): Promise<AudioNoteData> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const finalFilename = filename || `audio_note_${timestamp}.webm`;
+  
+  // Determine file extension based on blob type
+  let extension = 'wav'; // Default to wav since we convert to wav
+  if (audioBlob.type.includes('wav')) {
+    extension = 'wav';
+  } else if (audioBlob.type.includes('mp3') || audioBlob.type.includes('mpeg')) {
+    extension = 'mp3';
+  } else if (audioBlob.type.includes('mp4') || audioBlob.type.includes('m4a')) {
+    extension = 'm4a';
+  } else if (audioBlob.type.includes('webm')) {
+    extension = 'webm';
+  }
+  
+  const finalFilename = filename || `audio_note_${timestamp}.${extension}`;
+  
+  console.log('[uploadAudioNote] Uploading:', finalFilename, 'type:', audioBlob.type, 'size:', audioBlob.size);
   
   try {
     const fileUploadId = await uploadFile(audioBlob, finalFilename);

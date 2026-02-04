@@ -62,13 +62,33 @@ async function parseMultipartFormData(req: VercelRequest): Promise<{ file: Buffe
             
             if (headerEnd === -1) continue;
             
-            // Extract filename from headers
+            // Extract filename and content type from headers
             const headers = partStr.substring(0, headerEnd);
             const filenameMatch = headers.match(/filename="([^"]+)"/);
             const contentTypeMatch = headers.match(/Content-Type:\s*([^\r\n]+)/i);
             
-            const filename = filenameMatch ? filenameMatch[1] : 'audio.webm';
-            const fileContentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'audio/webm';
+            const filename = filenameMatch ? filenameMatch[1] : 'audio.wav';
+            
+            // Determine content type from header or filename extension
+            let fileContentType = contentTypeMatch ? contentTypeMatch[1].trim() : '';
+            
+            // If no content type or it's webm, try to infer from filename
+            if (!fileContentType || fileContentType.includes('webm')) {
+              const ext = filename.split('.').pop()?.toLowerCase();
+              if (ext === 'wav') {
+                fileContentType = 'audio/wav';
+              } else if (ext === 'mp3') {
+                fileContentType = 'audio/mpeg';
+              } else if (ext === 'm4a') {
+                fileContentType = 'audio/mp4';
+              } else if (ext === 'ogg') {
+                fileContentType = 'audio/ogg';
+              } else {
+                fileContentType = fileContentType || 'audio/wav'; // Default to wav
+              }
+            }
+            
+            console.log('[File Upload] Parsed headers:', { filename, fileContentType, originalContentType: contentTypeMatch?.[1] });
             
             // Extract file content (remove trailing boundary and newlines)
             let fileEnd = part.length;

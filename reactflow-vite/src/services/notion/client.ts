@@ -461,6 +461,14 @@ export async function sendFileUpload(
 ): Promise<FileUploadObject> {
   const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
   
+  console.log('[sendFileUpload] Uploading file:', {
+    fileUploadId,
+    filename,
+    type: file.type,
+    size: file.size,
+    isDev,
+  });
+  
   const formData = new FormData();
   formData.append('file', file, filename);
   
@@ -474,6 +482,7 @@ export async function sendFileUpload(
     url = `/api/file-upload?fileUploadId=${encodeURIComponent(fileUploadId)}`;
   }
   
+  console.log('[sendFileUpload] URL:', url);
   updateSyncStatus('syncing', 'Uploading audio...');
   
   const response = await fetch(url, {
@@ -482,8 +491,11 @@ export async function sendFileUpload(
     body: formData,
   });
   
+  console.log('[sendFileUpload] Response status:', response.status);
+  
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    console.error('[sendFileUpload] Error response:', errorData);
     throw new NotionAPIError(
       errorData.message || `File upload failed: ${response.status}`,
       response.status,
@@ -492,6 +504,7 @@ export async function sendFileUpload(
   }
   
   const result = await response.json();
+  console.log('[sendFileUpload] Success:', result);
   updateSyncStatus('success', 'Audio uploaded');
   
   return result as FileUploadObject;

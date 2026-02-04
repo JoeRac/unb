@@ -4,6 +4,68 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+/**
+ * Convert audio blob to WAV format
+ * Notion doesn't support webm, so we need to convert to WAV
+ */
+async function convertToWav(audioBlob: Blob): Promise<Blob> {
+  const audioContext = new AudioContext();
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  
+  // Create WAV file
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const format = 1; // PCM
+  const bitsPerSample = 16;
+  
+  // Interleave channels
+  const length = audioBuffer.length * numChannels * (bitsPerSample / 8);
+  const buffer = new ArrayBuffer(44 + length);
+  const view = new DataView(buffer);
+  
+  // Write WAV header
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + length, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // fmt chunk size
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true);
+  view.setUint16(32, numChannels * (bitsPerSample / 8), true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(36, 'data');
+  view.setUint32(40, length, true);
+  
+  // Write audio data
+  const offset = 44;
+  const channelData: Float32Array[] = [];
+  for (let i = 0; i < numChannels; i++) {
+    channelData.push(audioBuffer.getChannelData(i));
+  }
+  
+  let pos = 0;
+  for (let i = 0; i < audioBuffer.length; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, channelData[ch][i]));
+      const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(offset + pos, intSample, true);
+      pos += 2;
+    }
+  }
+  
+  await audioContext.close();
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
   onRecordingStart?: () => void;
@@ -96,7 +158,8 @@ export function AudioRecorder({
       source.connect(analyser);
       analyserRef.current = analyser;
       
-      // Determine supported MIME type
+      // Determine supported MIME type for recording
+      // We'll convert to WAV before uploading since Notion doesn't support webm
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
@@ -112,9 +175,20 @@ export function AudioRecorder({
         }
       };
       
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        onRecordingComplete(audioBlob, state.duration);
+        
+        // Convert to WAV format for Notion compatibility
+        try {
+          console.log('[AudioRecorder] Converting to WAV format...');
+          const wavBlob = await convertToWav(audioBlob);
+          console.log('[AudioRecorder] Converted to WAV:', wavBlob.size, 'bytes');
+          onRecordingComplete(wavBlob, state.duration);
+        } catch (err) {
+          console.error('[AudioRecorder] Failed to convert to WAV:', err);
+          // Fall back to original format
+          onRecordingComplete(audioBlob, state.duration);
+        }
         
         // Cleanup
         stream.getTracks().forEach(track => track.stop());
