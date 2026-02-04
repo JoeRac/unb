@@ -2671,7 +2671,7 @@ function DiagramContent() {
               letterSpacing: '0.05em',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '3px',
             }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
                 <defs>
