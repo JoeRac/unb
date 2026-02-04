@@ -440,7 +440,7 @@ export function AudioRecorder({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 6 : 8, flexWrap: 'wrap' }}>
       {/* Existing audio playback buttons - one for each recording */}
-      {existingAudioUrls.map((url, index) => (
+      {existingAudioUrls.map((_url, index) => (
         <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <button
             onClick={() => playAudio(index)}
