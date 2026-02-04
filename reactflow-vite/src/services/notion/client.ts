@@ -465,33 +465,20 @@ export async function sendFileUpload(
   formData.append('file', file, filename);
   
   let url: string;
-  let headers: Record<string, string>;
   
   if (isDev) {
     // Development: Use Vite proxy
     url = `/notion-api/v1/file_uploads/${fileUploadId}/send`;
-    headers = {
-      // Don't set Content-Type for FormData - browser will set it with boundary
-    };
   } else {
     // Production: Use Vercel serverless function
-    // We need to handle this through our API proxy since FormData can't easily go through JSON
-    url = `/api/notion`;
-    
-    // For production, we'll use a special endpoint that handles file uploads
-    // This requires a separate API route
-    throw new NotionAPIError(
-      'File uploads in production require a dedicated file upload API endpoint',
-      501,
-      'NOT_IMPLEMENTED'
-    );
+    url = `/api/file-upload?fileUploadId=${encodeURIComponent(fileUploadId)}`;
   }
   
   updateSyncStatus('syncing', 'Uploading audio...');
   
   const response = await fetch(url, {
     method: 'POST',
-    headers,
+    // Don't set Content-Type for FormData - browser will set it with boundary
     body: formData,
   });
   

@@ -44,6 +44,7 @@ export function AudioRecorder({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isRecordingRef = useRef(false);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -56,9 +57,9 @@ export function AudioRecorder({
     };
   }, []);
   
-  // Audio level visualization
+  // Audio level visualization - use ref to avoid stale closure
   const updateAudioLevel = useCallback(() => {
-    if (!analyserRef.current || !state.isRecording) return;
+    if (!analyserRef.current || !isRecordingRef.current) return;
     
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
@@ -68,10 +69,10 @@ export function AudioRecorder({
     
     setState(prev => ({ ...prev, audioLevel: normalizedLevel }));
     
-    if (state.isRecording) {
+    if (isRecordingRef.current) {
       animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
     }
-  }, [state.isRecording]);
+  }, []);
   
   const startRecording = useCallback(async () => {
     try {
@@ -124,6 +125,7 @@ export function AudioRecorder({
       
       mediaRecorder.start(100); // Collect data every 100ms
       
+      isRecordingRef.current = true;
       setState({
         isRecording: true,
         isPaused: false,
@@ -149,6 +151,7 @@ export function AudioRecorder({
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && state.isRecording) {
       mediaRecorderRef.current.stop();
+      isRecordingRef.current = false;
       setState(prev => ({ ...prev, isRecording: false, audioLevel: 0 }));
     }
   }, [state.isRecording]);
@@ -157,6 +160,7 @@ export function AudioRecorder({
     if (mediaRecorderRef.current && state.isRecording) {
       mediaRecorderRef.current.stop();
       audioChunksRef.current = [];
+      isRecordingRef.current = false;
       setState({ isRecording: false, isPaused: false, duration: 0, audioLevel: 0 });
       
       if (streamRef.current) {
