@@ -2671,17 +2671,70 @@ function DiagramContent() {
               letterSpacing: '0.05em',
               display: 'flex',
               alignItems: 'center',
-              gap: '3px',
+              gap: '6px',
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 32 32" fill="none" style={{ flexShrink: 0 }}>
                 <defs>
-                  <linearGradient id="cinaps-triangle-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <linearGradient id="cinaps-synapse-grad" x1="0%" y1="100%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#2563eb"/>
-                    <stop offset="100%" stopColor="#3b82f6"/>
+                    <stop offset="50%" stopColor="#3b82f6"/>
+                    <stop offset="100%" stopColor="#60a5fa"/>
                   </linearGradient>
+                  <filter id="cinaps-glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="0.8" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                  <radialGradient id="cinaps-node-glow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.9"/>
+                    <stop offset="70%" stopColor="#3b82f6" stopOpacity="1"/>
+                    <stop offset="100%" stopColor="#2563eb" stopOpacity="1"/>
+                  </radialGradient>
                 </defs>
-                <polygon points="12,2 22,20 2,20" fill="url(#cinaps-triangle-grad)"/>
-                <polygon points="12,7 17,17 7,17" fill="rgba(255,255,255,0.25)"/>
+                {/* Neural connections */}
+                <g filter="url(#cinaps-glow)" stroke="url(#cinaps-synapse-grad)" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.85">
+                  <path d="M16 16 L6 8"/>
+                  <path d="M16 16 L26 8"/>
+                  <path d="M16 16 L6 24"/>
+                  <path d="M16 16 L26 24"/>
+                  <path d="M16 16 L16 4"/>
+                  <path d="M16 16 L16 28"/>
+                  <path d="M6 8 L3 4"/>
+                  <path d="M6 8 L3 12"/>
+                  <path d="M26 8 L29 4"/>
+                  <path d="M26 8 L29 12"/>
+                  <path d="M6 24 L3 20"/>
+                  <path d="M6 24 L3 28"/>
+                  <path d="M26 24 L29 20"/>
+                  <path d="M26 24 L29 28"/>
+                </g>
+                {/* Neural nodes */}
+                <g filter="url(#cinaps-glow)">
+                  <circle cx="16" cy="16" r="4" fill="url(#cinaps-node-glow)"/>
+                  <circle cx="16" cy="16" r="2" fill="#ffffff" opacity="0.5"/>
+                  <circle cx="6" cy="8" r="2.5" fill="url(#cinaps-node-glow)"/>
+                  <circle cx="6" cy="8" r="1.2" fill="#ffffff" opacity="0.4"/>
+                  <circle cx="26" cy="8" r="2.5" fill="url(#cinaps-node-glow)"/>
+                  <circle cx="26" cy="8" r="1.2" fill="#ffffff" opacity="0.4"/>
+                  <circle cx="6" cy="24" r="2.5" fill="url(#cinaps-node-glow)"/>
+                  <circle cx="6" cy="24" r="1.2" fill="#ffffff" opacity="0.4"/>
+                  <circle cx="26" cy="24" r="2.5" fill="url(#cinaps-node-glow)"/>
+                  <circle cx="26" cy="24" r="1.2" fill="#ffffff" opacity="0.4"/>
+                  <circle cx="16" cy="4" r="2" fill="url(#cinaps-node-glow)"/>
+                  <circle cx="16" cy="4" r="1" fill="#ffffff" opacity="0.4"/>
+                  <circle cx="16" cy="28" r="2" fill="url(#cinaps-node-glow)"/>
+                  <circle cx="16" cy="28" r="1" fill="#ffffff" opacity="0.4"/>
+                  <circle cx="3" cy="4" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                  <circle cx="3" cy="12" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                  <circle cx="29" cy="4" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                  <circle cx="29" cy="12" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                  <circle cx="3" cy="20" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                  <circle cx="3" cy="28" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                  <circle cx="29" cy="20" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                  <circle cx="29" cy="28" r="1.3" fill="url(#cinaps-synapse-grad)"/>
+                </g>
               </svg>
               CINAPs
             </h1>
