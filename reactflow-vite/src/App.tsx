@@ -42,76 +42,25 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ULTRA PREMIUM GLASS THEME - Light Mode
-// Billion-dollar polish: crystal clear glass, subtle blue accents, refined shadows
-// ═══════════════════════════════════════════════════════════════════════════════
+// Premium glass theme - Light mode (clean whites and subtle accents)
 const LIGHT_THEME = {
-  // Canvas - subtle warm white gradient
-  canvasBg: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 40%, #e8eef5 100%)',
-  
-  // Nodes - crystal clear glass with very subtle tint
-  nodeSurface: 'rgba(255, 255, 255, 0.72)',
-  nodeSurfaceHover: 'rgba(255, 255, 255, 0.85)',
-  nodeBorder: 'rgba(255, 255, 255, 0.6)',
-  nodeBorderSubtle: 'rgba(203, 213, 225, 0.25)',
-  
-  // Accent colors - refined blue
+  canvasBg: 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)',
+  nodeSurface: 'rgba(247, 250, 252, 0.97)',
+  nodeBorder: 'rgba(203, 213, 225, 0.5)',
   highlightColor: '#3b82f6',
-  highlightColorSoft: 'rgba(59, 130, 246, 0.12)',
-  highlightColorMedium: 'rgba(59, 130, 246, 0.2)',
-  accentGlow: 'rgba(59, 130, 246, 0.15)',
-  
-  // Edges
-  edgeColor: 'rgba(148, 163, 184, 0.4)',
-  
-  // Premium glass shadows - layered for depth
-  glassShadow: '0 1px 2px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 rgba(0, 0, 0, 0.02)',
-  glassShadowSelected: '0 2px 4px rgba(59, 130, 246, 0.06), 0 8px 24px rgba(59, 130, 246, 0.08), 0 16px 48px rgba(59, 130, 246, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-  glassShadowHover: '0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.85)',
-  
-  // Typography - refined slate tones
-  textPrimary: '#1e293b',
+  edgeColor: '#cbd5e1',
+  glassShadow: '0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
+  glassShadowSelected: '0 2px 8px rgba(59, 130, 246, 0.18), 0 4px 20px rgba(59, 130, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 1)',
+  textPrimary: '#334155',
   textSecondary: '#64748b',
-  textTertiary: '#94a3b8',
-  textHighlight: '#1d4ed8',
-  
-  // Panels - frosted glass
-  panelBg: 'rgba(255, 255, 255, 0.65)',
-  panelBgSolid: 'rgba(255, 255, 255, 0.88)',
-  panelBorder: 'rgba(255, 255, 255, 0.7)',
-  panelBorderSubtle: 'rgba(226, 232, 240, 0.4)',
-  panelShadow: '0 4px 24px rgba(0, 0, 0, 0.04), 0 12px 48px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-  
-  // Inputs - subtle glass
-  inputBg: 'rgba(255, 255, 255, 0.6)',
-  inputBgFocus: 'rgba(255, 255, 255, 0.85)',
-  inputBorder: 'rgba(203, 213, 225, 0.35)',
-  inputBorderFocus: 'rgba(59, 130, 246, 0.35)',
-  
-  // Buttons - refined gradient
+  textHighlight: '#1e40af',
+  panelBg: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)',
+  panelBorder: 'rgba(226,232,240,0.8)',
+  panelShadow: '0 8px 32px rgba(15,23,42,0.08), 0 2px 8px rgba(59,130,246,0.04)',
+  inputBg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+  inputBorder: '#e2e8f0',
   buttonBg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
   buttonHover: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
-  buttonShadow: '0 2px 8px rgba(59, 130, 246, 0.25), 0 4px 16px rgba(59, 130, 246, 0.15)',
-  buttonShadowHover: '0 4px 16px rgba(59, 130, 246, 0.35), 0 8px 24px rgba(59, 130, 246, 0.2)',
-  
-  // Dropdown/Overlays
-  dropdownBg: 'rgba(255, 255, 255, 0.92)',
-  dropdownBorder: 'rgba(226, 232, 240, 0.5)',
-  dropdownShadow: '0 8px 32px rgba(0, 0, 0, 0.08), 0 16px 64px rgba(0, 0, 0, 0.04)',
-  
-  // Hover states
-  hoverBg: 'rgba(241, 245, 249, 0.6)',
-  hoverBgStrong: 'rgba(226, 232, 240, 0.5)',
-  
-  // Dividers
-  divider: 'rgba(226, 232, 240, 0.5)',
-  dividerSubtle: 'rgba(226, 232, 240, 0.3)',
-  
-  // Blur intensities
-  blurStrong: 'blur(20px) saturate(180%)',
-  blurMedium: 'blur(12px) saturate(150%)',
-  blurLight: 'blur(8px)',
 };
 
 // Premium dark theme - Deep blues and elegant contrast
@@ -362,12 +311,12 @@ function MethodNode(props: any) {
   const background = isHighlighted 
     ? (isDark 
         ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.98) 0%, rgba(23, 37, 84, 0.95) 100%)' 
-        : `linear-gradient(135deg, rgba(239, 246, 255, 0.85) 0%, rgba(219, 234, 254, 0.8) 100%)`)
-    : (isDark ? theme.nodeSurface : theme.nodeSurface);
+        : 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)')
+    : theme.nodeSurface;
   const textColor = isHighlighted ? theme.textHighlight : theme.textPrimary;
   const borderStyle = isHighlighted 
-    ? `1.5px solid ${isDark ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.25)'}` 
-    : `1px solid ${isDark ? theme.nodeBorder : theme.nodeBorder}`;
+    ? `1.5px solid ${isDark ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.4)'}` 
+    : `1px solid ${theme.nodeBorder}`;
   const shadow = isHighlighted ? theme.glassShadowSelected : theme.glassShadow;
 
   // "i" button now toggles selection (like clicking the node)
@@ -423,9 +372,9 @@ function MethodNode(props: any) {
   return (
     <div
       style={{
-        padding: '14px 16px',
+        padding: '12px 14px',
         fontSize: 13,
-        borderRadius: 16,
+        borderRadius: 14,
         background,
         color: textColor,
         border: borderStyle,
@@ -434,9 +383,7 @@ function MethodNode(props: any) {
         boxShadow: shadow,
         cursor: 'pointer',
         position: 'relative',
-        backdropFilter: isDark ? 'blur(8px)' : 'blur(12px) saturate(180%)',
-        WebkitBackdropFilter: isDark ? 'blur(8px)' : 'blur(12px) saturate(180%)',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <Handle
@@ -769,6 +716,108 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
     return groups;
   }, [nodes]);
   
+  // Calculate non-overlapping rectangle bounds with adjusted padding
+  const adjustedBounds = useMemo(() => {
+    const basePadding = 30;
+    const labelHeight = 28;
+    const minGap = 4; // Minimum gap between rectangles
+    
+    // Convert to rectangle format with padding
+    const rects: Array<{
+      name: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      originalBounds: typeof groupBounds[string];
+    }> = Object.entries(groupBounds).map(([name, bounds]) => ({
+      name,
+      x: bounds.minX - basePadding,
+      y: bounds.minY - basePadding - labelHeight,
+      width: bounds.maxX - bounds.minX + basePadding * 2,
+      height: bounds.maxY - bounds.minY + basePadding * 2 + labelHeight,
+      originalBounds: bounds,
+    }));
+    
+    // Check if two rectangles overlap
+    const rectsOverlap = (r1: typeof rects[0], r2: typeof rects[0]) => {
+      return !(r1.x + r1.width + minGap <= r2.x || 
+               r2.x + r2.width + minGap <= r1.x || 
+               r1.y + r1.height + minGap <= r2.y || 
+               r2.y + r2.height + minGap <= r1.y);
+    };
+    
+    // Shrink rectangles to eliminate overlap
+    // We'll reduce padding on the overlapping sides
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const r1 = rects[i];
+        const r2 = rects[j];
+        
+        if (!rectsOverlap(r1, r2)) continue;
+        
+        // Calculate overlap amounts
+        const overlapLeft = r1.x + r1.width - r2.x;
+        const overlapRight = r2.x + r2.width - r1.x;
+        const overlapTop = r1.y + r1.height - r2.y;
+        const overlapBottom = r2.y + r2.height - r1.y;
+        
+        // Find the minimum adjustment needed (horizontal or vertical)
+        const horizontalOverlap = Math.min(overlapLeft, overlapRight);
+        const verticalOverlap = Math.min(overlapTop, overlapBottom);
+        
+        // Choose the smaller overlap to resolve
+        if (horizontalOverlap < verticalOverlap && horizontalOverlap > 0) {
+          // Resolve horizontal overlap
+          const adjustment = (horizontalOverlap + minGap) / 2;
+          if (r1.x < r2.x) {
+            // r1 is to the left of r2
+            const maxShrink1 = r1.width - (r1.originalBounds.maxX - r1.originalBounds.minX + 8);
+            const maxShrink2 = r2.width - (r2.originalBounds.maxX - r2.originalBounds.minX + 8);
+            const shrink1 = Math.min(adjustment, maxShrink1);
+            const shrink2 = Math.min(adjustment, maxShrink2);
+            r1.width -= shrink1;
+            r2.x += shrink2;
+            r2.width -= shrink2;
+          } else {
+            // r2 is to the left of r1
+            const maxShrink1 = r1.width - (r1.originalBounds.maxX - r1.originalBounds.minX + 8);
+            const maxShrink2 = r2.width - (r2.originalBounds.maxX - r2.originalBounds.minX + 8);
+            const shrink1 = Math.min(adjustment, maxShrink1);
+            const shrink2 = Math.min(adjustment, maxShrink2);
+            r1.x += shrink1;
+            r1.width -= shrink1;
+            r2.width -= shrink2;
+          }
+        } else if (verticalOverlap > 0) {
+          // Resolve vertical overlap
+          const adjustment = (verticalOverlap + minGap) / 2;
+          if (r1.y < r2.y) {
+            // r1 is above r2
+            const maxShrink1 = r1.height - (r1.originalBounds.maxY - r1.originalBounds.minY + 8);
+            const maxShrink2 = r2.height - (r2.originalBounds.maxY - r2.originalBounds.minY + labelHeight + 8);
+            const shrink1 = Math.min(adjustment, maxShrink1);
+            const shrink2 = Math.min(adjustment, maxShrink2);
+            r1.height -= shrink1;
+            r2.y += shrink2;
+            r2.height -= shrink2;
+          } else {
+            // r2 is above r1
+            const maxShrink1 = r1.height - (r1.originalBounds.maxY - r1.originalBounds.minY + labelHeight + 8);
+            const maxShrink2 = r2.height - (r2.originalBounds.maxY - r2.originalBounds.minY + 8);
+            const shrink1 = Math.min(adjustment, maxShrink1);
+            const shrink2 = Math.min(adjustment, maxShrink2);
+            r1.y += shrink1;
+            r1.height -= shrink1;
+            r2.height -= shrink2;
+          }
+        }
+      }
+    }
+    
+    return rects;
+  }, [groupBounds]);
+  
   if (Object.keys(groupBounds).length === 0) return null;
   
   return (
@@ -784,23 +833,17 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
       }}
     >
       <g transform={`translate(${x}, ${y}) scale(${zoom})`}>
-        {Object.entries(groupBounds).map(([groupName, bounds]) => {
-          const colors = GROUP_COLORS[groupName.toLowerCase()] || DEFAULT_GROUP_COLOR;
-          const padding = 30; // Increased padding to prevent overlap
-          const labelHeight = 28; // Space for group label
-          const rectX = bounds.minX - padding;
-          const rectY = bounds.minY - padding - labelHeight;
-          const rectWidth = bounds.maxX - bounds.minX + padding * 2;
-          const rectHeight = bounds.maxY - bounds.minY + padding * 2 + labelHeight;
+        {adjustedBounds.map((rect) => {
+          const colors = GROUP_COLORS[rect.name.toLowerCase()] || DEFAULT_GROUP_COLOR;
           
           return (
-            <g key={groupName}>
+            <g key={rect.name}>
               {/* Background rectangle */}
               <rect
-                x={rectX}
-                y={rectY}
-                width={rectWidth}
-                height={rectHeight}
+                x={rect.x}
+                y={rect.y}
+                width={rect.width}
+                height={rect.height}
                 rx={12}
                 ry={12}
                 fill={colors.fill}
@@ -810,14 +853,14 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
               />
               {/* Group label */}
               <text
-                x={rectX + 14}
-                y={rectY + 20}
+                x={rect.x + 14}
+                y={rect.y + 20}
                 fill={colors.label}
                 fontSize={12}
                 fontWeight={600}
                 fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
               >
-                {groupName}
+                {rect.name}
               </text>
             </g>
           );
@@ -2643,17 +2686,16 @@ function DiagramContent() {
             left: leftPanelPos.x,
             top: leftPanelPos.y,
             zIndex: 10,
-            background: darkMode ? theme.panelBg : theme.panelBg, 
+            background: theme.panelBg, 
             padding: '18px', 
-            borderRadius: '20px',
+            borderRadius: '16px',
             height: leftPanelSize.height,
             overflowY: 'auto',
             width: leftPanelSize.width,
-            boxShadow: darkMode ? theme.panelShadow : theme.panelShadow,
-            border: darkMode ? `1px solid ${theme.panelBorder}` : `1px solid ${theme.panelBorder}`,
-            backdropFilter: darkMode ? 'blur(12px)' : theme.blurStrong,
-            WebkitBackdropFilter: darkMode ? 'blur(12px)' : theme.blurStrong,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: theme.panelShadow,
+            border: `1px solid ${theme.panelBorder}`,
+            backdropFilter: 'blur(12px)',
+            transition: 'background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
           }}
         >
           {/* Drag handle */}
@@ -2672,18 +2714,18 @@ function DiagramContent() {
               cursor: 'move',
               background: darkMode 
                 ? 'linear-gradient(180deg, rgba(30,41,59,0.8) 0%, transparent 100%)' 
-                : 'linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%)',
-              borderTopLeftRadius: '20px',
-              borderTopRightRadius: '20px',
+                : 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
+              borderTopLeftRadius: '16px',
+              borderTopRightRadius: '16px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             <div style={{ 
-              width: '36px', 
+              width: '40px', 
               height: '4px', 
-              background: darkMode ? '#475569' : 'rgba(148, 163, 184, 0.4)', 
+              background: darkMode ? '#475569' : '#cbd5e1', 
               borderRadius: '2px',
             }} />
           </div>
@@ -2709,7 +2751,7 @@ function DiagramContent() {
           {/* Panel content - with padding top for drag handle */}
           <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', height: 'calc(100% - 12px)' }}>
           {/* Sticky header section */}
-          <div style={{ flexShrink: 0, paddingBottom: '10px', borderBottom: darkMode ? '1px solid rgba(148, 163, 184, 0.15)' : `1px solid ${theme.dividerSubtle}`, marginBottom: '10px' }}>
+          <div style={{ flexShrink: 0, paddingBottom: '8px', borderBottom: darkMode ? '1px solid rgba(148, 163, 184, 0.15)' : '1px solid #e2e8f0', marginBottom: '8px' }}>
           {/* App Title with New Path Button */}
           <div style={{ 
             display: 'flex', 
@@ -2719,10 +2761,10 @@ function DiagramContent() {
           }}>
             <h1 style={{ 
               margin: 0, 
-              fontSize: '17px', 
-              fontWeight: '600', 
-              color: darkMode ? '#f1f5f9' : theme.textPrimary,
-              letterSpacing: '0.02em',
+              fontSize: '18px', 
+              fontWeight: '700', 
+              color: darkMode ? '#f1f5f9' : '#1e293b',
+              letterSpacing: '0.05em',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
@@ -2752,19 +2794,17 @@ function DiagramContent() {
                   height: '32px',
                   fontSize: '14px',
                   background: 'transparent',
-                  color: darkMode ? '#94a3b8' : theme.textTertiary,
+                  color: darkMode ? '#94a3b8' : '#64748b',
                   border: 'none',
                   borderRadius: '50%',
                   cursor: 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = theme.highlightColor;
-                  if (!darkMode) e.currentTarget.style.background = theme.highlightColorSoft;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = darkMode ? '#94a3b8' : theme.textTertiary;
-                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = darkMode ? '#94a3b8' : '#64748b';
                 }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2778,24 +2818,24 @@ function DiagramContent() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '5px',
-                  padding: '7px 14px',
+                  padding: '6px 12px',
                   fontSize: '11px',
                   fontWeight: '600',
                   background: theme.buttonBg,
                   color: 'white',
                   border: 'none',
-                  borderRadius: '10px',
+                  borderRadius: '8px',
                   cursor: 'pointer',
-                  boxShadow: darkMode ? '0 1px 3px rgba(59, 130, 246, 0.4)' : theme.buttonShadow,
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: darkMode ? '0 1px 3px rgba(59, 130, 246, 0.4)' : '0 1px 3px rgba(37, 99, 235, 0.3)',
+                  transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = darkMode ? '0 3px 8px rgba(96, 165, 250, 0.5)' : theme.buttonShadowHover;
+                  e.currentTarget.style.boxShadow = darkMode ? '0 3px 8px rgba(96, 165, 250, 0.5)' : '0 3px 8px rgba(37, 99, 235, 0.4)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = darkMode ? '0 1px 3px rgba(59, 130, 246, 0.4)' : theme.buttonShadow;
+                  e.currentTarget.style.boxShadow = darkMode ? '0 1px 3px rgba(59, 130, 246, 0.4)' : '0 1px 3px rgba(37, 99, 235, 0.3)';
                 }}
                 title="Create new path"
               >
@@ -2828,7 +2868,7 @@ function DiagramContent() {
             ref={searchRef}
             style={{ 
               position: 'relative', 
-              marginBottom: '12px',
+              marginBottom: '10px',
             }}
           >
             <div style={{
@@ -2836,16 +2876,15 @@ function DiagramContent() {
               alignItems: 'center',
               background: darkMode 
                 ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)' 
-                : theme.inputBg,
+                : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
               border: showSearchDropdown 
-                ? (darkMode ? '1px solid rgba(96, 165, 250, 0.5)' : `1px solid ${theme.inputBorderFocus}`) 
-                : (darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : `1px solid ${theme.inputBorder}`),
-              borderRadius: '12px',
-              padding: '0 12px',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: showSearchDropdown && !darkMode ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+                ? (darkMode ? '1px solid rgba(96, 165, 250, 0.5)' : '1px solid rgba(59, 130, 246, 0.4)') 
+                : (darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : '1px solid #e2e8f0'),
+              borderRadius: '10px',
+              padding: '0 10px',
+              transition: 'all 0.15s ease',
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#64748b' : theme.textTertiary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#64748b' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
               </svg>
@@ -2902,9 +2941,9 @@ function DiagramContent() {
                   flex: 1,
                   border: 'none',
                   background: 'transparent',
-                  padding: '10px 8px',
-                  fontSize: '12px',
-                  color: darkMode ? '#e2e8f0' : theme.textPrimary,
+                  padding: '9px 8px',
+                  fontSize: '11px',
+                  color: darkMode ? '#e2e8f0' : '#334155',
                   outline: 'none',
                 }}
               />
@@ -2918,17 +2957,9 @@ function DiagramContent() {
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    padding: '4px',
-                    color: darkMode ? '#64748b' : theme.textTertiary,
+                    padding: '2px',
+                    color: darkMode ? '#64748b' : '#94a3b8',
                     lineHeight: 1,
-                    borderRadius: '4px',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = darkMode ? 'rgba(100, 116, 139, 0.2)' : theme.hoverBg;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'none';
                   }}
                 >
                   ✕
@@ -2943,21 +2974,19 @@ function DiagramContent() {
                 top: '100%',
                 left: 0,
                 right: 0,
-                marginTop: '6px',
-                background: darkMode ? '#1e293b' : theme.dropdownBg,
-                borderRadius: '14px',
-                boxShadow: darkMode ? '0 8px 24px rgba(0,0,0,0.4)' : theme.dropdownShadow,
-                border: darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : `1px solid ${theme.dropdownBorder}`,
+                marginTop: '4px',
+                background: darkMode ? '#1e293b' : 'white',
+                borderRadius: '10px',
+                boxShadow: darkMode ? '0 8px 24px rgba(0,0,0,0.4)' : '0 8px 24px rgba(15,23,42,0.15)',
+                border: darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : '1px solid #e2e8f0',
                 zIndex: 100,
                 maxHeight: '300px',
                 overflowY: 'auto',
-                backdropFilter: darkMode ? 'none' : theme.blurMedium,
-                WebkitBackdropFilter: darkMode ? 'none' : theme.blurMedium,
               }}>
                 {/* Paths section */}
                 {searchResults.paths.length > 0 && (
                   <div>
-                    <div style={{ padding: '10px 14px', fontSize: '9px', fontWeight: '600', color: darkMode ? '#64748b' : theme.textTertiary, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: darkMode ? '1px solid rgba(71, 85, 105, 0.3)' : `1px solid ${theme.dividerSubtle}` }}>
+                    <div style={{ padding: '8px 12px', fontSize: '9px', fontWeight: '600', color: darkMode ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: darkMode ? '1px solid rgba(71, 85, 105, 0.3)' : '1px solid #f1f5f9' }}>
                       📄 Paths
                     </div>
                     {searchResults.paths.map((path, idx) => (
@@ -2969,17 +2998,16 @@ function DiagramContent() {
                           setShowSearchDropdown(false);
                         }}
                         style={{
-                          padding: '10px 14px',
-                          fontSize: '12px',
+                          padding: '8px 12px',
+                          fontSize: '11px',
                           cursor: 'pointer',
                           background: searchFocusIndex === idx 
-                            ? (darkMode ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.8) 0%, rgba(23, 37, 84, 0.8) 100%)' : theme.highlightColorSoft) 
+                            ? (darkMode ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.8) 0%, rgba(23, 37, 84, 0.8) 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)') 
                             : 'transparent',
                           color: searchFocusIndex === idx 
-                            ? (darkMode ? '#93c5fd' : theme.textHighlight) 
-                            : (darkMode ? '#e2e8f0' : theme.textPrimary),
-                          borderBottom: darkMode ? '1px solid rgba(71, 85, 105, 0.2)' : `1px solid ${theme.dividerSubtle}`,
-                          transition: 'all 0.15s ease',
+                            ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                            : (darkMode ? '#e2e8f0' : '#334155'),
+                          borderBottom: darkMode ? '1px solid rgba(71, 85, 105, 0.2)' : '1px solid #f8fafc',
                         }}
                         onMouseEnter={() => setSearchFocusIndex(idx)}
                       >
@@ -3110,26 +3138,25 @@ function DiagramContent() {
             }}
             style={{
               width: '100%',
-              padding: '10px',
-              marginBottom: '12px',
+              padding: '9px',
+              marginBottom: '10px',
               background: activePath !== null 
                 ? (darkMode 
                     ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.8) 0%, rgba(23, 37, 84, 0.8) 100%)' 
-                    : theme.highlightColorSoft)
+                    : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)')
                 : (darkMode 
                     ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)' 
-                    : theme.inputBg),
+                    : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'),
               color: activePath !== null 
-                ? (darkMode ? '#93c5fd' : theme.textHighlight) 
-                : (darkMode ? '#94a3b8' : theme.textSecondary),
+                ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                : (darkMode ? '#94a3b8' : '#64748b'),
               border: activePath !== null 
-                ? (darkMode ? '1px solid rgba(96, 165, 250, 0.4)' : `1px solid ${theme.inputBorderFocus}`)
-                : (darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : `1px solid ${theme.inputBorder}`),
-              borderRadius: '12px',
+                ? (darkMode ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)')
+                : (darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : '1px solid #e2e8f0'),
+              borderRadius: '10px',
               cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '500',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              fontSize: '11px',
+              fontWeight: '600',
             }}
           >
             Clear View
@@ -3141,30 +3168,29 @@ function DiagramContent() {
             alignItems: 'center', 
             gap: '4px',
             padding: '4px',
-            background: darkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(241, 245, 249, 0.6)',
-            borderRadius: '12px',
-            border: darkMode ? 'none' : `1px solid ${theme.dividerSubtle}`,
+            background: darkMode ? 'rgba(30, 41, 59, 0.8)' : '#f1f5f9',
+            borderRadius: '10px',
           }}>
             <button
               onClick={() => setViewMode('folder')}
               style={{
                 flex: 1,
-                padding: '7px 10px',
-                fontSize: '10px',
+                padding: '6px 8px',
+                fontSize: '9px',
                 fontWeight: viewMode === 'folder' ? '600' : '500',
                 background: viewMode === 'folder' 
-                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)') 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
                   : 'transparent',
                 color: viewMode === 'folder' 
-                  ? (darkMode ? '#93c5fd' : theme.highlightColor) 
-                  : (darkMode ? '#94a3b8' : theme.textSecondary),
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '7px',
                 cursor: 'pointer',
                 boxShadow: viewMode === 'folder' 
-                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)') 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
                   : 'none',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.15s ease',
               }}
             >
               Folders
@@ -3173,22 +3199,22 @@ function DiagramContent() {
               onClick={() => setViewMode('alpha')}
               style={{
                 flex: 1,
-                padding: '7px 10px',
-                fontSize: '10px',
+                padding: '6px 8px',
+                fontSize: '9px',
                 fontWeight: viewMode === 'alpha' ? '600' : '500',
                 background: viewMode === 'alpha' 
-                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)') 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
                   : 'transparent',
                 color: viewMode === 'alpha' 
-                  ? (darkMode ? '#93c5fd' : theme.highlightColor) 
-                  : (darkMode ? '#94a3b8' : theme.textSecondary),
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '7px',
                 cursor: 'pointer',
                 boxShadow: viewMode === 'alpha' 
-                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)') 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
                   : 'none',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.15s ease',
               }}
             >
               A-Z
@@ -3197,22 +3223,22 @@ function DiagramContent() {
               onClick={() => setViewMode('latest')}
               style={{
                 flex: 1,
-                padding: '7px 10px',
-                fontSize: '10px',
+                padding: '6px 8px',
+                fontSize: '9px',
                 fontWeight: viewMode === 'latest' ? '600' : '500',
                 background: viewMode === 'latest' 
-                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)') 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
                   : 'transparent',
                 color: viewMode === 'latest' 
-                  ? (darkMode ? '#93c5fd' : theme.highlightColor) 
-                  : (darkMode ? '#94a3b8' : theme.textSecondary),
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '7px',
                 cursor: 'pointer',
                 boxShadow: viewMode === 'latest' 
-                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)') 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
                   : 'none',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.15s ease',
               }}
             >
               ⏱ Latest
@@ -3221,22 +3247,22 @@ function DiagramContent() {
               onClick={() => setViewMode('priority')}
               style={{
                 flex: 1,
-                padding: '7px 10px',
-                fontSize: '10px',
+                padding: '6px 8px',
+                fontSize: '9px',
                 fontWeight: viewMode === 'priority' ? '600' : '500',
                 background: viewMode === 'priority' 
-                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)') 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
                   : 'transparent',
                 color: viewMode === 'priority' 
-                  ? (darkMode ? '#93c5fd' : theme.highlightColor) 
-                  : (darkMode ? '#94a3b8' : theme.textSecondary),
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '7px',
                 cursor: 'pointer',
                 boxShadow: viewMode === 'priority' 
-                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)') 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
                   : 'none',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.15s ease',
               }}
             >
               Priority
@@ -3390,9 +3416,9 @@ function DiagramContent() {
           {/* Settings Button */}
           <div style={{ 
             flexShrink: 0, 
-            borderTop: darkMode ? '1px solid rgba(148, 163, 184, 0.15)' : `1px solid ${theme.dividerSubtle}`, 
+            borderTop: darkMode ? '1px solid rgba(148, 163, 184, 0.15)' : '1px solid #e2e8f0', 
             marginTop: '8px', 
-            paddingTop: '12px' 
+            paddingTop: '10px' 
           }}>
             <button
               onClick={() => setShowSettings(true)}
@@ -3402,25 +3428,25 @@ function DiagramContent() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                padding: '10px 12px',
-                fontSize: '12px',
+                padding: '8px 12px',
+                fontSize: '11px',
                 fontWeight: '500',
                 background: 'transparent',
-                color: darkMode ? '#94a3b8' : theme.textSecondary,
-                border: darkMode ? '1px solid rgba(148, 163, 184, 0.2)' : `1px solid ${theme.inputBorder}`,
-                borderRadius: '10px',
+                color: darkMode ? '#94a3b8' : '#64748b',
+                border: darkMode ? '1px solid rgba(148, 163, 184, 0.2)' : '1px solid #e2e8f0',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.15s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = darkMode ? 'rgba(148, 163, 184, 0.1)' : theme.hoverBg;
-                e.currentTarget.style.color = darkMode ? '#e2e8f0' : theme.textPrimary;
-                e.currentTarget.style.borderColor = darkMode ? 'rgba(148, 163, 184, 0.3)' : theme.inputBorderFocus;
+                e.currentTarget.style.background = darkMode ? 'rgba(148, 163, 184, 0.1)' : '#f8fafc';
+                e.currentTarget.style.color = darkMode ? '#e2e8f0' : '#334155';
+                e.currentTarget.style.borderColor = darkMode ? 'rgba(148, 163, 184, 0.3)' : '#cbd5e1';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = darkMode ? '#94a3b8' : theme.textSecondary;
-                e.currentTarget.style.borderColor = darkMode ? 'rgba(148, 163, 184, 0.2)' : theme.inputBorder;
+                e.currentTarget.style.color = darkMode ? '#94a3b8' : '#64748b';
+                e.currentTarget.style.borderColor = darkMode ? 'rgba(148, 163, 184, 0.2)' : '#e2e8f0';
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3445,9 +3471,8 @@ function DiagramContent() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: darkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(15, 23, 42, 0.25)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            background: darkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(12px)',
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowSettings(false);
@@ -3457,17 +3482,15 @@ function DiagramContent() {
             style={{
               background: darkMode 
                 ? 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)' 
-                : 'rgba(255, 255, 255, 0.88)',
-              borderRadius: '24px',
+                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+              borderRadius: '20px',
               padding: '32px',
               minWidth: '340px',
               maxWidth: '400px',
               boxShadow: darkMode
                 ? '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(148, 163, 184, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-                : '0 32px 64px -12px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(255, 255, 255, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-              border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(255, 255, 255, 0.6)',
-              backdropFilter: darkMode ? 'none' : theme.blurStrong,
-              WebkitBackdropFilter: darkMode ? 'none' : theme.blurStrong,
+                : '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.5), inset 0 1px 0 rgba(255, 255, 255, 1)',
+              border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.8)',
             }}
           >
             {/* Modal Header */}
@@ -3481,7 +3504,7 @@ function DiagramContent() {
                 margin: 0, 
                 fontSize: '18px', 
                 fontWeight: '600', 
-                color: darkMode ? '#f1f5f9' : theme.textPrimary,
+                color: darkMode ? '#f1f5f9' : '#1e293b',
                 letterSpacing: '-0.01em',
               }}>
                 Settings
@@ -3494,12 +3517,12 @@ function DiagramContent() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: darkMode ? 'rgba(148, 163, 184, 0.1)' : theme.hoverBg,
+                  background: darkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.08)',
                   border: 'none',
                   borderRadius: '10px',
                   cursor: 'pointer',
-                  color: darkMode ? '#94a3b8' : theme.textSecondary,
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  color: darkMode ? '#94a3b8' : '#64748b',
+                  transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = darkMode ? 'rgba(148, 163, 184, 0.2)' : 'rgba(100, 116, 139, 0.15)';
@@ -3507,7 +3530,7 @@ function DiagramContent() {
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = darkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.08)';
-                  e.currentTarget.style.color = darkMode ? '#94a3b8' : theme.textSecondary;
+                  e.currentTarget.style.color = darkMode ? '#94a3b8' : '#64748b';
                 }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3522,7 +3545,7 @@ function DiagramContent() {
               <div style={{ 
                 fontSize: '11px', 
                 fontWeight: '600', 
-                color: darkMode ? '#64748b' : theme.textTertiary, 
+                color: darkMode ? '#64748b' : '#94a3b8', 
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 marginBottom: '14px',
@@ -3536,9 +3559,9 @@ function DiagramContent() {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '14px 16px',
-                background: darkMode ? 'rgba(148, 163, 184, 0.06)' : theme.hoverBg,
-                borderRadius: '14px',
-                border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : `1px solid ${theme.dividerSubtle}`,
+                background: darkMode ? 'rgba(148, 163, 184, 0.06)' : 'rgba(241, 245, 249, 0.8)',
+                borderRadius: '12px',
+                border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
@@ -3577,14 +3600,14 @@ function DiagramContent() {
                     <div style={{ 
                       fontSize: '13px', 
                       fontWeight: '600', 
-                      color: darkMode ? '#f1f5f9' : theme.textPrimary,
+                      color: darkMode ? '#f1f5f9' : '#1e293b',
                       marginBottom: '2px',
                     }}>
                       Dark Mode
                     </div>
                     <div style={{ 
                       fontSize: '11px', 
-                      color: darkMode ? '#64748b' : theme.textTertiary,
+                      color: darkMode ? '#64748b' : '#94a3b8',
                     }}>
                       {darkMode ? 'Currently enabled' : 'Currently disabled'}
                     </div>
@@ -3632,11 +3655,11 @@ function DiagramContent() {
             <div style={{ 
               textAlign: 'center', 
               paddingTop: '16px', 
-              borderTop: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : `1px solid ${theme.dividerSubtle}`,
+              borderTop: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
             }}>
               <div style={{ 
                 fontSize: '10px', 
-                color: darkMode ? '#475569' : theme.textTertiary,
+                color: darkMode ? '#475569' : '#94a3b8',
                 letterSpacing: '0.02em',
               }}>
                 CINAPs v1.0.0

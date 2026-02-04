@@ -3,21 +3,16 @@
   line-height: 1.5;
   font-weight: 400;
   
-  /* Premium Glass Theme - Light mode colors */
+  /* Light mode colors */
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
   --text-primary: #1e293b;
   --text-secondary: #64748b;
   --text-tertiary: #94a3b8;
-  --border-color: rgba(226, 232, 240, 0.5);
+  --border-color: #e2e8f0;
   --accent-color: #3b82f6;
   --accent-hover: #2563eb;
-  
-  /* Glass effects */
-  --glass-bg: rgba(255, 255, 255, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --glass-blur: blur(20px) saturate(180%);
 }
 
 /* Dark mode global styles for React Flow controls */
@@ -29,10 +24,10 @@
   transition: all 0.15s ease;
 }
 
-/* Premium scrollbars - light mode */
+/* Ensure scrollbars look good in both modes */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -40,21 +35,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 4px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-
-/* Scrollbar corner */
-::-webkit-scrollbar-corner {
-  background: transparent;
+  background: #94a3b8;
 }
 
 html,
