@@ -42,14 +42,54 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
-// Premium glass theme - clean whites and subtle accents
-const CANVAS_BG = 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)';
-const NODE_SURFACE = 'rgba(247, 250, 252, 0.97)';
-const NODE_BORDER = 'rgba(203, 213, 225, 0.5)';
-const HIGHLIGHT_COLOR = '#3b82f6';
-const EDGE_COLOR = '#cbd5e1';
-const GLASS_SHADOW = '0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)';
-const GLASS_SHADOW_SELECTED = '0 2px 8px rgba(59, 130, 246, 0.18), 0 4px 20px rgba(59, 130, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 1)';
+// Premium glass theme - Light mode (clean whites and subtle accents)
+const LIGHT_THEME = {
+  canvasBg: 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)',
+  nodeSurface: 'rgba(247, 250, 252, 0.97)',
+  nodeBorder: 'rgba(203, 213, 225, 0.5)',
+  highlightColor: '#3b82f6',
+  edgeColor: '#cbd5e1',
+  glassShadow: '0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
+  glassShadowSelected: '0 2px 8px rgba(59, 130, 246, 0.18), 0 4px 20px rgba(59, 130, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 1)',
+  textPrimary: '#334155',
+  textSecondary: '#64748b',
+  textHighlight: '#1e40af',
+  panelBg: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)',
+  panelBorder: 'rgba(226,232,240,0.8)',
+  panelShadow: '0 8px 32px rgba(15,23,42,0.08), 0 2px 8px rgba(59,130,246,0.04)',
+  inputBg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+  inputBorder: '#e2e8f0',
+  buttonBg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+  buttonHover: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+};
+
+// Premium dark theme - Deep blues and elegant contrast
+const DARK_THEME = {
+  canvasBg: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+  nodeSurface: 'rgba(30, 41, 59, 0.95)',
+  nodeBorder: 'rgba(71, 85, 105, 0.4)',
+  highlightColor: '#60a5fa',
+  edgeColor: 'rgba(100, 116, 139, 0.5)',
+  glassShadow: '0 1px 4px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03)',
+  glassShadowSelected: '0 2px 8px rgba(96, 165, 250, 0.25), 0 4px 20px rgba(96, 165, 250, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+  textPrimary: '#e2e8f0',
+  textSecondary: '#94a3b8',
+  textHighlight: '#93c5fd',
+  panelBg: 'linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%)',
+  panelBorder: 'rgba(71, 85, 105, 0.4)',
+  panelShadow: '0 8px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2)',
+  inputBg: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+  inputBorder: 'rgba(71, 85, 105, 0.4)',
+  buttonBg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+  buttonHover: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+};
+
+// Legacy constants for backward compatibility (light mode) - keeping HIGHLIGHT_COLOR and EDGE_COLOR as they may be used
+const HIGHLIGHT_COLOR = LIGHT_THEME.highlightColor;
+const EDGE_COLOR = LIGHT_THEME.edgeColor;
+
+// Helper to get current theme
+const getTheme = (darkMode: boolean) => darkMode ? DARK_THEME : LIGHT_THEME;
 
 function getLayoutedNodes(
   nodes: FlowNode[],
@@ -240,9 +280,12 @@ function MethodNode(props: any) {
     editingNoteNodeId?: string | null;
     onStartEditNote?: (nodeId: string) => void;
     onStopEditNote?: () => void;
+    darkMode?: boolean;
   };
   const isHighlighted = data.isHighlighted === true;
   const isEditing = data.editingNoteNodeId === props.id;
+  const isDark = data.darkMode === true;
+  const theme = getTheme(isDark);
   const [localNote, setLocalNote] = useState(data.nodeNote || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -264,13 +307,17 @@ function MethodNode(props: any) {
     }
   }, [localNote, isEditing]);
   
-  // Premium glass styling
+  // Premium glass styling - theme aware
   const background = isHighlighted 
-    ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)'
-    : NODE_SURFACE;
-  const textColor = isHighlighted ? '#1e40af' : '#334155';
-  const borderStyle = isHighlighted ? '1.5px solid rgba(59, 130, 246, 0.4)' : `1px solid ${NODE_BORDER}`;
-  const shadow = isHighlighted ? GLASS_SHADOW_SELECTED : GLASS_SHADOW;
+    ? (isDark 
+        ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.98) 0%, rgba(23, 37, 84, 0.95) 100%)' 
+        : 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)')
+    : theme.nodeSurface;
+  const textColor = isHighlighted ? theme.textHighlight : theme.textPrimary;
+  const borderStyle = isHighlighted 
+    ? `1.5px solid ${isDark ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.4)'}` 
+    : `1px solid ${theme.nodeBorder}`;
+  const shadow = isHighlighted ? theme.glassShadowSelected : theme.glassShadow;
 
   // "i" button now toggles selection (like clicking the node)
   const handleToggleClick = (e: React.MouseEvent) => {
@@ -356,8 +403,12 @@ function MethodNode(props: any) {
           height: 18,
           borderRadius: '50%',
           border: 'none',
-          background: isHighlighted ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.08)',
-          color: isHighlighted ? '#3b82f6' : '#64748b',
+          background: isHighlighted 
+            ? (isDark ? 'rgba(96, 165, 250, 0.2)' : 'rgba(59, 130, 246, 0.15)')
+            : (isDark ? 'rgba(148, 163, 184, 0.15)' : 'rgba(100, 116, 139, 0.08)'),
+          color: isHighlighted 
+            ? theme.highlightColor 
+            : theme.textSecondary,
           fontSize: 10,
           fontWeight: 600,
           cursor: 'pointer',
@@ -368,12 +419,14 @@ function MethodNode(props: any) {
           lineHeight: 1,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
-          e.currentTarget.style.color = '#3b82f6';
+          e.currentTarget.style.background = isDark ? 'rgba(96, 165, 250, 0.25)' : 'rgba(59, 130, 246, 0.2)';
+          e.currentTarget.style.color = theme.highlightColor;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = isHighlighted ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.08)';
-          e.currentTarget.style.color = isHighlighted ? '#3b82f6' : '#64748b';
+          e.currentTarget.style.background = isHighlighted 
+            ? (isDark ? 'rgba(96, 165, 250, 0.2)' : 'rgba(59, 130, 246, 0.15)')
+            : (isDark ? 'rgba(148, 163, 184, 0.15)' : 'rgba(100, 116, 139, 0.08)');
+          e.currentTarget.style.color = isHighlighted ? theme.highlightColor : theme.textSecondary;
         }}
         title={isHighlighted ? 'Deselect node' : 'Select node'}
       >
@@ -396,7 +449,7 @@ function MethodNode(props: any) {
           transition: 'background 0.15s ease',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+          e.currentTarget.style.background = isDark ? 'rgba(96, 165, 250, 0.15)' : 'rgba(59, 130, 246, 0.1)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background = 'transparent';
@@ -411,7 +464,7 @@ function MethodNode(props: any) {
         <div
           style={{
             marginTop: 6,
-            borderTop: '1px solid rgba(100, 116, 139, 0.1)',
+            borderTop: isDark ? '1px solid rgba(148, 163, 184, 0.15)' : '1px solid rgba(100, 116, 139, 0.1)',
             paddingTop: 4,
             fontSize: 9,
             opacity: 0.5,
@@ -420,7 +473,7 @@ function MethodNode(props: any) {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            color: '#64748b',
+            color: theme.textSecondary,
           }}
         >
           {firstLine}
@@ -433,7 +486,7 @@ function MethodNode(props: any) {
           onClick={handleNoteAreaClick}
           style={{ 
             marginTop: 8,
-            borderTop: '1px solid rgba(59, 130, 246, 0.15)',
+            borderTop: isDark ? '1px solid rgba(96, 165, 250, 0.2)' : '1px solid rgba(59, 130, 246, 0.15)',
             paddingTop: 6,
           }}
         >
@@ -458,10 +511,10 @@ function MethodNode(props: any) {
                 maxHeight: '210px', // ~15 rows at 14px line height
                 padding: '6px 8px',
                 fontSize: 10,
-                border: '1px solid rgba(59, 130, 246, 0.3)',
+                border: isDark ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)',
                 borderRadius: 6,
-                background: 'rgba(255, 255, 255, 0.9)',
-                color: '#334155',
+                background: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                color: theme.textPrimary,
                 resize: 'both',
                 fontFamily: 'inherit',
                 lineHeight: 1.4,
@@ -843,6 +896,32 @@ function DiagramContent() {
   const mainEditorInitialized = useRef<string | null>(null); // Track which node's content is loaded in main editor
   const updatePathNodesCallbackRef = useRef<((pathId: string, pathName: string, nodeIds: Set<string>) => void) | null>(null);
   const [highlightedFolderId, setHighlightedFolderId] = useState<string | null>(null);
+  
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Check localStorage for saved preference
+    const saved = localStorage.getItem('cinaps-dark-mode');
+    return saved === 'true';
+  });
+  
+  // Persist dark mode preference
+  useEffect(() => {
+    localStorage.setItem('cinaps-dark-mode', String(darkMode));
+  }, [darkMode]);
+  
+  // Update all nodes when dark mode changes
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          darkMode,
+        },
+      }))
+    );
+  }, [darkMode, setNodes]);
   
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -2481,9 +2560,12 @@ function DiagramContent() {
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
+  
+  // Get current theme based on dark mode
+  const theme = getTheme(darkMode);
 
   return (
-    <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: CANVAS_BG }}>
+    <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: theme.canvasBg, transition: 'background 0.3s ease' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -2508,15 +2590,16 @@ function DiagramContent() {
             left: leftPanelPos.x,
             top: leftPanelPos.y,
             zIndex: 10,
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.95) 100%)', 
+            background: theme.panelBg, 
             padding: '18px', 
             borderRadius: '16px',
             height: leftPanelSize.height,
             overflowY: 'auto',
             width: leftPanelSize.width,
-            boxShadow: '0 8px 32px rgba(15,23,42,0.08), 0 2px 8px rgba(59,130,246,0.04)',
-            border: '1px solid rgba(226,232,240,0.8)',
+            boxShadow: theme.panelShadow,
+            border: `1px solid ${theme.panelBorder}`,
             backdropFilter: 'blur(12px)',
+            transition: 'background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
           }}
         >
           {/* Drag handle */}
@@ -2533,7 +2616,9 @@ function DiagramContent() {
               right: 0,
               height: '28px',
               cursor: 'move',
-              background: 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
+              background: darkMode 
+                ? 'linear-gradient(180deg, rgba(30,41,59,0.8) 0%, transparent 100%)' 
+                : 'linear-gradient(180deg, rgba(241,245,249,0.8) 0%, transparent 100%)',
               borderTopLeftRadius: '16px',
               borderTopRightRadius: '16px',
               display: 'flex',
@@ -2544,7 +2629,7 @@ function DiagramContent() {
             <div style={{ 
               width: '40px', 
               height: '4px', 
-              background: '#cbd5e1', 
+              background: darkMode ? '#475569' : '#cbd5e1', 
               borderRadius: '2px',
             }} />
           </div>
@@ -2570,7 +2655,7 @@ function DiagramContent() {
           {/* Panel content - with padding top for drag handle */}
           <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', height: 'calc(100% - 12px)' }}>
           {/* Sticky header section */}
-          <div style={{ flexShrink: 0, paddingBottom: '8px', borderBottom: '1px solid #e2e8f0', marginBottom: '8px' }}>
+          <div style={{ flexShrink: 0, paddingBottom: '8px', borderBottom: darkMode ? '1px solid rgba(148, 163, 184, 0.15)' : '1px solid #e2e8f0', marginBottom: '8px' }}>
           {/* App Title with New Path Button */}
           <div style={{ 
             display: 'flex', 
@@ -2582,9 +2667,22 @@ function DiagramContent() {
               margin: 0, 
               fontSize: '18px', 
               fontWeight: '700', 
-              color: '#1e293b',
+              color: darkMode ? '#f1f5f9' : '#1e293b',
               letterSpacing: '0.05em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                <defs>
+                  <linearGradient id="cinaps-triangle-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#2563eb"/>
+                    <stop offset="100%" stopColor="#3b82f6"/>
+                  </linearGradient>
+                </defs>
+                <polygon points="12,2 22,20 2,20" fill="url(#cinaps-triangle-grad)"/>
+                <polygon points="12,7 17,17 7,17" fill="rgba(255,255,255,0.25)"/>
+              </svg>
               CINAPs
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2600,17 +2698,17 @@ function DiagramContent() {
                   height: '32px',
                   fontSize: '14px',
                   background: 'transparent',
-                  color: '#64748b',
+                  color: darkMode ? '#94a3b8' : '#64748b',
                   border: 'none',
                   borderRadius: '50%',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#3b82f6';
+                  e.currentTarget.style.color = theme.highlightColor;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#64748b';
+                  e.currentTarget.style.color = darkMode ? '#94a3b8' : '#64748b';
                 }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2627,21 +2725,21 @@ function DiagramContent() {
                   padding: '6px 12px',
                   fontSize: '11px',
                   fontWeight: '600',
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  background: theme.buttonBg,
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
                   cursor: 'pointer',
-                  boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)',
+                  boxShadow: darkMode ? '0 1px 3px rgba(59, 130, 246, 0.4)' : '0 1px 3px rgba(37, 99, 235, 0.3)',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 3px 8px rgba(37, 99, 235, 0.4)';
+                  e.currentTarget.style.boxShadow = darkMode ? '0 3px 8px rgba(96, 165, 250, 0.5)' : '0 3px 8px rgba(37, 99, 235, 0.4)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.3)';
+                  e.currentTarget.style.boxShadow = darkMode ? '0 1px 3px rgba(59, 130, 246, 0.4)' : '0 1px 3px rgba(37, 99, 235, 0.3)';
                 }}
                 title="Create new path"
               >
@@ -2657,8 +2755,12 @@ function DiagramContent() {
                 padding: '8px',
                 borderRadius: '8px',
                 fontSize: '11px',
-                background: dataError ? '#fef2f2' : '#f0f9ff',
-                color: dataError ? '#b91c1c' : '#0369a1',
+                background: dataError 
+                  ? (darkMode ? 'rgba(127, 29, 29, 0.3)' : '#fef2f2') 
+                  : (darkMode ? 'rgba(12, 74, 110, 0.3)' : '#f0f9ff'),
+                color: dataError 
+                  ? (darkMode ? '#fca5a5' : '#b91c1c') 
+                  : (darkMode ? '#7dd3fc' : '#0369a1'),
               }}
             >
               {dataError ? `Sheet error: ${dataError}` : 'Loading sheet data…'}
@@ -2676,13 +2778,17 @@ function DiagramContent() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-              border: showSearchDropdown ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #e2e8f0',
+              background: darkMode 
+                ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)' 
+                : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+              border: showSearchDropdown 
+                ? (darkMode ? '1px solid rgba(96, 165, 250, 0.5)' : '1px solid rgba(59, 130, 246, 0.4)') 
+                : (darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : '1px solid #e2e8f0'),
               borderRadius: '10px',
               padding: '0 10px',
               transition: 'all 0.15s ease',
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#64748b' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
               </svg>
@@ -2741,7 +2847,7 @@ function DiagramContent() {
                   background: 'transparent',
                   padding: '9px 8px',
                   fontSize: '11px',
-                  color: '#334155',
+                  color: darkMode ? '#e2e8f0' : '#334155',
                   outline: 'none',
                 }}
               />
@@ -2756,7 +2862,7 @@ function DiagramContent() {
                     border: 'none',
                     cursor: 'pointer',
                     padding: '2px',
-                    color: '#94a3b8',
+                    color: darkMode ? '#64748b' : '#94a3b8',
                     lineHeight: 1,
                   }}
                 >
@@ -2773,10 +2879,10 @@ function DiagramContent() {
                 left: 0,
                 right: 0,
                 marginTop: '4px',
-                background: 'white',
+                background: darkMode ? '#1e293b' : 'white',
                 borderRadius: '10px',
-                boxShadow: '0 8px 24px rgba(15,23,42,0.15)',
-                border: '1px solid #e2e8f0',
+                boxShadow: darkMode ? '0 8px 24px rgba(0,0,0,0.4)' : '0 8px 24px rgba(15,23,42,0.15)',
+                border: darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : '1px solid #e2e8f0',
                 zIndex: 100,
                 maxHeight: '300px',
                 overflowY: 'auto',
@@ -2784,7 +2890,7 @@ function DiagramContent() {
                 {/* Paths section */}
                 {searchResults.paths.length > 0 && (
                   <div>
-                    <div style={{ padding: '8px 12px', fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ padding: '8px 12px', fontSize: '9px', fontWeight: '600', color: darkMode ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: darkMode ? '1px solid rgba(71, 85, 105, 0.3)' : '1px solid #f1f5f9' }}>
                       📄 Paths
                     </div>
                     {searchResults.paths.map((path, idx) => (
@@ -2799,9 +2905,13 @@ function DiagramContent() {
                           padding: '8px 12px',
                           fontSize: '11px',
                           cursor: 'pointer',
-                          background: searchFocusIndex === idx ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
-                          color: searchFocusIndex === idx ? '#1d4ed8' : '#334155',
-                          borderBottom: '1px solid #f8fafc',
+                          background: searchFocusIndex === idx 
+                            ? (darkMode ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.8) 0%, rgba(23, 37, 84, 0.8) 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)') 
+                            : 'transparent',
+                          color: searchFocusIndex === idx 
+                            ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                            : (darkMode ? '#e2e8f0' : '#334155'),
+                          borderBottom: darkMode ? '1px solid rgba(71, 85, 105, 0.2)' : '1px solid #f8fafc',
                         }}
                         onMouseEnter={() => setSearchFocusIndex(idx)}
                       >
@@ -2935,12 +3045,18 @@ function DiagramContent() {
               padding: '9px',
               marginBottom: '10px',
               background: activePath !== null 
-                ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-                : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-              color: activePath !== null ? '#1d4ed8' : '#64748b',
+                ? (darkMode 
+                    ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.8) 0%, rgba(23, 37, 84, 0.8) 100%)' 
+                    : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)')
+                : (darkMode 
+                    ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)' 
+                    : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'),
+              color: activePath !== null 
+                ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                : (darkMode ? '#94a3b8' : '#64748b'),
               border: activePath !== null 
-                ? '1px solid rgba(59, 130, 246, 0.3)' 
-                : '1px solid #e2e8f0',
+                ? (darkMode ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)')
+                : (darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : '1px solid #e2e8f0'),
               borderRadius: '10px',
               cursor: 'pointer',
               fontSize: '11px',
@@ -2956,7 +3072,7 @@ function DiagramContent() {
             alignItems: 'center', 
             gap: '4px',
             padding: '4px',
-            background: '#f1f5f9',
+            background: darkMode ? 'rgba(30, 41, 59, 0.8)' : '#f1f5f9',
             borderRadius: '10px',
           }}>
             <button
@@ -2966,12 +3082,18 @@ function DiagramContent() {
                 padding: '6px 8px',
                 fontSize: '9px',
                 fontWeight: viewMode === 'folder' ? '600' : '500',
-                background: viewMode === 'folder' ? 'white' : 'transparent',
-                color: viewMode === 'folder' ? '#1d4ed8' : '#64748b',
+                background: viewMode === 'folder' 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
+                  : 'transparent',
+                color: viewMode === 'folder' 
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
                 borderRadius: '7px',
                 cursor: 'pointer',
-                boxShadow: viewMode === 'folder' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: viewMode === 'folder' 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
+                  : 'none',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -2984,12 +3106,18 @@ function DiagramContent() {
                 padding: '6px 8px',
                 fontSize: '9px',
                 fontWeight: viewMode === 'alpha' ? '600' : '500',
-                background: viewMode === 'alpha' ? 'white' : 'transparent',
-                color: viewMode === 'alpha' ? '#1d4ed8' : '#64748b',
+                background: viewMode === 'alpha' 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
+                  : 'transparent',
+                color: viewMode === 'alpha' 
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
                 borderRadius: '7px',
                 cursor: 'pointer',
-                boxShadow: viewMode === 'alpha' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: viewMode === 'alpha' 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
+                  : 'none',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -3002,12 +3130,18 @@ function DiagramContent() {
                 padding: '6px 8px',
                 fontSize: '9px',
                 fontWeight: viewMode === 'latest' ? '600' : '500',
-                background: viewMode === 'latest' ? 'white' : 'transparent',
-                color: viewMode === 'latest' ? '#1d4ed8' : '#64748b',
+                background: viewMode === 'latest' 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
+                  : 'transparent',
+                color: viewMode === 'latest' 
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
                 borderRadius: '7px',
                 cursor: 'pointer',
-                boxShadow: viewMode === 'latest' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: viewMode === 'latest' 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
+                  : 'none',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -3020,12 +3154,18 @@ function DiagramContent() {
                 padding: '6px 8px',
                 fontSize: '9px',
                 fontWeight: viewMode === 'priority' ? '600' : '500',
-                background: viewMode === 'priority' ? 'white' : 'transparent',
-                color: viewMode === 'priority' ? '#1d4ed8' : '#64748b',
+                background: viewMode === 'priority' 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
+                  : 'transparent',
+                color: viewMode === 'priority' 
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
                 border: 'none',
                 borderRadius: '7px',
                 cursor: 'pointer',
-                boxShadow: viewMode === 'priority' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: viewMode === 'priority' 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
+                  : 'none',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -3176,10 +3316,262 @@ function DiagramContent() {
               />
             )}
           </div>
+          
+          {/* Settings Button */}
+          <div style={{ 
+            flexShrink: 0, 
+            borderTop: darkMode ? '1px solid rgba(148, 163, 184, 0.15)' : '1px solid #e2e8f0', 
+            marginTop: '8px', 
+            paddingTop: '10px' 
+          }}>
+            <button
+              onClick={() => setShowSettings(true)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '8px 12px',
+                fontSize: '11px',
+                fontWeight: '500',
+                background: 'transparent',
+                color: darkMode ? '#94a3b8' : '#64748b',
+                border: darkMode ? '1px solid rgba(148, 163, 184, 0.2)' : '1px solid #e2e8f0',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = darkMode ? 'rgba(148, 163, 184, 0.1)' : '#f8fafc';
+                e.currentTarget.style.color = darkMode ? '#e2e8f0' : '#334155';
+                e.currentTarget.style.borderColor = darkMode ? 'rgba(148, 163, 184, 0.3)' : '#cbd5e1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = darkMode ? '#94a3b8' : '#64748b';
+                e.currentTarget.style.borderColor = darkMode ? 'rgba(148, 163, 184, 0.2)' : '#e2e8f0';
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+              </svg>
+              Settings
+            </button>
+          </div>
         </div>
         </div>
 
       </ReactFlow>
+      
+      {/* Settings Modal */}
+      {showSettings && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: darkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(12px)',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSettings(false);
+          }}
+        >
+          <div
+            style={{
+              background: darkMode 
+                ? 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)' 
+                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+              borderRadius: '20px',
+              padding: '32px',
+              minWidth: '340px',
+              maxWidth: '400px',
+              boxShadow: darkMode
+                ? '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(148, 163, 184, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+                : '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.5), inset 0 1px 0 rgba(255, 255, 255, 1)',
+              border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.8)',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              marginBottom: '28px',
+            }}>
+              <h2 style={{ 
+                margin: 0, 
+                fontSize: '18px', 
+                fontWeight: '600', 
+                color: darkMode ? '#f1f5f9' : '#1e293b',
+                letterSpacing: '-0.01em',
+              }}>
+                Settings
+              </h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: darkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.08)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  color: darkMode ? '#94a3b8' : '#64748b',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = darkMode ? 'rgba(148, 163, 184, 0.2)' : 'rgba(100, 116, 139, 0.15)';
+                  e.currentTarget.style.color = darkMode ? '#e2e8f0' : '#334155';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = darkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.08)';
+                  e.currentTarget.style.color = darkMode ? '#94a3b8' : '#64748b';
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            
+            {/* Appearance Section */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ 
+                fontSize: '11px', 
+                fontWeight: '600', 
+                color: darkMode ? '#64748b' : '#94a3b8', 
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                marginBottom: '14px',
+              }}>
+                Appearance
+              </div>
+              
+              {/* Dark Mode Toggle */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 16px',
+                background: darkMode ? 'rgba(148, 163, 184, 0.06)' : 'rgba(241, 245, 249, 0.8)',
+                borderRadius: '12px',
+                border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)' 
+                      : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: darkMode 
+                      ? 'inset 0 1px 0 rgba(255, 255, 255, 0.05)' 
+                      : 'inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                  }}>
+                    {darkMode ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      color: darkMode ? '#f1f5f9' : '#1e293b',
+                      marginBottom: '2px',
+                    }}>
+                      Dark Mode
+                    </div>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: darkMode ? '#64748b' : '#94a3b8',
+                    }}>
+                      {darkMode ? 'Currently enabled' : 'Currently disabled'}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Toggle Switch */}
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  style={{
+                    position: 'relative',
+                    width: '52px',
+                    height: '28px',
+                    borderRadius: '14px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' 
+                      : 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: darkMode 
+                      ? '0 2px 8px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)' 
+                      : '0 1px 3px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '3px',
+                      left: darkMode ? '26px' : '3px',
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '11px',
+                      background: '#ffffff',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                  />
+                </button>
+              </div>
+            </div>
+            
+            {/* Version Info */}
+            <div style={{ 
+              textAlign: 'center', 
+              paddingTop: '16px', 
+              borderTop: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
+            }}>
+              <div style={{ 
+                fontSize: '10px', 
+                color: darkMode ? '#475569' : '#94a3b8',
+                letterSpacing: '0.02em',
+              }}>
+                CINAPs v1.0.0
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Full-screen Editor Focus Mode Overlay */}
       {editorFocusMode && selectedNode && activePathId && (() => {
