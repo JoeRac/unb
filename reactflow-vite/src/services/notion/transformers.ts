@@ -345,7 +345,7 @@ const NOTION_TEXT_BLOCK_LIMIT = 2000;
  * Create Notion rich text property, splitting into chunks if needed
  * Notion has a 2000 character limit per text block, but allows multiple blocks
  */
-function createRichTextProperty(value: string): { rich_text: Array<{ text: { content: string } }> } {
+export function createRichTextProperty(value: string): { rich_text: Array<{ text: { content: string } }> } {
   const content = value || '';
   
   // If content fits in one block, use simple format

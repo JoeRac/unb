@@ -19,6 +19,7 @@ import {
   pathToNotionProperties,
   nodePathToNotionProperties,
   categoryToNotionProperties,
+  createRichTextProperty,
 } from './transformers';
 import type {
   NodeRecord,
@@ -448,7 +449,7 @@ export async function savePathNotes(
   }
   
   await updatePage(existingPage.id, {
-    notes: { rich_text: [{ text: { content: notes || '' } }] },
+    notes: createRichTextProperty(notes || ''),
     date_updated: { date: { start: new Date().toISOString() } },
   });
   
