@@ -942,8 +942,10 @@ function DiagramContent() {
   // All loaded nodes for autocomplete (stored when data loads)
   const [allNodesData, setAllNodesData] = useState<Array<{ id: string; label: string }>>([]);
   
-  // View mode: 'folder' (default, shows nested folders), 'alpha' (A-Z list), 'latest' (by last updated), 'priority' (by priority), 'archived' (archived paths)
-  const [viewMode, setViewMode] = useState<'folder' | 'alpha' | 'latest' | 'priority' | 'archived'>('folder');
+  // View mode: 'folder' (default, shows nested folders), 'alpha' (A-Z list), 'latest' (by last updated), 'priority' (by priority)
+  const [viewMode, setViewMode] = useState<'folder' | 'alpha' | 'latest' | 'priority'>('folder');
+  // Separate archived view mode for path manager focus window only
+  const [focusViewMode, setFocusViewMode] = useState<'folder' | 'alpha' | 'latest' | 'priority' | 'archived'>('folder');
   
   // Track last updated timestamps for each path (pathId -> timestamp)
   const [pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
@@ -3299,30 +3301,6 @@ function DiagramContent() {
             >
               Priority
             </button>
-            <button
-              onClick={() => setViewMode('archived')}
-              style={{
-                flex: 1,
-                padding: '6px 8px',
-                fontSize: '9px',
-                fontWeight: viewMode === 'archived' ? '600' : '500',
-                background: viewMode === 'archived' 
-                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
-                  : 'transparent',
-                color: viewMode === 'archived' 
-                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
-                  : (darkMode ? '#94a3b8' : '#64748b'),
-                border: 'none',
-                borderRadius: '7px',
-                cursor: 'pointer',
-                boxShadow: viewMode === 'archived' 
-                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
-                  : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              📦 Archived
-            </button>
           </div>
           </div>
           {/* End of sticky header */}
@@ -3356,34 +3334,6 @@ function DiagramContent() {
                   setPathNotesFocusMode(true);
                 }}
                 hideUnassigned={true}
-                autoEditPathId={autoEditPathId}
-                onAutoEditComplete={() => setAutoEditPathId(null)}
-              />
-            ) : viewMode === 'archived' ? (
-              /* Archived paths view - folder structure for archived paths */
-              <FolderTree
-                folders={folderTree}
-                paths={archivedPathItems}
-                activePath={activePath}
-                expandedFolders={expandedFolders}
-                highlightedFolderId={highlightedFolderId}
-                onToggleFolder={handleToggleFolder}
-                onSelectPath={(pathName) => showPath(pathName)}
-                onCreateFolder={handleCreateFolder}
-                onDeleteFolder={handleDeleteFolder}
-                onRenameFolder={handleRenameFolder}
-                onMovePathToFolder={handleMovePathToFolder}
-                onMoveFolderToFolder={handleMoveFolderToFolder}
-                onDeletePath={(pathName) => deletePathByName(pathName)}
-                onRenamePath={renamePath}
-                onDoubleClickPath={(pathName) => {
-                  if (activePath !== pathName) {
-                    showPath(pathName);
-                  }
-                  setNotesPathName(pathName);
-                  setPathNotesFocusMode(true);
-                }}
-                hideUnassigned={false}
                 autoEditPathId={autoEditPathId}
                 onAutoEditComplete={() => setAutoEditPathId(null)}
               />
@@ -3475,10 +3425,10 @@ function DiagramContent() {
             )}
             </div>
             
-            {/* Sticky Unassigned Paths Section (only in folder and archived views) */}
-            {(viewMode === 'folder' || viewMode === 'archived') && (
+            {/* Sticky Unassigned Paths Section (only in folder view) */}
+            {viewMode === 'folder' && (
               <UnassignedPathsSection
-                paths={viewMode === 'archived' ? archivedPathItems : folderPathItems}
+                paths={folderPathItems}
                 activePath={activePath}
                 onSelectPath={(pathName) => showPath(pathName)}
                 onMovePathToFolder={handleMovePathToFolder}
@@ -5345,21 +5295,22 @@ function DiagramContent() {
                   { mode: 'alpha' as const, label: 'A-Z' },
                   { mode: 'latest' as const, label: 'Recent' },
                   { mode: 'priority' as const, label: 'Priority' },
+                  { mode: 'archived' as const, label: '📦 Archived' },
                 ].map((v) => (
                   <button
                     key={v.mode}
-                    onClick={() => setViewMode(v.mode)}
+                    onClick={() => setFocusViewMode(v.mode)}
                     style={{
                       flex: 1,
                       padding: '6px 8px',
                       fontSize: '10px',
-                      fontWeight: viewMode === v.mode ? 600 : 500,
-                      background: viewMode === v.mode ? 'white' : 'transparent',
-                      color: viewMode === v.mode ? '#1d4ed8' : '#64748b',
+                      fontWeight: focusViewMode === v.mode ? 600 : 500,
+                      background: focusViewMode === v.mode ? 'white' : 'transparent',
+                      color: focusViewMode === v.mode ? '#1d4ed8' : '#64748b',
                       border: 'none',
                       borderRadius: '6px',
                       cursor: 'pointer',
-                      boxShadow: viewMode === v.mode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                      boxShadow: focusViewMode === v.mode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                       transition: 'all 0.15s ease',
                       letterSpacing: '0.01em',
                     }}
@@ -5371,7 +5322,7 @@ function DiagramContent() {
               
               {/* Scrollable content area */}
               <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              {viewMode === 'folder' ? (
+              {focusViewMode === 'folder' ? (
                 /* FolderTree for folder view - reuse the same component from sidebar */
                 <FolderTree
                   folders={folderTree}
@@ -5403,18 +5354,57 @@ function DiagramContent() {
                   autoEditPathId={autoEditPathId}
                   onAutoEditComplete={() => setAutoEditPathId(null)}
                 />
+              ) : focusViewMode === 'archived' ? (
+                /* Archived paths view - folder structure for archived paths */
+                archivedPathItems.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
+                    <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px', opacity: 0.4 }}>📦</span>
+                    No archived paths
+                  </div>
+                ) : (
+                <FolderTree
+                  folders={folderTree}
+                  paths={archivedPathItems}
+                  activePath={activePath}
+                  expandedFolders={expandedFolders}
+                  highlightedFolderId={highlightedFolderId}
+                  onToggleFolder={handleToggleFolder}
+                  onSelectPath={(pathName) => {
+                    showPath(pathName);
+                    setSidebarFocusMode(false);
+                  }}
+                  onCreateFolder={handleCreateFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onMovePathToFolder={handleMovePathToFolder}
+                  onMoveFolderToFolder={handleMoveFolderToFolder}
+                  onDeletePath={(pathName) => deletePathByName(pathName)}
+                  onRenamePath={renamePath}
+                  onDoubleClickPath={(pathName) => {
+                    if (activePath !== pathName) {
+                      showPath(pathName);
+                    }
+                    setNotesPathName(pathName);
+                    setPathNotesFocusMode(true);
+                    setSidebarFocusMode(false);
+                  }}
+                  hideUnassigned={false}
+                  autoEditPathId={autoEditPathId}
+                  onAutoEditComplete={() => setAutoEditPathId(null)}
+                />
+                )
               ) : (
                 /* Sleek list for A-Z, Latest, and Priority views */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                  {(viewMode === 'alpha' 
-                    ? [...pathsList].sort((a, b) => a.name.localeCompare(b.name))
-                    : viewMode === 'priority'
-                    ? [...pathsList].sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50))
-                    : [...pathsList].sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
-                  ).map((path, index) => {
+                  {(focusViewMode === 'alpha' 
+                    ? [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => a.name.localeCompare(b.name))
+                    : focusViewMode === 'priority'
+                    ? [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50))
+                    : [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
+                  ).map((path, index, arr) => {
                     const priorityColor = `rgb(${Math.round(239 * ((path.priority ?? 50) / 100) + 59 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 130 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 246 * (1 - (path.priority ?? 50) / 100))})`;
                     const isFirst = index === 0;
-                    const isLast = index === pathsList.length - 1;
+                    const isLast = index === arr.length - 1;
                     return (
                     <div
                       key={path.id}
@@ -5493,14 +5483,14 @@ function DiagramContent() {
                       </span>
                       
                       {/* Latest view: show date */}
-                      {viewMode === 'latest' && pathLastUpdated[path.id] && (
+                      {focusViewMode === 'latest' && pathLastUpdated[path.id] && (
                         <span style={{ fontSize: '9px', color: '#94a3b8', flexShrink: 0 }}>
                           {new Date(pathLastUpdated[path.id]).toLocaleDateString()}
                         </span>
                       )}
                       
                       {/* Priority view: show value and inline slider on hover */}
-                      {viewMode === 'priority' && (
+                      {focusViewMode === 'priority' && (
                         <>
                           <div 
                             className="priority-slider-inline"
@@ -5549,11 +5539,105 @@ function DiagramContent() {
                           </span>
                         </>
                       )}
+                      
+                      {/* Archive button */}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const isCurrentlyArchived = path.status === 'archived';
+                          const newStatus = isCurrentlyArchived ? '' : 'archived';
+                          
+                          // Update local state immediately
+                          setPathsList(prev => prev.map(p => 
+                            p.id === path.id ? { ...p, status: newStatus } : p
+                          ));
+                          
+                          // Save to Notion
+                          try {
+                            if (DATA_SOURCE === 'notion') {
+                              await notionService.updatePathStatus(path.id, newStatus);
+                            }
+                          } catch (error) {
+                            console.error('Error updating path status:', error);
+                            // Revert on error
+                            setPathsList(prev => prev.map(p => 
+                              p.id === path.id ? { ...p, status: isCurrentlyArchived ? 'archived' : '' } : p
+                            ));
+                          }
+                        }}
+                        title={path.status === 'archived' ? 'Unarchive' : 'Archive'}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '4px',
+                          width: '22px',
+                          height: '22px',
+                          cursor: 'pointer',
+                          color: path.status === 'archived' ? '#22c55e' : '#94a3b8',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = path.status === 'archived' ? 'rgba(34,197,94,0.1)' : 'rgba(100,116,139,0.1)';
+                          e.currentTarget.style.color = path.status === 'archived' ? '#16a34a' : '#64748b';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                          e.currentTarget.style.color = path.status === 'archived' ? '#22c55e' : '#94a3b8';
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 8v13H3V8"/>
+                          <path d="M1 3h22v5H1z"/>
+                          <path d="M10 12h4"/>
+                        </svg>
+                      </button>
+                      
+                      {/* Delete button */}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete path "${path.name}"?`)) {
+                            await deletePathByName(path.name);
+                          }
+                        }}
+                        title="Delete path"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '4px',
+                          width: '22px',
+                          height: '22px',
+                          cursor: 'pointer',
+                          color: '#94a3b8',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                          e.currentTarget.style.color = '#ef4444';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                          e.currentTarget.style.color = '#94a3b8';
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                      </button>
                     </div>
                   )})}
                   
                   {/* Empty state */}
-                  {pathsList.length === 0 && (
+                  {pathsList.filter(p => p.status !== 'archived').length === 0 && (
                     <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
                       No paths found
                     </div>
@@ -5563,7 +5647,7 @@ function DiagramContent() {
               </div>
               
               {/* Sticky Unassigned Paths Section (only in folder view) */}
-              {viewMode === 'folder' && (
+              {focusViewMode === 'folder' && (
                 <div style={{ flexShrink: 0 }}>
                 <UnassignedPathsSection
                   paths={folderPathItems}
