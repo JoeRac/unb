@@ -942,8 +942,8 @@ function DiagramContent() {
   // All loaded nodes for autocomplete (stored when data loads)
   const [allNodesData, setAllNodesData] = useState<Array<{ id: string; label: string }>>([]);
   
-  // View mode: 'folder' (default, shows nested folders), 'alpha' (A-Z list), 'latest' (by last updated), 'priority' (by priority)
-  const [viewMode, setViewMode] = useState<'folder' | 'alpha' | 'latest' | 'priority'>('folder');
+  // View mode: 'folder' (default, shows nested folders), 'alpha' (A-Z list), 'latest' (by last updated), 'priority' (by priority), 'archived' (archived paths)
+  const [viewMode, setViewMode] = useState<'folder' | 'alpha' | 'latest' | 'priority' | 'archived'>('folder');
   
   // Track last updated timestamps for each path (pathId -> timestamp)
   const [pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
@@ -1770,10 +1770,23 @@ function DiagramContent() {
     }
   };
 
-  // Convert paths list to PathItem format for FolderTree
+  // Convert paths list to PathItem format for FolderTree (excludes archived paths)
   const folderPathItems: PathItem[] = useMemo(() => 
     pathsList
-      .filter(p => p.name) // Filter out empty names
+      .filter(p => p.name && p.status !== 'archived') // Filter out empty names and archived paths
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        priority: p.priority,
+      })),
+    [pathsList]
+  );
+
+  // Archived paths for the archived view
+  const archivedPathItems: PathItem[] = useMemo(() => 
+    pathsList
+      .filter(p => p.name && p.status === 'archived')
       .map(p => ({
         id: p.id,
         name: p.name,
@@ -3286,6 +3299,30 @@ function DiagramContent() {
             >
               Priority
             </button>
+            <button
+              onClick={() => setViewMode('archived')}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                fontSize: '9px',
+                fontWeight: viewMode === 'archived' ? '600' : '500',
+                background: viewMode === 'archived' 
+                  ? (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'white') 
+                  : 'transparent',
+                color: viewMode === 'archived' 
+                  ? (darkMode ? '#93c5fd' : '#1d4ed8') 
+                  : (darkMode ? '#94a3b8' : '#64748b'),
+                border: 'none',
+                borderRadius: '7px',
+                cursor: 'pointer',
+                boxShadow: viewMode === 'archived' 
+                  ? (darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)') 
+                  : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              📦 Archived
+            </button>
           </div>
           </div>
           {/* End of sticky header */}
@@ -3319,6 +3356,34 @@ function DiagramContent() {
                   setPathNotesFocusMode(true);
                 }}
                 hideUnassigned={true}
+                autoEditPathId={autoEditPathId}
+                onAutoEditComplete={() => setAutoEditPathId(null)}
+              />
+            ) : viewMode === 'archived' ? (
+              /* Archived paths view - folder structure for archived paths */
+              <FolderTree
+                folders={folderTree}
+                paths={archivedPathItems}
+                activePath={activePath}
+                expandedFolders={expandedFolders}
+                highlightedFolderId={highlightedFolderId}
+                onToggleFolder={handleToggleFolder}
+                onSelectPath={(pathName) => showPath(pathName)}
+                onCreateFolder={handleCreateFolder}
+                onDeleteFolder={handleDeleteFolder}
+                onRenameFolder={handleRenameFolder}
+                onMovePathToFolder={handleMovePathToFolder}
+                onMoveFolderToFolder={handleMoveFolderToFolder}
+                onDeletePath={(pathName) => deletePathByName(pathName)}
+                onRenamePath={renamePath}
+                onDoubleClickPath={(pathName) => {
+                  if (activePath !== pathName) {
+                    showPath(pathName);
+                  }
+                  setNotesPathName(pathName);
+                  setPathNotesFocusMode(true);
+                }}
+                hideUnassigned={false}
                 autoEditPathId={autoEditPathId}
                 onAutoEditComplete={() => setAutoEditPathId(null)}
               />
@@ -3410,10 +3475,10 @@ function DiagramContent() {
             )}
             </div>
             
-            {/* Sticky Unassigned Paths Section (only in folder view) */}
-            {viewMode === 'folder' && (
+            {/* Sticky Unassigned Paths Section (only in folder and archived views) */}
+            {(viewMode === 'folder' || viewMode === 'archived') && (
               <UnassignedPathsSection
-                paths={folderPathItems}
+                paths={viewMode === 'archived' ? archivedPathItems : folderPathItems}
                 activePath={activePath}
                 onSelectPath={(pathName) => showPath(pathName)}
                 onMovePathToFolder={handleMovePathToFolder}
@@ -3932,6 +3997,36 @@ function DiagramContent() {
                         </button>
                       )
                     ))}
+                    {/* Audio recorder for node notes in focus mode */}
+                    <div style={{ marginLeft: 'auto', paddingLeft: '12px', borderLeft: '1px solid rgba(203,213,225,0.5)' }}>
+                      <AudioRecorder
+                        compact={false}
+                        darkMode={false}
+                        existingAudioUrls={activePathId ? (nodePathAudioUrls[activePathId]?.[nodeId] || []) : []}
+                        onRecordingComplete={async (audioBlob, _duration) => {
+                          try {
+                            if (DATA_SOURCE === 'notion' && activePathId) {
+                              await saveNodePathAudioNote(
+                                `${activePathId}_${nodeId}`,
+                                activePathId,
+                                nodeId,
+                                audioBlob
+                              );
+                              // Refresh the audio URLs after upload
+                              const nodePaths = await notionService.fetchNodePaths();
+                              const newAudioMap = buildNodePathAudioMap(nodePaths);
+                              setNodePathAudioUrls(newAudioMap);
+                            }
+                          } catch (error) {
+                            console.error('Error saving audio note:', error);
+                          }
+                        }}
+                        onDeleteAudio={async (index) => {
+                          // Note: Deletion would need to be implemented in the Notion service
+                          console.log('Delete audio at index:', index);
+                        }}
+                      />
+                    </div>
                   </div>
               
               {/* Focus mode WYSIWYG editor */}
@@ -4479,6 +4574,92 @@ function DiagramContent() {
                     <span><span style={{ fontWeight: 600, color: '#3b82f6' }}>{lowerPriorityCount}</span> lower</span>
                   </div>
                 </div>
+                
+                {/* Archive button */}
+                <button
+                  onClick={async () => {
+                    const isCurrentlyArchived = currentPath?.status === 'archived';
+                    const newStatus = isCurrentlyArchived ? '' : 'archived';
+                    
+                    // Update local state immediately
+                    setPathsList(prev => prev.map(p => 
+                      p.id === activePathId ? { ...p, status: newStatus } : p
+                    ));
+                    
+                    // Save to Notion
+                    try {
+                      if (DATA_SOURCE === 'notion') {
+                        await notionService.updatePathStatus(activePathId, newStatus);
+                      }
+                    } catch (error) {
+                      console.error('Error updating path status:', error);
+                      // Revert on error
+                      setPathsList(prev => prev.map(p => 
+                        p.id === activePathId ? { ...p, status: isCurrentlyArchived ? 'archived' : '' } : p
+                      ));
+                    }
+                    
+                    // Close focus mode after archiving
+                    if (!isCurrentlyArchived) {
+                      setPathNotesFocusMode(false);
+                    }
+                  }}
+                  title={currentPath?.status === 'archived' ? 'Unarchive path' : 'Archive path'}
+                  style={{
+                    background: currentPath?.status === 'archived' 
+                      ? 'rgba(34,197,94,0.1)' 
+                      : 'rgba(100,116,139,0.1)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    color: currentPath?.status === 'archived' ? '#22c55e' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPath?.status === 'archived') {
+                      e.currentTarget.style.background = 'rgba(34,197,94,0.2)';
+                      e.currentTarget.style.color = '#16a34a';
+                    } else {
+                      e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                      e.currentTarget.style.color = '#ef4444';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentPath?.status === 'archived') {
+                      e.currentTarget.style.background = 'rgba(34,197,94,0.1)';
+                      e.currentTarget.style.color = '#22c55e';
+                    } else {
+                      e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
+                      e.currentTarget.style.color = '#64748b';
+                    }
+                  }}
+                >
+                  {currentPath?.status === 'archived' ? (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 8v13H3V8"/>
+                        <path d="M1 3h22v5H1z"/>
+                        <path d="M10 12h4"/>
+                      </svg>
+                      Unarchive
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 8v13H3V8"/>
+                        <path d="M1 3h22v5H1z"/>
+                        <path d="M10 12h4"/>
+                      </svg>
+                      Archive
+                    </>
+                  )}
+                </button>
                 
                 <button
                   onClick={() => setPathNotesFocusMode(false)}

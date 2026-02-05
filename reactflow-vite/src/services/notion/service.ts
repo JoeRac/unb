@@ -390,6 +390,28 @@ export async function updatePathPriority(
 }
 
 /**
+ * Update path status (e.g., 'archived')
+ */
+export async function updatePathStatus(
+  pathId: string,
+  status: string
+): Promise<void> {
+  const existingPage = await findPathByAppId(pathId);
+  
+  if (!existingPage) {
+    console.error('Path not found for status update:', pathId);
+    return;
+  }
+  
+  await updatePage(existingPage.id, {
+    status: { rich_text: [{ text: { content: status } }] },
+  });
+  
+  // Invalidate cache
+  cache.paths = null;
+}
+
+/**
  * Rename a path
  */
 export async function renamePath(
