@@ -337,12 +337,33 @@ export function notionPageToNodePath(page: NotionPage): NodePathRecord {
 // ============================================
 
 /**
- * Create Notion rich text property
+ * Notion's limit per text block in rich_text properties
+ */
+const NOTION_TEXT_BLOCK_LIMIT = 2000;
+
+/**
+ * Create Notion rich text property, splitting into chunks if needed
+ * Notion has a 2000 character limit per text block, but allows multiple blocks
  */
 function createRichTextProperty(value: string): { rich_text: Array<{ text: { content: string } }> } {
-  return {
-    rich_text: [{ text: { content: value || '' } }],
-  };
+  const content = value || '';
+  
+  // If content fits in one block, use simple format
+  if (content.length <= NOTION_TEXT_BLOCK_LIMIT) {
+    return {
+      rich_text: [{ text: { content } }],
+    };
+  }
+  
+  // Split into chunks of 2000 characters
+  const chunks: Array<{ text: { content: string } }> = [];
+  for (let i = 0; i < content.length; i += NOTION_TEXT_BLOCK_LIMIT) {
+    chunks.push({
+      text: { content: content.slice(i, i + NOTION_TEXT_BLOCK_LIMIT) },
+    });
+  }
+  
+  return { rich_text: chunks };
 }
 
 /**
