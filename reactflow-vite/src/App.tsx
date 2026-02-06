@@ -3923,7 +3923,7 @@ function DiagramContent() {
                 <polygon points="12,2 22,20 2,20" fill="url(#cinaps-triangle-grad)"/>
                 <polygon points="12,7 17,17 7,17" fill="rgba(255,255,255,0.25)"/>
               </svg>
-              CINAPs
+              CinApps
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
