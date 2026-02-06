@@ -548,9 +548,485 @@ const DARK_THEME = {
   buttonHover: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
 };
 
-// Legacy constants for backward compatibility (light mode) - keeping HIGHLIGHT_COLOR as it may be used
+// Legacy constants for backward compatibility (light mode) - keeping HIGHLIGHT_COLOR and EDGE_COLOR as they may be used
 const HIGHLIGHT_COLOR = LIGHT_THEME.highlightColor;
-void HIGHLIGHT_COLOR; // Suppress unused warning
+const EDGE_COLOR = LIGHT_THEME.edgeColor;
+
+// ============================================
+// Diagram Style Themes - 15 Polished Themes
+// ============================================
+
+type DiagramThemeId = 
+  | 'default'
+  | 'ocean'
+  | 'sunset'
+  | 'forest'
+  | 'lavender'
+  | 'rose'
+  | 'midnight'
+  | 'arctic'
+  | 'coral'
+  | 'mint'
+  | 'bronze'
+  | 'neon'
+  | 'monochrome'
+  | 'vintage'
+  | 'aurora';
+
+interface DiagramTheme {
+  id: DiagramThemeId;
+  name: string;
+  description: string;
+  node: {
+    surface: string;
+    surfaceHighlight: string;
+    border: string;
+    borderHighlight: string;
+    shadow: string;
+    shadowHighlight: string;
+    textPrimary: string;
+    textSecondary: string;
+    textHighlight: string;
+    accent: string;
+  };
+  edge: {
+    color: string;
+    highlightColor: string;
+  };
+  group: {
+    fill: string;
+    stroke: string;
+    label: string;
+  };
+}
+
+const DIAGRAM_THEMES: Record<DiagramThemeId, DiagramTheme> = {
+  // Default - Keep exactly as current (clean slate/white)
+  default: {
+    id: 'default',
+    name: 'Default',
+    description: 'Clean and professional',
+    node: {
+      surface: 'rgba(247, 250, 252, 0.97)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)',
+      border: 'rgba(203, 213, 225, 0.5)',
+      borderHighlight: 'rgba(59, 130, 246, 0.4)',
+      shadow: '0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1)',
+      shadowHighlight: '0 2px 8px rgba(59, 130, 246, 0.18), 0 4px 20px rgba(59, 130, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 1)',
+      textPrimary: '#334155',
+      textSecondary: '#64748b',
+      textHighlight: '#1e40af',
+      accent: '#3b82f6',
+    },
+    edge: {
+      color: '#cbd5e1',
+      highlightColor: '#3b82f6',
+    },
+    group: {
+      fill: 'rgba(148, 163, 184, 0.06)',
+      stroke: 'rgba(148, 163, 184, 0.25)',
+      label: 'rgba(100, 116, 139, 0.85)',
+    },
+  },
+  
+  // Ocean - Deep sophisticated blues
+  ocean: {
+    id: 'ocean',
+    name: 'Ocean',
+    description: 'Deep sophisticated blues',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(240, 249, 255, 0.98) 0%, rgba(224, 242, 254, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(186, 230, 253, 0.98) 0%, rgba(125, 211, 252, 0.9) 100%)',
+      border: 'rgba(14, 165, 233, 0.25)',
+      borderHighlight: 'rgba(2, 132, 199, 0.6)',
+      shadow: '0 2px 8px rgba(14, 165, 233, 0.08), 0 4px 16px rgba(14, 165, 233, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+      shadowHighlight: '0 4px 16px rgba(2, 132, 199, 0.2), 0 8px 24px rgba(14, 165, 233, 0.12)',
+      textPrimary: '#0c4a6e',
+      textSecondary: '#0369a1',
+      textHighlight: '#0284c7',
+      accent: '#0ea5e9',
+    },
+    edge: {
+      color: 'rgba(56, 189, 248, 0.5)',
+      highlightColor: '#0284c7',
+    },
+    group: {
+      fill: 'rgba(14, 165, 233, 0.06)',
+      stroke: 'rgba(14, 165, 233, 0.2)',
+      label: 'rgba(3, 105, 161, 0.8)',
+    },
+  },
+  
+  // Sunset - Warm oranges and corals
+  sunset: {
+    id: 'sunset',
+    name: 'Sunset',
+    description: 'Warm golden hour tones',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(253, 230, 138, 0.95) 0%, rgba(251, 191, 36, 0.85) 100%)',
+      border: 'rgba(245, 158, 11, 0.3)',
+      borderHighlight: 'rgba(217, 119, 6, 0.6)',
+      shadow: '0 2px 8px rgba(245, 158, 11, 0.1), 0 4px 16px rgba(245, 158, 11, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+      shadowHighlight: '0 4px 16px rgba(217, 119, 6, 0.2), 0 8px 24px rgba(245, 158, 11, 0.15)',
+      textPrimary: '#78350f',
+      textSecondary: '#92400e',
+      textHighlight: '#b45309',
+      accent: '#f59e0b',
+    },
+    edge: {
+      color: 'rgba(251, 191, 36, 0.5)',
+      highlightColor: '#d97706',
+    },
+    group: {
+      fill: 'rgba(245, 158, 11, 0.06)',
+      stroke: 'rgba(245, 158, 11, 0.2)',
+      label: 'rgba(146, 64, 14, 0.8)',
+    },
+  },
+  
+  // Forest - Natural earthy greens
+  forest: {
+    id: 'forest',
+    name: 'Forest',
+    description: 'Natural earthy greens',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(187, 247, 208, 0.95) 0%, rgba(134, 239, 172, 0.88) 100%)',
+      border: 'rgba(34, 197, 94, 0.25)',
+      borderHighlight: 'rgba(22, 163, 74, 0.55)',
+      shadow: '0 2px 8px rgba(34, 197, 94, 0.08), 0 4px 16px rgba(34, 197, 94, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+      shadowHighlight: '0 4px 16px rgba(22, 163, 74, 0.18), 0 8px 24px rgba(34, 197, 94, 0.12)',
+      textPrimary: '#14532d',
+      textSecondary: '#166534',
+      textHighlight: '#15803d',
+      accent: '#22c55e',
+    },
+    edge: {
+      color: 'rgba(74, 222, 128, 0.5)',
+      highlightColor: '#16a34a',
+    },
+    group: {
+      fill: 'rgba(34, 197, 94, 0.06)',
+      stroke: 'rgba(34, 197, 94, 0.2)',
+      label: 'rgba(22, 101, 52, 0.8)',
+    },
+  },
+  
+  // Lavender - Elegant soft purples
+  lavender: {
+    id: 'lavender',
+    name: 'Lavender',
+    description: 'Elegant soft purples',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(250, 245, 255, 0.98) 0%, rgba(243, 232, 255, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(233, 213, 255, 0.95) 0%, rgba(216, 180, 254, 0.88) 100%)',
+      border: 'rgba(168, 85, 247, 0.25)',
+      borderHighlight: 'rgba(147, 51, 234, 0.55)',
+      shadow: '0 2px 8px rgba(168, 85, 247, 0.08), 0 4px 16px rgba(168, 85, 247, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+      shadowHighlight: '0 4px 16px rgba(147, 51, 234, 0.18), 0 8px 24px rgba(168, 85, 247, 0.12)',
+      textPrimary: '#3b0764',
+      textSecondary: '#581c87',
+      textHighlight: '#7c3aed',
+      accent: '#a855f7',
+    },
+    edge: {
+      color: 'rgba(192, 132, 252, 0.5)',
+      highlightColor: '#9333ea',
+    },
+    group: {
+      fill: 'rgba(168, 85, 247, 0.06)',
+      stroke: 'rgba(168, 85, 247, 0.2)',
+      label: 'rgba(88, 28, 135, 0.8)',
+    },
+  },
+  
+  // Rose - Refined feminine pinks
+  rose: {
+    id: 'rose',
+    name: 'Rose',
+    description: 'Refined feminine pinks',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(255, 241, 242, 0.98) 0%, rgba(254, 226, 226, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(253, 205, 211, 0.95) 0%, rgba(251, 164, 175, 0.88) 100%)',
+      border: 'rgba(244, 63, 94, 0.25)',
+      borderHighlight: 'rgba(225, 29, 72, 0.55)',
+      shadow: '0 2px 8px rgba(244, 63, 94, 0.08), 0 4px 16px rgba(244, 63, 94, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+      shadowHighlight: '0 4px 16px rgba(225, 29, 72, 0.18), 0 8px 24px rgba(244, 63, 94, 0.12)',
+      textPrimary: '#4c0519',
+      textSecondary: '#9f1239',
+      textHighlight: '#be123c',
+      accent: '#f43f5e',
+    },
+    edge: {
+      color: 'rgba(251, 113, 133, 0.5)',
+      highlightColor: '#e11d48',
+    },
+    group: {
+      fill: 'rgba(244, 63, 94, 0.06)',
+      stroke: 'rgba(244, 63, 94, 0.2)',
+      label: 'rgba(159, 18, 57, 0.8)',
+    },
+  },
+  
+  // Midnight - Premium dark elegance (for light mode as contrast)
+  midnight: {
+    id: 'midnight',
+    name: 'Midnight',
+    description: 'Premium dark elegance',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(51, 65, 85, 0.98) 0%, rgba(71, 85, 105, 0.9) 100%)',
+      border: 'rgba(100, 116, 139, 0.4)',
+      borderHighlight: 'rgba(148, 163, 184, 0.6)',
+      shadow: '0 2px 8px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+      shadowHighlight: '0 4px 16px rgba(148, 163, 184, 0.15), 0 8px 24px rgba(0, 0, 0, 0.25)',
+      textPrimary: '#f1f5f9',
+      textSecondary: '#cbd5e1',
+      textHighlight: '#e2e8f0',
+      accent: '#94a3b8',
+    },
+    edge: {
+      color: 'rgba(100, 116, 139, 0.6)',
+      highlightColor: '#94a3b8',
+    },
+    group: {
+      fill: 'rgba(71, 85, 105, 0.15)',
+      stroke: 'rgba(100, 116, 139, 0.35)',
+      label: 'rgba(203, 213, 225, 0.9)',
+    },
+  },
+  
+  // Arctic - Crisp icy whites and blues
+  arctic: {
+    id: 'arctic',
+    name: 'Arctic',
+    description: 'Crisp icy whites',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(255, 255, 255, 0.99) 0%, rgba(241, 245, 249, 0.97) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(241, 245, 249, 0.98) 0%, rgba(226, 232, 240, 0.95) 100%)',
+      border: 'rgba(148, 163, 184, 0.3)',
+      borderHighlight: 'rgba(100, 116, 139, 0.5)',
+      shadow: '0 1px 3px rgba(148, 163, 184, 0.1), 0 4px 12px rgba(148, 163, 184, 0.08), inset 0 1px 0 rgba(255, 255, 255, 1)',
+      shadowHighlight: '0 2px 8px rgba(100, 116, 139, 0.15), 0 6px 20px rgba(148, 163, 184, 0.1)',
+      textPrimary: '#334155',
+      textSecondary: '#64748b',
+      textHighlight: '#475569',
+      accent: '#64748b',
+    },
+    edge: {
+      color: 'rgba(148, 163, 184, 0.4)',
+      highlightColor: '#64748b',
+    },
+    group: {
+      fill: 'rgba(226, 232, 240, 0.25)',
+      stroke: 'rgba(148, 163, 184, 0.3)',
+      label: 'rgba(71, 85, 105, 0.8)',
+    },
+  },
+  
+  // Coral - Vibrant tropical energy
+  coral: {
+    id: 'coral',
+    name: 'Coral',
+    description: 'Vibrant tropical energy',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(255, 247, 237, 0.98) 0%, rgba(255, 237, 213, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(254, 215, 170, 0.95) 0%, rgba(253, 186, 116, 0.88) 100%)',
+      border: 'rgba(249, 115, 22, 0.28)',
+      borderHighlight: 'rgba(234, 88, 12, 0.58)',
+      shadow: '0 2px 8px rgba(249, 115, 22, 0.1), 0 4px 16px rgba(249, 115, 22, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+      shadowHighlight: '0 4px 16px rgba(234, 88, 12, 0.2), 0 8px 24px rgba(249, 115, 22, 0.15)',
+      textPrimary: '#7c2d12',
+      textSecondary: '#9a3412',
+      textHighlight: '#c2410c',
+      accent: '#f97316',
+    },
+    edge: {
+      color: 'rgba(251, 146, 60, 0.5)',
+      highlightColor: '#ea580c',
+    },
+    group: {
+      fill: 'rgba(249, 115, 22, 0.06)',
+      stroke: 'rgba(249, 115, 22, 0.2)',
+      label: 'rgba(154, 52, 18, 0.8)',
+    },
+  },
+  
+  // Mint - Fresh clean teals
+  mint: {
+    id: 'mint',
+    name: 'Mint',
+    description: 'Fresh clean teals',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(240, 253, 250, 0.98) 0%, rgba(204, 251, 241, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(153, 246, 228, 0.95) 0%, rgba(94, 234, 212, 0.88) 100%)',
+      border: 'rgba(20, 184, 166, 0.25)',
+      borderHighlight: 'rgba(13, 148, 136, 0.55)',
+      shadow: '0 2px 8px rgba(20, 184, 166, 0.08), 0 4px 16px rgba(20, 184, 166, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+      shadowHighlight: '0 4px 16px rgba(13, 148, 136, 0.18), 0 8px 24px rgba(20, 184, 166, 0.12)',
+      textPrimary: '#134e4a',
+      textSecondary: '#115e59',
+      textHighlight: '#0f766e',
+      accent: '#14b8a6',
+    },
+    edge: {
+      color: 'rgba(45, 212, 191, 0.5)',
+      highlightColor: '#0d9488',
+    },
+    group: {
+      fill: 'rgba(20, 184, 166, 0.06)',
+      stroke: 'rgba(20, 184, 166, 0.2)',
+      label: 'rgba(17, 94, 89, 0.8)',
+    },
+  },
+  
+  // Bronze - Sophisticated metallic warmth
+  bronze: {
+    id: 'bronze',
+    name: 'Bronze',
+    description: 'Sophisticated metallic',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(254, 252, 251, 0.98) 0%, rgba(255, 247, 237, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(253, 230, 215, 0.95) 0%, rgba(251, 207, 178, 0.88) 100%)',
+      border: 'rgba(180, 83, 9, 0.22)',
+      borderHighlight: 'rgba(146, 64, 14, 0.5)',
+      shadow: '0 2px 8px rgba(180, 83, 9, 0.08), 0 4px 16px rgba(180, 83, 9, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+      shadowHighlight: '0 4px 16px rgba(146, 64, 14, 0.18), 0 8px 24px rgba(180, 83, 9, 0.12)',
+      textPrimary: '#451a03',
+      textSecondary: '#78350f',
+      textHighlight: '#92400e',
+      accent: '#b45309',
+    },
+    edge: {
+      color: 'rgba(217, 119, 6, 0.45)',
+      highlightColor: '#92400e',
+    },
+    group: {
+      fill: 'rgba(180, 83, 9, 0.05)',
+      stroke: 'rgba(180, 83, 9, 0.18)',
+      label: 'rgba(120, 53, 15, 0.8)',
+    },
+  },
+  
+  // Neon - Bold modern vibrancy
+  neon: {
+    id: 'neon',
+    name: 'Neon',
+    description: 'Bold modern vibrancy',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(30, 58, 138, 0.95) 0%, rgba(37, 99, 235, 0.85) 100%)',
+      border: 'rgba(168, 85, 247, 0.4)',
+      borderHighlight: 'rgba(236, 72, 153, 0.7)',
+      shadow: '0 2px 12px rgba(168, 85, 247, 0.2), 0 4px 20px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+      shadowHighlight: '0 4px 20px rgba(236, 72, 153, 0.35), 0 8px 32px rgba(168, 85, 247, 0.25)',
+      textPrimary: '#f0abfc',
+      textSecondary: '#c4b5fd',
+      textHighlight: '#f472b6',
+      accent: '#ec4899',
+    },
+    edge: {
+      color: 'rgba(192, 132, 252, 0.6)',
+      highlightColor: '#f472b6',
+    },
+    group: {
+      fill: 'rgba(139, 92, 246, 0.1)',
+      stroke: 'rgba(168, 85, 247, 0.35)',
+      label: 'rgba(196, 181, 253, 0.9)',
+    },
+  },
+  
+  // Monochrome - Timeless grayscale elegance
+  monochrome: {
+    id: 'monochrome',
+    name: 'Monochrome',
+    description: 'Timeless grayscale',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(250, 250, 250, 0.98) 0%, rgba(245, 245, 245, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(229, 229, 229, 0.98) 0%, rgba(212, 212, 212, 0.92) 100%)',
+      border: 'rgba(115, 115, 115, 0.25)',
+      borderHighlight: 'rgba(64, 64, 64, 0.5)',
+      shadow: '0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1)',
+      shadowHighlight: '0 2px 10px rgba(0, 0, 0, 0.15), 0 6px 20px rgba(0, 0, 0, 0.1)',
+      textPrimary: '#262626',
+      textSecondary: '#525252',
+      textHighlight: '#171717',
+      accent: '#404040',
+    },
+    edge: {
+      color: 'rgba(163, 163, 163, 0.5)',
+      highlightColor: '#525252',
+    },
+    group: {
+      fill: 'rgba(163, 163, 163, 0.08)',
+      stroke: 'rgba(163, 163, 163, 0.25)',
+      label: 'rgba(82, 82, 82, 0.85)',
+    },
+  },
+  
+  // Vintage - Warm nostalgic sepia
+  vintage: {
+    id: 'vintage',
+    name: 'Vintage',
+    description: 'Warm nostalgic sepia',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(254, 252, 247, 0.98) 0%, rgba(253, 246, 227, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(250, 240, 205, 0.95) 0%, rgba(245, 225, 175, 0.88) 100%)',
+      border: 'rgba(161, 130, 90, 0.28)',
+      borderHighlight: 'rgba(133, 100, 60, 0.52)',
+      shadow: '0 2px 8px rgba(120, 85, 40, 0.08), 0 4px 16px rgba(120, 85, 40, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+      shadowHighlight: '0 4px 16px rgba(133, 100, 60, 0.15), 0 8px 24px rgba(120, 85, 40, 0.1)',
+      textPrimary: '#57400f',
+      textSecondary: '#78552a',
+      textHighlight: '#8b6914',
+      accent: '#a16207',
+    },
+    edge: {
+      color: 'rgba(180, 145, 95, 0.45)',
+      highlightColor: '#92400e',
+    },
+    group: {
+      fill: 'rgba(180, 145, 95, 0.06)',
+      stroke: 'rgba(180, 145, 95, 0.2)',
+      label: 'rgba(120, 85, 42, 0.8)',
+    },
+  },
+  
+  // Aurora - Magical northern lights
+  aurora: {
+    id: 'aurora',
+    name: 'Aurora',
+    description: 'Magical northern lights',
+    node: {
+      surface: 'linear-gradient(145deg, rgba(236, 254, 255, 0.98) 0%, rgba(240, 253, 250, 0.95) 100%)',
+      surfaceHighlight: 'linear-gradient(135deg, rgba(167, 243, 208, 0.92) 0%, rgba(134, 239, 172, 0.85) 50%, rgba(94, 234, 212, 0.88) 100%)',
+      border: 'rgba(6, 182, 212, 0.28)',
+      borderHighlight: 'rgba(16, 185, 129, 0.55)',
+      shadow: '0 2px 10px rgba(6, 182, 212, 0.1), 0 4px 18px rgba(16, 185, 129, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+      shadowHighlight: '0 4px 18px rgba(16, 185, 129, 0.2), 0 8px 28px rgba(6, 182, 212, 0.15)',
+      textPrimary: '#134e4a',
+      textSecondary: '#047857',
+      textHighlight: '#059669',
+      accent: '#10b981',
+    },
+    edge: {
+      color: 'rgba(45, 212, 191, 0.5)',
+      highlightColor: '#10b981',
+    },
+    group: {
+      fill: 'rgba(16, 185, 129, 0.06)',
+      stroke: 'rgba(6, 182, 212, 0.22)',
+      label: 'rgba(4, 120, 87, 0.8)',
+    },
+  },
+};
+
+const DIAGRAM_THEME_ORDER: DiagramThemeId[] = [
+  'default', 'ocean', 'sunset', 'forest', 'lavender', 'rose',
+  'midnight', 'arctic', 'coral', 'mint', 'bronze', 'neon',
+  'monochrome', 'vintage', 'aurora'
+];
 
 // Helper to get current theme
 const getTheme = (darkMode: boolean) => darkMode ? DARK_THEME : LIGHT_THEME;
@@ -745,13 +1221,13 @@ function MethodNode(props: any) {
     onStartEditNote?: (nodeId: string) => void;
     onStopEditNote?: () => void;
     darkMode?: boolean;
-    diagramTheme?: DiagramTheme;
+    diagramTheme?: DiagramThemeId;
   };
   const isHighlighted = data.isHighlighted === true;
   const isEditing = data.editingNoteNodeId === props.id;
   const isDark = data.darkMode === true;
   const theme = getTheme(isDark);
-  const dTheme = data.diagramTheme || getDiagramTheme('minimal-slate');
+  const diagramTheme = DIAGRAM_THEMES[data.diagramTheme || 'default'];
   const [localNote, setLocalNote] = useState(data.nodeNote || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -773,13 +1249,26 @@ function MethodNode(props: any) {
     }
   }, [localNote, isEditing]);
   
-  // Use diagram theme for styling
-  const background = isHighlighted ? dTheme.nodeBgHighlight : dTheme.nodeBg;
-  const textColor = isHighlighted ? dTheme.nodeTextHighlight : dTheme.nodeText;
-  const borderStyle = isHighlighted 
-    ? `1.5px solid ${dTheme.nodeBorderHighlight}` 
-    : `1px solid ${dTheme.nodeBorder}`;
-  const shadow = isHighlighted ? dTheme.nodeShadowHighlight : dTheme.nodeShadow;
+  // Premium glass styling - theme aware with diagram theme support
+  // In dark mode, use dark theme. In light mode, apply diagram theme styles
+  const background = isDark
+    ? (isHighlighted 
+        ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.98) 0%, rgba(23, 37, 84, 0.95) 100%)' 
+        : theme.nodeSurface)
+    : (isHighlighted ? diagramTheme.node.surfaceHighlight : diagramTheme.node.surface);
+  const textColor = isDark
+    ? (isHighlighted ? theme.textHighlight : theme.textPrimary)
+    : (isHighlighted ? diagramTheme.node.textHighlight : diagramTheme.node.textPrimary);
+  const borderStyle = isDark
+    ? (isHighlighted 
+        ? '1.5px solid rgba(96, 165, 250, 0.5)' 
+        : `1px solid ${theme.nodeBorder}`)
+    : (isHighlighted 
+        ? `1.5px solid ${diagramTheme.node.borderHighlight}` 
+        : `1px solid ${diagramTheme.node.border}`);
+  const shadow = isDark
+    ? (isHighlighted ? theme.glassShadowSelected : theme.glassShadow)
+    : (isHighlighted ? diagramTheme.node.shadowHighlight : diagramTheme.node.shadow);
 
   // "i" button now toggles selection (like clicking the node)
   const handleToggleClick = (e: React.MouseEvent) => {
@@ -1125,361 +1614,19 @@ function PersonalizedNode(props: any) {
   );
 }
 
-// ============================================
-// Diagram Themes - Premium Visual Styles
-// ============================================
-type DiagramTheme = {
-  id: string;
-  name: string;
-  // Canvas
-  canvasBg: string;
-  // Nodes
-  nodeBg: string;
-  nodeBgHighlight: string;
-  nodeBorder: string;
-  nodeBorderHighlight: string;
-  nodeText: string;
-  nodeTextHighlight: string;
-  nodeShadow: string;
-  nodeShadowHighlight: string;
-  // Edges
-  edgeColor: string;
-  edgeColorHighlight: string;
-  // Groups
-  groupFill: string;
-  groupStroke: string;
-  groupLabel: string;
-  groupGradientStart: string;
-  groupGradientEnd: string;
+// Unified glass style for all group rectangles
+const GLASS_GROUP_STYLE = {
+  fill: 'rgba(148, 163, 184, 0.06)',   // Subtle slate with low opacity
+  stroke: 'rgba(148, 163, 184, 0.25)', // Soft slate border
+  label: 'rgba(100, 116, 139, 0.85)',  // Muted slate for text
 };
 
-const DIAGRAM_THEMES: DiagramTheme[] = [
-  // 1. Minimal Slate - Clean, professional
-  {
-    id: 'minimal-slate',
-    name: 'Minimal Slate',
-    canvasBg: 'linear-gradient(145deg, #fafafa 0%, #f5f5f5 50%, #fafafa 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.95)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(241, 245, 249, 0.98) 0%, rgba(226, 232, 240, 0.95) 100%)',
-    nodeBorder: 'rgba(203, 213, 225, 0.5)',
-    nodeBorderHighlight: 'rgba(100, 116, 139, 0.6)',
-    nodeText: '#334155',
-    nodeTextHighlight: '#1e293b',
-    nodeShadow: '0 1px 4px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03)',
-    nodeShadowHighlight: '0 2px 8px rgba(100, 116, 139, 0.15), 0 8px 24px rgba(100, 116, 139, 0.1)',
-    edgeColor: 'rgba(148, 163, 184, 0.5)',
-    edgeColorHighlight: '#64748b',
-    groupFill: 'rgba(148, 163, 184, 0.04)',
-    groupStroke: 'rgba(148, 163, 184, 0.2)',
-    groupLabel: 'rgba(100, 116, 139, 0.7)',
-    groupGradientStart: 'rgba(255, 255, 255, 0.06)',
-    groupGradientEnd: 'rgba(148, 163, 184, 0.03)',
-  },
-  // 2. Ocean Blue - Fresh, trustworthy
-  {
-    id: 'ocean-blue',
-    name: 'Ocean Blue',
-    canvasBg: 'linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 50%, #f0f9ff 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(224, 242, 254, 0.98) 0%, rgba(186, 230, 253, 0.95) 100%)',
-    nodeBorder: 'rgba(125, 211, 252, 0.4)',
-    nodeBorderHighlight: 'rgba(14, 165, 233, 0.6)',
-    nodeText: '#0c4a6e',
-    nodeTextHighlight: '#0369a1',
-    nodeShadow: '0 1px 4px rgba(14, 165, 233, 0.06), 0 4px 12px rgba(14, 165, 233, 0.04)',
-    nodeShadowHighlight: '0 2px 8px rgba(14, 165, 233, 0.2), 0 8px 24px rgba(14, 165, 233, 0.12)',
-    edgeColor: 'rgba(125, 211, 252, 0.6)',
-    edgeColorHighlight: '#0ea5e9',
-    groupFill: 'rgba(14, 165, 233, 0.04)',
-    groupStroke: 'rgba(14, 165, 233, 0.2)',
-    groupLabel: 'rgba(14, 165, 233, 0.7)',
-    groupGradientStart: 'rgba(224, 242, 254, 0.15)',
-    groupGradientEnd: 'rgba(186, 230, 253, 0.08)',
-  },
-  // 3. Emerald Forest - Natural, calming
-  {
-    id: 'emerald-forest',
-    name: 'Emerald Forest',
-    canvasBg: 'linear-gradient(145deg, #ecfdf5 0%, #d1fae5 50%, #ecfdf5 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(209, 250, 229, 0.98) 0%, rgba(167, 243, 208, 0.95) 100%)',
-    nodeBorder: 'rgba(110, 231, 183, 0.4)',
-    nodeBorderHighlight: 'rgba(16, 185, 129, 0.6)',
-    nodeText: '#064e3b',
-    nodeTextHighlight: '#047857',
-    nodeShadow: '0 1px 4px rgba(16, 185, 129, 0.06), 0 4px 12px rgba(16, 185, 129, 0.04)',
-    nodeShadowHighlight: '0 2px 8px rgba(16, 185, 129, 0.2), 0 8px 24px rgba(16, 185, 129, 0.12)',
-    edgeColor: 'rgba(110, 231, 183, 0.6)',
-    edgeColorHighlight: '#10b981',
-    groupFill: 'rgba(16, 185, 129, 0.04)',
-    groupStroke: 'rgba(16, 185, 129, 0.2)',
-    groupLabel: 'rgba(16, 185, 129, 0.7)',
-    groupGradientStart: 'rgba(209, 250, 229, 0.15)',
-    groupGradientEnd: 'rgba(167, 243, 208, 0.08)',
-  },
-  // 4. Sunset Coral - Warm, energetic
-  {
-    id: 'sunset-coral',
-    name: 'Sunset Coral',
-    canvasBg: 'linear-gradient(145deg, #fff7ed 0%, #ffedd5 50%, #fff7ed 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(255, 237, 213, 0.98) 0%, rgba(254, 215, 170, 0.95) 100%)',
-    nodeBorder: 'rgba(253, 186, 116, 0.4)',
-    nodeBorderHighlight: 'rgba(249, 115, 22, 0.6)',
-    nodeText: '#7c2d12',
-    nodeTextHighlight: '#c2410c',
-    nodeShadow: '0 1px 4px rgba(249, 115, 22, 0.06), 0 4px 12px rgba(249, 115, 22, 0.04)',
-    nodeShadowHighlight: '0 2px 8px rgba(249, 115, 22, 0.2), 0 8px 24px rgba(249, 115, 22, 0.12)',
-    edgeColor: 'rgba(253, 186, 116, 0.6)',
-    edgeColorHighlight: '#f97316',
-    groupFill: 'rgba(249, 115, 22, 0.04)',
-    groupStroke: 'rgba(249, 115, 22, 0.2)',
-    groupLabel: 'rgba(249, 115, 22, 0.7)',
-    groupGradientStart: 'rgba(255, 237, 213, 0.15)',
-    groupGradientEnd: 'rgba(254, 215, 170, 0.08)',
-  },
-  // 5. Lavender Dreams - Soft, creative
-  {
-    id: 'lavender-dreams',
-    name: 'Lavender Dreams',
-    canvasBg: 'linear-gradient(145deg, #faf5ff 0%, #f3e8ff 50%, #faf5ff 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(243, 232, 255, 0.98) 0%, rgba(233, 213, 255, 0.95) 100%)',
-    nodeBorder: 'rgba(216, 180, 254, 0.4)',
-    nodeBorderHighlight: 'rgba(168, 85, 247, 0.6)',
-    nodeText: '#581c87',
-    nodeTextHighlight: '#7c3aed',
-    nodeShadow: '0 1px 4px rgba(168, 85, 247, 0.06), 0 4px 12px rgba(168, 85, 247, 0.04)',
-    nodeShadowHighlight: '0 2px 8px rgba(168, 85, 247, 0.2), 0 8px 24px rgba(168, 85, 247, 0.12)',
-    edgeColor: 'rgba(216, 180, 254, 0.6)',
-    edgeColorHighlight: '#a855f7',
-    groupFill: 'rgba(168, 85, 247, 0.04)',
-    groupStroke: 'rgba(168, 85, 247, 0.2)',
-    groupLabel: 'rgba(168, 85, 247, 0.7)',
-    groupGradientStart: 'rgba(243, 232, 255, 0.15)',
-    groupGradientEnd: 'rgba(233, 213, 255, 0.08)',
-  },
-  // 6. Rose Gold - Elegant, sophisticated
-  {
-    id: 'rose-gold',
-    name: 'Rose Gold',
-    canvasBg: 'linear-gradient(145deg, #fff1f2 0%, #ffe4e6 50%, #fff1f2 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(255, 228, 230, 0.98) 0%, rgba(254, 205, 211, 0.95) 100%)',
-    nodeBorder: 'rgba(253, 164, 175, 0.4)',
-    nodeBorderHighlight: 'rgba(244, 63, 94, 0.5)',
-    nodeText: '#881337',
-    nodeTextHighlight: '#be123c',
-    nodeShadow: '0 1px 4px rgba(244, 63, 94, 0.06), 0 4px 12px rgba(244, 63, 94, 0.04)',
-    nodeShadowHighlight: '0 2px 8px rgba(244, 63, 94, 0.18), 0 8px 24px rgba(244, 63, 94, 0.1)',
-    edgeColor: 'rgba(253, 164, 175, 0.6)',
-    edgeColorHighlight: '#f43f5e',
-    groupFill: 'rgba(244, 63, 94, 0.04)',
-    groupStroke: 'rgba(244, 63, 94, 0.2)',
-    groupLabel: 'rgba(244, 63, 94, 0.7)',
-    groupGradientStart: 'rgba(255, 228, 230, 0.15)',
-    groupGradientEnd: 'rgba(254, 205, 211, 0.08)',
-  },
-  // 7. Midnight Pro - Dark, premium
-  {
-    id: 'midnight-pro',
-    name: 'Midnight Pro',
-    canvasBg: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-    nodeBg: 'rgba(30, 41, 59, 0.95)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(51, 65, 85, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%)',
-    nodeBorder: 'rgba(71, 85, 105, 0.5)',
-    nodeBorderHighlight: 'rgba(148, 163, 184, 0.6)',
-    nodeText: '#e2e8f0',
-    nodeTextHighlight: '#f8fafc',
-    nodeShadow: '0 1px 4px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15)',
-    nodeShadowHighlight: '0 2px 8px rgba(148, 163, 184, 0.15), 0 8px 24px rgba(0, 0, 0, 0.3)',
-    edgeColor: 'rgba(100, 116, 139, 0.5)',
-    edgeColorHighlight: '#94a3b8',
-    groupFill: 'rgba(148, 163, 184, 0.05)',
-    groupStroke: 'rgba(148, 163, 184, 0.15)',
-    groupLabel: 'rgba(148, 163, 184, 0.6)',
-    groupGradientStart: 'rgba(71, 85, 105, 0.1)',
-    groupGradientEnd: 'rgba(30, 41, 59, 0.05)',
-  },
-  // 8. Neon Cyber - Vibrant, futuristic
-  {
-    id: 'neon-cyber',
-    name: 'Neon Cyber',
-    canvasBg: 'linear-gradient(145deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%)',
-    nodeBg: 'rgba(26, 26, 46, 0.95)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(45, 45, 80, 0.98) 0%, rgba(26, 26, 46, 0.95) 100%)',
-    nodeBorder: 'rgba(0, 255, 255, 0.25)',
-    nodeBorderHighlight: 'rgba(0, 255, 255, 0.7)',
-    nodeText: '#00ffff',
-    nodeTextHighlight: '#00ffff',
-    nodeShadow: '0 0 8px rgba(0, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.3)',
-    nodeShadowHighlight: '0 0 20px rgba(0, 255, 255, 0.3), 0 0 40px rgba(0, 255, 255, 0.15)',
-    edgeColor: 'rgba(0, 255, 255, 0.3)',
-    edgeColorHighlight: '#00ffff',
-    groupFill: 'rgba(0, 255, 255, 0.03)',
-    groupStroke: 'rgba(0, 255, 255, 0.2)',
-    groupLabel: 'rgba(0, 255, 255, 0.7)',
-    groupGradientStart: 'rgba(0, 255, 255, 0.05)',
-    groupGradientEnd: 'rgba(0, 255, 255, 0.02)',
-  },
-  // 9. Aurora Borealis - Gradient magic
-  {
-    id: 'aurora-borealis',
-    name: 'Aurora Borealis',
-    canvasBg: 'linear-gradient(145deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
-    nodeBg: 'linear-gradient(135deg, rgba(30, 27, 75, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(168, 85, 247, 0.3) 50%, rgba(6, 182, 212, 0.3) 100%)',
-    nodeBorder: 'rgba(139, 92, 246, 0.4)',
-    nodeBorderHighlight: 'rgba(6, 182, 212, 0.7)',
-    nodeText: '#c4b5fd',
-    nodeTextHighlight: '#22d3ee',
-    nodeShadow: '0 1px 4px rgba(139, 92, 246, 0.15), 0 4px 12px rgba(0, 0, 0, 0.2)',
-    nodeShadowHighlight: '0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(139, 92, 246, 0.2)',
-    edgeColor: 'rgba(139, 92, 246, 0.4)',
-    edgeColorHighlight: '#22d3ee',
-    groupFill: 'rgba(139, 92, 246, 0.05)',
-    groupStroke: 'rgba(6, 182, 212, 0.25)',
-    groupLabel: 'rgba(196, 181, 253, 0.8)',
-    groupGradientStart: 'rgba(139, 92, 246, 0.08)',
-    groupGradientEnd: 'rgba(6, 182, 212, 0.05)',
-  },
-  // 10. Frosted Glass - Premium transparency
-  {
-    id: 'frosted-glass',
-    name: 'Frosted Glass',
-    canvasBg: 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.6)',
-    nodeBgHighlight: 'rgba(255, 255, 255, 0.85)',
-    nodeBorder: 'rgba(255, 255, 255, 0.8)',
-    nodeBorderHighlight: 'rgba(59, 130, 246, 0.5)',
-    nodeText: '#475569',
-    nodeTextHighlight: '#1e40af',
-    nodeShadow: '0 4px 24px rgba(0, 0, 0, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.6)',
-    nodeShadowHighlight: '0 8px 32px rgba(59, 130, 246, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.8)',
-    edgeColor: 'rgba(148, 163, 184, 0.4)',
-    edgeColorHighlight: '#3b82f6',
-    groupFill: 'rgba(255, 255, 255, 0.3)',
-    groupStroke: 'rgba(255, 255, 255, 0.6)',
-    groupLabel: 'rgba(71, 85, 105, 0.7)',
-    groupGradientStart: 'rgba(255, 255, 255, 0.4)',
-    groupGradientEnd: 'rgba(255, 255, 255, 0.2)',
-  },
-  // 11. Warm Earth - Cozy, natural
-  {
-    id: 'warm-earth',
-    name: 'Warm Earth',
-    canvasBg: 'linear-gradient(145deg, #fefce8 0%, #fef3c7 50%, #fefce8 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(254, 243, 199, 0.98) 0%, rgba(253, 230, 138, 0.95) 100%)',
-    nodeBorder: 'rgba(252, 211, 77, 0.4)',
-    nodeBorderHighlight: 'rgba(217, 119, 6, 0.6)',
-    nodeText: '#78350f',
-    nodeTextHighlight: '#b45309',
-    nodeShadow: '0 1px 4px rgba(217, 119, 6, 0.06), 0 4px 12px rgba(217, 119, 6, 0.04)',
-    nodeShadowHighlight: '0 2px 8px rgba(217, 119, 6, 0.2), 0 8px 24px rgba(217, 119, 6, 0.12)',
-    edgeColor: 'rgba(252, 211, 77, 0.6)',
-    edgeColorHighlight: '#d97706',
-    groupFill: 'rgba(217, 119, 6, 0.04)',
-    groupStroke: 'rgba(217, 119, 6, 0.2)',
-    groupLabel: 'rgba(180, 83, 9, 0.7)',
-    groupGradientStart: 'rgba(254, 243, 199, 0.15)',
-    groupGradientEnd: 'rgba(253, 230, 138, 0.08)',
-  },
-  // 12. Arctic Frost - Cool, minimal
-  {
-    id: 'arctic-frost',
-    name: 'Arctic Frost',
-    canvasBg: 'linear-gradient(145deg, #f0fdff 0%, #e0f7fa 50%, #f0fdff 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(224, 247, 250, 0.98) 0%, rgba(178, 235, 242, 0.95) 100%)',
-    nodeBorder: 'rgba(103, 232, 249, 0.4)',
-    nodeBorderHighlight: 'rgba(8, 145, 178, 0.6)',
-    nodeText: '#164e63',
-    nodeTextHighlight: '#0891b2',
-    nodeShadow: '0 1px 4px rgba(8, 145, 178, 0.06), 0 4px 12px rgba(8, 145, 178, 0.04)',
-    nodeShadowHighlight: '0 2px 8px rgba(8, 145, 178, 0.2), 0 8px 24px rgba(8, 145, 178, 0.12)',
-    edgeColor: 'rgba(103, 232, 249, 0.6)',
-    edgeColorHighlight: '#06b6d4',
-    groupFill: 'rgba(8, 145, 178, 0.04)',
-    groupStroke: 'rgba(8, 145, 178, 0.2)',
-    groupLabel: 'rgba(8, 145, 178, 0.7)',
-    groupGradientStart: 'rgba(224, 247, 250, 0.15)',
-    groupGradientEnd: 'rgba(178, 235, 242, 0.08)',
-  },
-  // 13. Charcoal Ink - Editorial, refined
-  {
-    id: 'charcoal-ink',
-    name: 'Charcoal Ink',
-    canvasBg: 'linear-gradient(145deg, #fafafa 0%, #f4f4f5 50%, #fafafa 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.97)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(39, 39, 42, 0.98) 0%, rgba(24, 24, 27, 0.95) 100%)',
-    nodeBorder: 'rgba(161, 161, 170, 0.4)',
-    nodeBorderHighlight: 'rgba(39, 39, 42, 0.8)',
-    nodeText: '#27272a',
-    nodeTextHighlight: '#fafafa',
-    nodeShadow: '0 1px 4px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03)',
-    nodeShadowHighlight: '0 4px 12px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)',
-    edgeColor: 'rgba(161, 161, 170, 0.5)',
-    edgeColorHighlight: '#27272a',
-    groupFill: 'rgba(39, 39, 42, 0.03)',
-    groupStroke: 'rgba(39, 39, 42, 0.15)',
-    groupLabel: 'rgba(39, 39, 42, 0.6)',
-    groupGradientStart: 'rgba(244, 244, 245, 0.5)',
-    groupGradientEnd: 'rgba(228, 228, 231, 0.3)',
-  },
-  // 14. Cotton Candy - Playful, youthful
-  {
-    id: 'cotton-candy',
-    name: 'Cotton Candy',
-    canvasBg: 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 25%, #ede9fe 50%, #e0e7ff 75%, #fdf2f8 100%)',
-    nodeBg: 'rgba(255, 255, 255, 0.9)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(251, 207, 232, 0.9) 0%, rgba(221, 214, 254, 0.9) 100%)',
-    nodeBorder: 'rgba(249, 168, 212, 0.5)',
-    nodeBorderHighlight: 'rgba(192, 132, 252, 0.7)',
-    nodeText: '#9d174d',
-    nodeTextHighlight: '#7c3aed',
-    nodeShadow: '0 2px 8px rgba(236, 72, 153, 0.08), 0 4px 16px rgba(168, 85, 247, 0.06)',
-    nodeShadowHighlight: '0 4px 16px rgba(236, 72, 153, 0.2), 0 8px 32px rgba(168, 85, 247, 0.15)',
-    edgeColor: 'rgba(249, 168, 212, 0.5)',
-    edgeColorHighlight: '#c084fc',
-    groupFill: 'rgba(249, 168, 212, 0.08)',
-    groupStroke: 'rgba(192, 132, 252, 0.3)',
-    groupLabel: 'rgba(168, 85, 247, 0.7)',
-    groupGradientStart: 'rgba(251, 207, 232, 0.15)',
-    groupGradientEnd: 'rgba(221, 214, 254, 0.1)',
-  },
-  // 15. Deep Space - Mysterious, immersive
-  {
-    id: 'deep-space',
-    name: 'Deep Space',
-    canvasBg: 'radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 70%, #000000 100%)',
-    nodeBg: 'rgba(20, 20, 35, 0.9)',
-    nodeBgHighlight: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(20, 20, 35, 0.95) 100%)',
-    nodeBorder: 'rgba(99, 102, 241, 0.3)',
-    nodeBorderHighlight: 'rgba(129, 140, 248, 0.7)',
-    nodeText: '#a5b4fc',
-    nodeTextHighlight: '#c7d2fe',
-    nodeShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.1)',
-    nodeShadowHighlight: '0 0 30px rgba(99, 102, 241, 0.25), 0 0 60px rgba(99, 102, 241, 0.15)',
-    edgeColor: 'rgba(99, 102, 241, 0.35)',
-    edgeColorHighlight: '#818cf8',
-    groupFill: 'rgba(99, 102, 241, 0.05)',
-    groupStroke: 'rgba(99, 102, 241, 0.2)',
-    groupLabel: 'rgba(165, 180, 252, 0.7)',
-    groupGradientStart: 'rgba(99, 102, 241, 0.08)',
-    groupGradientEnd: 'rgba(67, 56, 202, 0.04)',
-  },
-];
-
-const DIAGRAM_THEME_ORDER = DIAGRAM_THEMES.map(t => t.id);
-
-function getDiagramTheme(id: string): DiagramTheme {
-  return DIAGRAM_THEMES.find(t => t.id === id) || DIAGRAM_THEMES[0];
-}
-
 // Component to render grouping rectangles behind nodes
-function NodeGroupingOverlay({ nodes, diagramTheme }: { nodes: Node[]; diagramTheme: DiagramTheme }) {
+function NodeGroupingOverlay({ nodes, diagramTheme, darkMode }: { nodes: Node[]; diagramTheme: DiagramTheme; darkMode: boolean }) {
   const { x, y, zoom } = useViewport();
+  
+  // Get group style from diagram theme (use default glass style in dark mode)
+  const groupStyle = darkMode ? GLASS_GROUP_STYLE : diagramTheme.group;
   
   // Calculate bounding boxes for each group
   const groupBounds = useMemo(() => {
@@ -1637,8 +1784,8 @@ function NodeGroupingOverlay({ nodes, diagramTheme }: { nodes: Node[]; diagramTh
             {/* Glass effect background */}
             <defs>
               <linearGradient id={`glass-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor={diagramTheme.groupGradientStart} />
-                <stop offset="100%" stopColor={diagramTheme.groupGradientEnd} />
+                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.08)" />
+                <stop offset="100%" stopColor={groupStyle.fill} />
               </linearGradient>
             </defs>
             {/* Background rectangle with glass effect */}
@@ -1649,8 +1796,8 @@ function NodeGroupingOverlay({ nodes, diagramTheme }: { nodes: Node[]; diagramTh
               height={rect.height}
               rx={16}
               ry={16}
-              fill={`url(#glass-${rect.name.replace(/\s+/g, '-')})`}
-              stroke={diagramTheme.groupStroke}
+              fill={groupStyle.fill}
+              stroke={groupStyle.stroke}
               strokeWidth={1}
             />
             {/* Inner subtle border for depth */}
@@ -1669,7 +1816,7 @@ function NodeGroupingOverlay({ nodes, diagramTheme }: { nodes: Node[]; diagramTh
             <text
               x={rect.x + 16}
               y={rect.y + 22}
-              fill={diagramTheme.groupLabel}
+              fill={groupStyle.label}
               fontSize={11}
               fontWeight={500}
               fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
@@ -1831,11 +1978,10 @@ function DiagramContent() {
     const saved = localStorage.getItem('cinaps-hide-connectors');
     return saved === 'true';
   });
-  const [diagramThemeId, setDiagramThemeId] = useState(() => {
+  const [diagramTheme, setDiagramTheme] = useState<DiagramThemeId>(() => {
     const saved = localStorage.getItem('cinaps-diagram-theme');
-    return saved && DIAGRAM_THEME_ORDER.includes(saved) ? saved : 'minimal-slate';
+    return (saved && saved in DIAGRAM_THEMES) ? saved as DiagramThemeId : 'default';
   });
-  const diagramTheme = getDiagramTheme(diagramThemeId);
   
   // Persist dark mode preference
   useEffect(() => {
@@ -1854,19 +2000,22 @@ function DiagramContent() {
   
   // Persist diagram theme preference
   useEffect(() => {
-    localStorage.setItem('cinaps-diagram-theme', diagramThemeId);
-  }, [diagramThemeId]);
+    localStorage.setItem('cinaps-diagram-theme', diagramTheme);
+  }, [diagramTheme]);
+  
+  // Get current diagram theme
+  const currentDiagramTheme = DIAGRAM_THEMES[diagramTheme];
   
   // Cycle to next diagram theme
   const cycleDiagramTheme = useCallback(() => {
-    setDiagramThemeId(current => {
+    setDiagramTheme(current => {
       const currentIndex = DIAGRAM_THEME_ORDER.indexOf(current);
       const nextIndex = (currentIndex + 1) % DIAGRAM_THEME_ORDER.length;
       return DIAGRAM_THEME_ORDER[nextIndex];
     });
   }, []);
   
-  // Update all nodes when dark mode or diagram theme changes
+  // Update all nodes when dark mode changes
   useEffect(() => {
     setNodes((nds) =>
       nds.map((n) => ({
@@ -1874,24 +2023,43 @@ function DiagramContent() {
         data: {
           ...n.data,
           darkMode,
+        },
+      }))
+    );
+  }, [darkMode, setNodes]);
+  
+  // Update all nodes when diagram theme changes
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
           diagramTheme,
         },
       }))
     );
-  }, [darkMode, diagramTheme, setNodes]);
+  }, [diagramTheme, setNodes]);
   
-  // Update edges when diagram theme changes
+  // Update edge colors when diagram theme changes
   useEffect(() => {
+    const themeEdgeColor = darkMode ? EDGE_COLOR : DIAGRAM_THEMES[diagramTheme].edge.color;
     setEdges((eds: Edge[]) =>
-      eds.map((e: Edge) => ({
-        ...e,
-        style: {
-          ...e.style,
-          stroke: e.style?.opacity === 1 ? diagramTheme.edgeColorHighlight : diagramTheme.edgeColor,
-        },
-      }))
+      eds.map((e: Edge) => {
+        // Preserve highlighted edges' colors, only update non-highlighted ones
+        const currentOpacity = (e.style as Record<string, unknown>)?.opacity as number | undefined;
+        const isHighlighted = currentOpacity !== undefined && currentOpacity > 0.5;
+        if (isHighlighted) return e;
+        return {
+          ...e,
+          style: {
+            ...e.style,
+            stroke: themeEdgeColor,
+          },
+        };
+      })
     );
-  }, [diagramTheme, setEdges]);
+  }, [diagramTheme, darkMode, setEdges]);
   
   // Keyboard shortcuts for settings toggles
   useEffect(() => {
@@ -1912,13 +2080,13 @@ function DiagramContent() {
         e.preventDefault();
         setHideGroups(prev => !prev);
       }
-      // Cmd/Ctrl + Shift + C = Toggle Hide Connectors
+      // Cmd/Ctrl + Shift + E = Toggle Hide Connectors
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         setHideConnectors(prev => !prev);
       }
-      // Cmd/Ctrl + Shift + T = Cycle Diagram Theme
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 't') {
+      // Cmd/Ctrl + Shift + S = Cycle Diagram Theme
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         cycleDiagramTheme();
       }
@@ -2080,7 +2248,9 @@ function DiagramContent() {
   // Google Apps Script Web App URL - you need to deploy your own script and paste the URL here
   const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlQ5lLsgbTYVgtGzrU8KXN9RI31UKV-JSIJV7xfcsXJMWw2pEmMKsKnWOIlE1_L-LnhQ/exec';
 
-  const highlightColor = HIGHLIGHT_COLOR;
+  // Use diagram theme colors for edges and highlights (in light mode)
+  const highlightColor = darkMode ? HIGHLIGHT_COLOR : currentDiagramTheme.edge.highlightColor;
+  const edgeColor = darkMode ? EDGE_COLOR : currentDiagramTheme.edge.color;
 
   // Refs for callbacks to avoid re-render loops
   const handleInlineNoteChangeRef = useRef<(nodeId: string, note: string) => void>(() => {});
@@ -3488,7 +3658,7 @@ function DiagramContent() {
         return {
           ...e,
           style: {
-            stroke: isActive ? diagramTheme.edgeColorHighlight : diagramTheme.edgeColor,
+            stroke: isActive ? highlightColor : edgeColor,
             opacity: isActive ? 1 : 0.25,
             strokeWidth: isActive ? 2.5 : 1.5,
           },
@@ -3589,7 +3759,7 @@ function DiagramContent() {
       eds.map((e: Edge) => ({
         ...e,
         style: {
-          stroke: diagramTheme.edgeColor,
+          stroke: edgeColor,
           opacity: 0.5,
           strokeWidth: 1.5,
         },
@@ -3615,7 +3785,7 @@ function DiagramContent() {
   const theme = getTheme(darkMode);
 
   return (
-    <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: diagramTheme.canvasBg, transition: 'background 0.3s ease' }}>
+    <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: theme.canvasBg, transition: 'background 0.3s ease' }}>
       <ReactFlow
         nodes={nodes}
         edges={hideConnectors ? [] : edges}
@@ -3630,7 +3800,7 @@ function DiagramContent() {
       >
         <Controls />
         {/* Node grouping overlay - draws rectangles around grouped nodes */}
-        {!hideGroups && <NodeGroupingOverlay nodes={nodes} diagramTheme={diagramTheme} />}
+        {!hideGroups && <NodeGroupingOverlay nodes={nodes} diagramTheme={currentDiagramTheme} darkMode={darkMode} />}
         {/* <Background color="#222" gap={16} /> */}
 
         {/* Left sidebar - draggable and resizable */}
@@ -4808,25 +4978,26 @@ function DiagramContent() {
               
               {/* Diagram Theme Selector */}
               <div style={{
-                marginTop: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 padding: '14px 16px',
+                marginTop: '10px',
                 background: darkMode ? 'rgba(148, 163, 184, 0.06)' : 'rgba(241, 245, 249, 0.8)',
                 borderRadius: '12px',
                 border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
                     width: '36px',
                     height: '36px',
                     borderRadius: '10px',
-                    background: darkMode 
-                      ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%)' 
-                      : 'linear-gradient(135deg, #ddd6fe 0%, #bfdbfe 100%)',
+                    background: `linear-gradient(135deg, ${currentDiagramTheme.node.accent}20 0%, ${currentDiagramTheme.node.accent}10 100%)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#a78bfa' : '#7c3aed'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={currentDiagramTheme.node.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"/>
                       <circle cx="12" cy="12" r="4"/>
                       <line x1="21.17" y1="8" x2="12" y2="8"/>
@@ -4841,41 +5012,40 @@ function DiagramContent() {
                       color: darkMode ? '#f1f5f9' : '#1e293b',
                       marginBottom: '2px',
                     }}>
-                      Diagram Theme
+                      Diagram Style
                     </div>
                     <div style={{ 
                       fontSize: '11px', 
                       color: darkMode ? '#64748b' : '#94a3b8',
                     }}>
-                      ⌘⇧T to cycle
+                      ⌘⇧S • {currentDiagramTheme.name}
                     </div>
                   </div>
                 </div>
                 <select
-                  value={diagramThemeId}
-                  onChange={(e) => setDiagramThemeId(e.target.value)}
+                  value={diagramTheme}
+                  onChange={(e) => setDiagramTheme(e.target.value as DiagramThemeId)}
                   style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    fontSize: '13px',
+                    padding: '8px 12px',
+                    fontSize: '12px',
                     fontWeight: '500',
-                    borderRadius: '8px',
-                    border: darkMode ? '1px solid rgba(148, 163, 184, 0.2)' : '1px solid rgba(203, 213, 225, 0.6)',
-                    background: darkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+                    borderRadius: '10px',
+                    border: darkMode ? '1px solid rgba(148, 163, 184, 0.2)' : '1px solid rgba(203, 213, 225, 0.8)',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)' 
+                      : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                     color: darkMode ? '#e2e8f0' : '#334155',
                     cursor: 'pointer',
                     outline: 'none',
-                    transition: 'all 0.15s ease',
-                    appearance: 'none',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${darkMode ? '%2394a3b8' : '%2364748b'}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 12px center',
-                    paddingRight: '36px',
+                    minWidth: '120px',
+                    boxShadow: darkMode 
+                      ? '0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03)' 
+                      : '0 1px 3px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 1)',
                   }}
                 >
-                  {DIAGRAM_THEMES.map(theme => (
-                    <option key={theme.id} value={theme.id}>
-                      {theme.name}
+                  {DIAGRAM_THEME_ORDER.map(themeId => (
+                    <option key={themeId} value={themeId}>
+                      {DIAGRAM_THEMES[themeId].name}
                     </option>
                   ))}
                 </select>
