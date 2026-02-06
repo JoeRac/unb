@@ -99,7 +99,7 @@ const LAYOUT_LABELS: Record<LayoutType, string> = {
 };
 
 const LAYOUT_ORDER: LayoutType[] = [
-  'default', 'centered', 'horizontal', 'tree-centered', 'inverted',
+  'centered', 'default', 'horizontal', 'tree-centered', 'inverted',
   'horizontal-row', 'vertical-column', 'diagonal', 'zigzag', 'cascade',
   'circle', 'spiral', 'radial', 'concentric',
   'grid', 'hexagonal', 'diamond', 'wave', 'columns-by-depth', 'scattered'
@@ -1974,7 +1974,7 @@ function DiagramContent() {
   const [autoEditPathId, setAutoEditPathId] = useState<string | null>(null);
   
   // Layout cycling state
-  const [currentLayoutType, setCurrentLayoutType] = useState<LayoutType>('default');
+  const [currentLayoutType, setCurrentLayoutType] = useState<LayoutType>('centered');
 
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
@@ -3788,7 +3788,7 @@ function DiagramContent() {
     setPathName(''); // Clear path name input
     
     // Reset to default layout
-    setCurrentLayoutType('default');
+    setCurrentLayoutType('centered');
     
     setNodes((nds) =>
       enforceRootHidden(nds)
