@@ -1031,35 +1031,6 @@ const DIAGRAM_THEME_ORDER: DiagramThemeId[] = [
 // Helper to get current theme
 const getTheme = (darkMode: boolean) => darkMode ? DARK_THEME : LIGHT_THEME;
 
-function getLayoutedNodes(
-  nodes: FlowNode[],
-  edges: FlowEdge[],
-  direction: 'TB' | 'LR' = 'TB'
-): FlowNode[] {
-  // Configure dagre - no align setting to center children under parents
-  dagreGraph.setGraph({ 
-    rankdir: direction,
-    nodesep: 50, // Horizontal spacing between nodes
-    ranksep: 70, // Vertical spacing between ranks
-  });
-  nodes.forEach((node: FlowNode) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-  });
-  edges.forEach((edge: FlowEdge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-  dagre.layout(dagreGraph);
-  return nodes.map((node: FlowNode) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    return {
-      ...node,
-      position: {
-        x: nodeWithPosition.x - nodeWidth / 2,
-        y: nodeWithPosition.y - nodeHeight / 2,
-      },
-    };
-  });
-}
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
 import {
@@ -3677,8 +3648,7 @@ function DiagramContent() {
     setPathName(pathName); // Populate path name input with loaded path name
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
-    // Reset to centered layout when loading a path
-    setCurrentLayoutType('centered');
+    // Apply current layout when loading a path (respects user's selected layout)
     setNodes((nds) => {
       // Update and layout the regular nodes (no path notes node added to diagram)
       const updated = enforceRootHidden(nds)
@@ -3692,8 +3662,8 @@ function DiagramContent() {
             },
           };
         });
-      // Use applyLayout with 'centered' to ensure centered layout
-      return applyLayout(updated as FlowNode[], edges as FlowEdge[], 'centered');
+      // Use applyLayout with current layout type to respect user's selection
+      return applyLayout(updated as FlowNode[], edges as FlowEdge[], currentLayoutType);
     });
     setTimeout(() => {
       fitView({ 
