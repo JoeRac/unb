@@ -623,9 +623,9 @@ const DIAGRAM_THEMES: Record<DiagramThemeId, DiagramTheme> = {
       highlightColor: '#3b82f6',
     },
     group: {
-      fill: 'rgba(148, 163, 184, 0.06)',
-      stroke: 'rgba(148, 163, 184, 0.25)',
-      label: 'rgba(100, 116, 139, 0.85)',
+      fill: 'rgba(59, 130, 246, 0.04)',
+      stroke: 'rgba(59, 130, 246, 0.15)',
+      label: 'rgba(59, 130, 246, 0.7)',
     },
   },
   
@@ -1616,9 +1616,9 @@ function PersonalizedNode(props: any) {
 
 // Unified glass style for all group rectangles
 const GLASS_GROUP_STYLE = {
-  fill: 'rgba(148, 163, 184, 0.06)',   // Subtle slate with low opacity
-  stroke: 'rgba(148, 163, 184, 0.25)', // Soft slate border
-  label: 'rgba(100, 116, 139, 0.85)',  // Muted slate for text
+  fill: 'rgba(96, 165, 250, 0.06)',    // Subtle blue with low opacity
+  stroke: 'rgba(96, 165, 250, 0.18)',  // Soft blue border
+  label: 'rgba(147, 197, 253, 0.85)',  // Light blue for text in dark mode
 };
 
 // Component to render grouping rectangles behind nodes
@@ -1778,17 +1778,45 @@ function NodeGroupingOverlay({ nodes, diagramTheme, darkMode }: { nodes: Node[];
         zIndex: -1, // Ensure groups render BEHIND nodes
       }}
     >
+      <defs>
+        {/* Shared filter for subtle glow */}
+        <filter id="groupGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
       <g transform={`translate(${x}, ${y}) scale(${zoom})`}>
         {adjustedBounds.map((rect) => (
           <g key={rect.name}>
-            {/* Glass effect background */}
+            {/* Premium glass gradient */}
             <defs>
-              <linearGradient id={`glass-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.08)" />
-                <stop offset="100%" stopColor={groupStyle.fill} />
+              <linearGradient id={`glass-gradient-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.12)" />
+                <stop offset="50%" stopColor="rgba(255, 255, 255, 0.02)" />
+                <stop offset="100%" stopColor="rgba(59, 130, 246, 0.03)" />
+              </linearGradient>
+              <linearGradient id={`border-gradient-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgba(147, 197, 253, 0.25)" />
+                <stop offset="50%" stopColor="rgba(59, 130, 246, 0.12)" />
+                <stop offset="100%" stopColor="rgba(147, 197, 253, 0.2)" />
               </linearGradient>
             </defs>
-            {/* Background rectangle with glass effect */}
+            {/* Outer glow layer */}
+            <rect
+              x={rect.x - 1}
+              y={rect.y - 1}
+              width={rect.width + 2}
+              height={rect.height + 2}
+              rx={18}
+              ry={18}
+              fill="none"
+              stroke="rgba(59, 130, 246, 0.08)"
+              strokeWidth={3}
+            />
+            {/* Main background with glass gradient */}
             <rect
               x={rect.x}
               y={rect.y}
@@ -1796,11 +1824,22 @@ function NodeGroupingOverlay({ nodes, diagramTheme, darkMode }: { nodes: Node[];
               height={rect.height}
               rx={16}
               ry={16}
-              fill={groupStyle.fill}
-              stroke={groupStyle.stroke}
+              fill={`url(#glass-gradient-${rect.name.replace(/\s+/g, '-')})`}
+              stroke={`url(#border-gradient-${rect.name.replace(/\s+/g, '-')})`}
               strokeWidth={1}
             />
-            {/* Inner subtle border for depth */}
+            {/* Top highlight for glass effect */}
+            <rect
+              x={rect.x + 2}
+              y={rect.y + 2}
+              width={rect.width - 4}
+              height={Math.min(rect.height * 0.4, 40)}
+              rx={14}
+              ry={14}
+              fill="url(#glass-top-highlight)"
+              opacity={0.6}
+            />
+            {/* Inner border for depth */}
             <rect
               x={rect.x + 1}
               y={rect.y + 1}
@@ -1809,23 +1848,31 @@ function NodeGroupingOverlay({ nodes, diagramTheme, darkMode }: { nodes: Node[];
               rx={15}
               ry={15}
               fill="none"
-              stroke="rgba(255, 255, 255, 0.05)"
-              strokeWidth={1}
+              stroke="rgba(255, 255, 255, 0.08)"
+              strokeWidth={0.5}
             />
-            {/* Group label */}
+            {/* Group label with subtle styling */}
             <text
-              x={rect.x + 16}
-              y={rect.y + 22}
+              x={rect.x + 14}
+              y={rect.y + 20}
               fill={groupStyle.label}
-              fontSize={11}
-              fontWeight={500}
+              fontSize={10}
+              fontWeight={600}
               fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-              style={{ letterSpacing: '0.02em' }}
+              style={{ letterSpacing: '0.04em', textTransform: 'uppercase' } as React.CSSProperties}
+              opacity={0.9}
             >
               {rect.name}
             </text>
           </g>
         ))}
+        {/* Shared gradient definitions */}
+        <defs>
+          <linearGradient id="glass-top-highlight" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="rgba(255, 255, 255, 0.15)" />
+            <stop offset="100%" stopColor="rgba(255, 255, 255, 0)" />
+          </linearGradient>
+        </defs>
       </g>
     </svg>
   );
