@@ -1155,9 +1155,6 @@ function getGroupColor(groupName: string) {
   return GROUP_COLOR_PALETTE[groupColorCache.get(groupName)!];
 }
 
-// Default color for unknown groups
-const DEFAULT_GROUP_COLOR = { fill: 'rgba(100, 116, 139, 0.08)', stroke: 'rgba(100, 116, 139, 0.4)', label: '#64748b' };
-
 // Component to render grouping rectangles behind nodes
 function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
   const { x, y, zoom } = useViewport();
