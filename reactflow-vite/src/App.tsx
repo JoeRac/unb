@@ -548,9 +548,9 @@ const DARK_THEME = {
   buttonHover: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
 };
 
-// Legacy constants for backward compatibility (light mode) - keeping HIGHLIGHT_COLOR and EDGE_COLOR as they may be used
+// Legacy constants for backward compatibility (light mode) - keeping HIGHLIGHT_COLOR as it may be used
 const HIGHLIGHT_COLOR = LIGHT_THEME.highlightColor;
-const EDGE_COLOR = LIGHT_THEME.edgeColor;
+void HIGHLIGHT_COLOR; // Suppress unused warning
 
 // Helper to get current theme
 const getTheme = (darkMode: boolean) => darkMode ? DARK_THEME : LIGHT_THEME;
@@ -745,11 +745,13 @@ function MethodNode(props: any) {
     onStartEditNote?: (nodeId: string) => void;
     onStopEditNote?: () => void;
     darkMode?: boolean;
+    diagramTheme?: DiagramTheme;
   };
   const isHighlighted = data.isHighlighted === true;
   const isEditing = data.editingNoteNodeId === props.id;
   const isDark = data.darkMode === true;
   const theme = getTheme(isDark);
+  const dTheme = data.diagramTheme || getDiagramTheme('minimal-slate');
   const [localNote, setLocalNote] = useState(data.nodeNote || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -771,17 +773,13 @@ function MethodNode(props: any) {
     }
   }, [localNote, isEditing]);
   
-  // Premium glass styling - theme aware
-  const background = isHighlighted 
-    ? (isDark 
-        ? 'linear-gradient(135deg, rgba(30, 58, 95, 0.98) 0%, rgba(23, 37, 84, 0.95) 100%)' 
-        : 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)')
-    : theme.nodeSurface;
-  const textColor = isHighlighted ? theme.textHighlight : theme.textPrimary;
+  // Use diagram theme for styling
+  const background = isHighlighted ? dTheme.nodeBgHighlight : dTheme.nodeBg;
+  const textColor = isHighlighted ? dTheme.nodeTextHighlight : dTheme.nodeText;
   const borderStyle = isHighlighted 
-    ? `1.5px solid ${isDark ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.4)'}` 
-    : `1px solid ${theme.nodeBorder}`;
-  const shadow = isHighlighted ? theme.glassShadowSelected : theme.glassShadow;
+    ? `1.5px solid ${dTheme.nodeBorderHighlight}` 
+    : `1px solid ${dTheme.nodeBorder}`;
+  const shadow = isHighlighted ? dTheme.nodeShadowHighlight : dTheme.nodeShadow;
 
   // "i" button now toggles selection (like clicking the node)
   const handleToggleClick = (e: React.MouseEvent) => {
@@ -1127,15 +1125,360 @@ function PersonalizedNode(props: any) {
   );
 }
 
-// Unified glass style for all group rectangles
-const GLASS_GROUP_STYLE = {
-  fill: 'rgba(148, 163, 184, 0.06)',   // Subtle slate with low opacity
-  stroke: 'rgba(148, 163, 184, 0.25)', // Soft slate border
-  label: 'rgba(100, 116, 139, 0.85)',  // Muted slate for text
+// ============================================
+// Diagram Themes - Premium Visual Styles
+// ============================================
+type DiagramTheme = {
+  id: string;
+  name: string;
+  // Canvas
+  canvasBg: string;
+  // Nodes
+  nodeBg: string;
+  nodeBgHighlight: string;
+  nodeBorder: string;
+  nodeBorderHighlight: string;
+  nodeText: string;
+  nodeTextHighlight: string;
+  nodeShadow: string;
+  nodeShadowHighlight: string;
+  // Edges
+  edgeColor: string;
+  edgeColorHighlight: string;
+  // Groups
+  groupFill: string;
+  groupStroke: string;
+  groupLabel: string;
+  groupGradientStart: string;
+  groupGradientEnd: string;
 };
 
+const DIAGRAM_THEMES: DiagramTheme[] = [
+  // 1. Minimal Slate - Clean, professional
+  {
+    id: 'minimal-slate',
+    name: 'Minimal Slate',
+    canvasBg: 'linear-gradient(145deg, #fafafa 0%, #f5f5f5 50%, #fafafa 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.95)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(241, 245, 249, 0.98) 0%, rgba(226, 232, 240, 0.95) 100%)',
+    nodeBorder: 'rgba(203, 213, 225, 0.5)',
+    nodeBorderHighlight: 'rgba(100, 116, 139, 0.6)',
+    nodeText: '#334155',
+    nodeTextHighlight: '#1e293b',
+    nodeShadow: '0 1px 4px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03)',
+    nodeShadowHighlight: '0 2px 8px rgba(100, 116, 139, 0.15), 0 8px 24px rgba(100, 116, 139, 0.1)',
+    edgeColor: 'rgba(148, 163, 184, 0.5)',
+    edgeColorHighlight: '#64748b',
+    groupFill: 'rgba(148, 163, 184, 0.04)',
+    groupStroke: 'rgba(148, 163, 184, 0.2)',
+    groupLabel: 'rgba(100, 116, 139, 0.7)',
+    groupGradientStart: 'rgba(255, 255, 255, 0.06)',
+    groupGradientEnd: 'rgba(148, 163, 184, 0.03)',
+  },
+  // 2. Ocean Blue - Fresh, trustworthy
+  {
+    id: 'ocean-blue',
+    name: 'Ocean Blue',
+    canvasBg: 'linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 50%, #f0f9ff 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(224, 242, 254, 0.98) 0%, rgba(186, 230, 253, 0.95) 100%)',
+    nodeBorder: 'rgba(125, 211, 252, 0.4)',
+    nodeBorderHighlight: 'rgba(14, 165, 233, 0.6)',
+    nodeText: '#0c4a6e',
+    nodeTextHighlight: '#0369a1',
+    nodeShadow: '0 1px 4px rgba(14, 165, 233, 0.06), 0 4px 12px rgba(14, 165, 233, 0.04)',
+    nodeShadowHighlight: '0 2px 8px rgba(14, 165, 233, 0.2), 0 8px 24px rgba(14, 165, 233, 0.12)',
+    edgeColor: 'rgba(125, 211, 252, 0.6)',
+    edgeColorHighlight: '#0ea5e9',
+    groupFill: 'rgba(14, 165, 233, 0.04)',
+    groupStroke: 'rgba(14, 165, 233, 0.2)',
+    groupLabel: 'rgba(14, 165, 233, 0.7)',
+    groupGradientStart: 'rgba(224, 242, 254, 0.15)',
+    groupGradientEnd: 'rgba(186, 230, 253, 0.08)',
+  },
+  // 3. Emerald Forest - Natural, calming
+  {
+    id: 'emerald-forest',
+    name: 'Emerald Forest',
+    canvasBg: 'linear-gradient(145deg, #ecfdf5 0%, #d1fae5 50%, #ecfdf5 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(209, 250, 229, 0.98) 0%, rgba(167, 243, 208, 0.95) 100%)',
+    nodeBorder: 'rgba(110, 231, 183, 0.4)',
+    nodeBorderHighlight: 'rgba(16, 185, 129, 0.6)',
+    nodeText: '#064e3b',
+    nodeTextHighlight: '#047857',
+    nodeShadow: '0 1px 4px rgba(16, 185, 129, 0.06), 0 4px 12px rgba(16, 185, 129, 0.04)',
+    nodeShadowHighlight: '0 2px 8px rgba(16, 185, 129, 0.2), 0 8px 24px rgba(16, 185, 129, 0.12)',
+    edgeColor: 'rgba(110, 231, 183, 0.6)',
+    edgeColorHighlight: '#10b981',
+    groupFill: 'rgba(16, 185, 129, 0.04)',
+    groupStroke: 'rgba(16, 185, 129, 0.2)',
+    groupLabel: 'rgba(16, 185, 129, 0.7)',
+    groupGradientStart: 'rgba(209, 250, 229, 0.15)',
+    groupGradientEnd: 'rgba(167, 243, 208, 0.08)',
+  },
+  // 4. Sunset Coral - Warm, energetic
+  {
+    id: 'sunset-coral',
+    name: 'Sunset Coral',
+    canvasBg: 'linear-gradient(145deg, #fff7ed 0%, #ffedd5 50%, #fff7ed 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(255, 237, 213, 0.98) 0%, rgba(254, 215, 170, 0.95) 100%)',
+    nodeBorder: 'rgba(253, 186, 116, 0.4)',
+    nodeBorderHighlight: 'rgba(249, 115, 22, 0.6)',
+    nodeText: '#7c2d12',
+    nodeTextHighlight: '#c2410c',
+    nodeShadow: '0 1px 4px rgba(249, 115, 22, 0.06), 0 4px 12px rgba(249, 115, 22, 0.04)',
+    nodeShadowHighlight: '0 2px 8px rgba(249, 115, 22, 0.2), 0 8px 24px rgba(249, 115, 22, 0.12)',
+    edgeColor: 'rgba(253, 186, 116, 0.6)',
+    edgeColorHighlight: '#f97316',
+    groupFill: 'rgba(249, 115, 22, 0.04)',
+    groupStroke: 'rgba(249, 115, 22, 0.2)',
+    groupLabel: 'rgba(249, 115, 22, 0.7)',
+    groupGradientStart: 'rgba(255, 237, 213, 0.15)',
+    groupGradientEnd: 'rgba(254, 215, 170, 0.08)',
+  },
+  // 5. Lavender Dreams - Soft, creative
+  {
+    id: 'lavender-dreams',
+    name: 'Lavender Dreams',
+    canvasBg: 'linear-gradient(145deg, #faf5ff 0%, #f3e8ff 50%, #faf5ff 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(243, 232, 255, 0.98) 0%, rgba(233, 213, 255, 0.95) 100%)',
+    nodeBorder: 'rgba(216, 180, 254, 0.4)',
+    nodeBorderHighlight: 'rgba(168, 85, 247, 0.6)',
+    nodeText: '#581c87',
+    nodeTextHighlight: '#7c3aed',
+    nodeShadow: '0 1px 4px rgba(168, 85, 247, 0.06), 0 4px 12px rgba(168, 85, 247, 0.04)',
+    nodeShadowHighlight: '0 2px 8px rgba(168, 85, 247, 0.2), 0 8px 24px rgba(168, 85, 247, 0.12)',
+    edgeColor: 'rgba(216, 180, 254, 0.6)',
+    edgeColorHighlight: '#a855f7',
+    groupFill: 'rgba(168, 85, 247, 0.04)',
+    groupStroke: 'rgba(168, 85, 247, 0.2)',
+    groupLabel: 'rgba(168, 85, 247, 0.7)',
+    groupGradientStart: 'rgba(243, 232, 255, 0.15)',
+    groupGradientEnd: 'rgba(233, 213, 255, 0.08)',
+  },
+  // 6. Rose Gold - Elegant, sophisticated
+  {
+    id: 'rose-gold',
+    name: 'Rose Gold',
+    canvasBg: 'linear-gradient(145deg, #fff1f2 0%, #ffe4e6 50%, #fff1f2 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(255, 228, 230, 0.98) 0%, rgba(254, 205, 211, 0.95) 100%)',
+    nodeBorder: 'rgba(253, 164, 175, 0.4)',
+    nodeBorderHighlight: 'rgba(244, 63, 94, 0.5)',
+    nodeText: '#881337',
+    nodeTextHighlight: '#be123c',
+    nodeShadow: '0 1px 4px rgba(244, 63, 94, 0.06), 0 4px 12px rgba(244, 63, 94, 0.04)',
+    nodeShadowHighlight: '0 2px 8px rgba(244, 63, 94, 0.18), 0 8px 24px rgba(244, 63, 94, 0.1)',
+    edgeColor: 'rgba(253, 164, 175, 0.6)',
+    edgeColorHighlight: '#f43f5e',
+    groupFill: 'rgba(244, 63, 94, 0.04)',
+    groupStroke: 'rgba(244, 63, 94, 0.2)',
+    groupLabel: 'rgba(244, 63, 94, 0.7)',
+    groupGradientStart: 'rgba(255, 228, 230, 0.15)',
+    groupGradientEnd: 'rgba(254, 205, 211, 0.08)',
+  },
+  // 7. Midnight Pro - Dark, premium
+  {
+    id: 'midnight-pro',
+    name: 'Midnight Pro',
+    canvasBg: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+    nodeBg: 'rgba(30, 41, 59, 0.95)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(51, 65, 85, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%)',
+    nodeBorder: 'rgba(71, 85, 105, 0.5)',
+    nodeBorderHighlight: 'rgba(148, 163, 184, 0.6)',
+    nodeText: '#e2e8f0',
+    nodeTextHighlight: '#f8fafc',
+    nodeShadow: '0 1px 4px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15)',
+    nodeShadowHighlight: '0 2px 8px rgba(148, 163, 184, 0.15), 0 8px 24px rgba(0, 0, 0, 0.3)',
+    edgeColor: 'rgba(100, 116, 139, 0.5)',
+    edgeColorHighlight: '#94a3b8',
+    groupFill: 'rgba(148, 163, 184, 0.05)',
+    groupStroke: 'rgba(148, 163, 184, 0.15)',
+    groupLabel: 'rgba(148, 163, 184, 0.6)',
+    groupGradientStart: 'rgba(71, 85, 105, 0.1)',
+    groupGradientEnd: 'rgba(30, 41, 59, 0.05)',
+  },
+  // 8. Neon Cyber - Vibrant, futuristic
+  {
+    id: 'neon-cyber',
+    name: 'Neon Cyber',
+    canvasBg: 'linear-gradient(145deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%)',
+    nodeBg: 'rgba(26, 26, 46, 0.95)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(45, 45, 80, 0.98) 0%, rgba(26, 26, 46, 0.95) 100%)',
+    nodeBorder: 'rgba(0, 255, 255, 0.25)',
+    nodeBorderHighlight: 'rgba(0, 255, 255, 0.7)',
+    nodeText: '#00ffff',
+    nodeTextHighlight: '#00ffff',
+    nodeShadow: '0 0 8px rgba(0, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.3)',
+    nodeShadowHighlight: '0 0 20px rgba(0, 255, 255, 0.3), 0 0 40px rgba(0, 255, 255, 0.15)',
+    edgeColor: 'rgba(0, 255, 255, 0.3)',
+    edgeColorHighlight: '#00ffff',
+    groupFill: 'rgba(0, 255, 255, 0.03)',
+    groupStroke: 'rgba(0, 255, 255, 0.2)',
+    groupLabel: 'rgba(0, 255, 255, 0.7)',
+    groupGradientStart: 'rgba(0, 255, 255, 0.05)',
+    groupGradientEnd: 'rgba(0, 255, 255, 0.02)',
+  },
+  // 9. Aurora Borealis - Gradient magic
+  {
+    id: 'aurora-borealis',
+    name: 'Aurora Borealis',
+    canvasBg: 'linear-gradient(145deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
+    nodeBg: 'linear-gradient(135deg, rgba(30, 27, 75, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(168, 85, 247, 0.3) 50%, rgba(6, 182, 212, 0.3) 100%)',
+    nodeBorder: 'rgba(139, 92, 246, 0.4)',
+    nodeBorderHighlight: 'rgba(6, 182, 212, 0.7)',
+    nodeText: '#c4b5fd',
+    nodeTextHighlight: '#22d3ee',
+    nodeShadow: '0 1px 4px rgba(139, 92, 246, 0.15), 0 4px 12px rgba(0, 0, 0, 0.2)',
+    nodeShadowHighlight: '0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(139, 92, 246, 0.2)',
+    edgeColor: 'rgba(139, 92, 246, 0.4)',
+    edgeColorHighlight: '#22d3ee',
+    groupFill: 'rgba(139, 92, 246, 0.05)',
+    groupStroke: 'rgba(6, 182, 212, 0.25)',
+    groupLabel: 'rgba(196, 181, 253, 0.8)',
+    groupGradientStart: 'rgba(139, 92, 246, 0.08)',
+    groupGradientEnd: 'rgba(6, 182, 212, 0.05)',
+  },
+  // 10. Frosted Glass - Premium transparency
+  {
+    id: 'frosted-glass',
+    name: 'Frosted Glass',
+    canvasBg: 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.6)',
+    nodeBgHighlight: 'rgba(255, 255, 255, 0.85)',
+    nodeBorder: 'rgba(255, 255, 255, 0.8)',
+    nodeBorderHighlight: 'rgba(59, 130, 246, 0.5)',
+    nodeText: '#475569',
+    nodeTextHighlight: '#1e40af',
+    nodeShadow: '0 4px 24px rgba(0, 0, 0, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.6)',
+    nodeShadowHighlight: '0 8px 32px rgba(59, 130, 246, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.8)',
+    edgeColor: 'rgba(148, 163, 184, 0.4)',
+    edgeColorHighlight: '#3b82f6',
+    groupFill: 'rgba(255, 255, 255, 0.3)',
+    groupStroke: 'rgba(255, 255, 255, 0.6)',
+    groupLabel: 'rgba(71, 85, 105, 0.7)',
+    groupGradientStart: 'rgba(255, 255, 255, 0.4)',
+    groupGradientEnd: 'rgba(255, 255, 255, 0.2)',
+  },
+  // 11. Warm Earth - Cozy, natural
+  {
+    id: 'warm-earth',
+    name: 'Warm Earth',
+    canvasBg: 'linear-gradient(145deg, #fefce8 0%, #fef3c7 50%, #fefce8 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(254, 243, 199, 0.98) 0%, rgba(253, 230, 138, 0.95) 100%)',
+    nodeBorder: 'rgba(252, 211, 77, 0.4)',
+    nodeBorderHighlight: 'rgba(217, 119, 6, 0.6)',
+    nodeText: '#78350f',
+    nodeTextHighlight: '#b45309',
+    nodeShadow: '0 1px 4px rgba(217, 119, 6, 0.06), 0 4px 12px rgba(217, 119, 6, 0.04)',
+    nodeShadowHighlight: '0 2px 8px rgba(217, 119, 6, 0.2), 0 8px 24px rgba(217, 119, 6, 0.12)',
+    edgeColor: 'rgba(252, 211, 77, 0.6)',
+    edgeColorHighlight: '#d97706',
+    groupFill: 'rgba(217, 119, 6, 0.04)',
+    groupStroke: 'rgba(217, 119, 6, 0.2)',
+    groupLabel: 'rgba(180, 83, 9, 0.7)',
+    groupGradientStart: 'rgba(254, 243, 199, 0.15)',
+    groupGradientEnd: 'rgba(253, 230, 138, 0.08)',
+  },
+  // 12. Arctic Frost - Cool, minimal
+  {
+    id: 'arctic-frost',
+    name: 'Arctic Frost',
+    canvasBg: 'linear-gradient(145deg, #f0fdff 0%, #e0f7fa 50%, #f0fdff 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(224, 247, 250, 0.98) 0%, rgba(178, 235, 242, 0.95) 100%)',
+    nodeBorder: 'rgba(103, 232, 249, 0.4)',
+    nodeBorderHighlight: 'rgba(8, 145, 178, 0.6)',
+    nodeText: '#164e63',
+    nodeTextHighlight: '#0891b2',
+    nodeShadow: '0 1px 4px rgba(8, 145, 178, 0.06), 0 4px 12px rgba(8, 145, 178, 0.04)',
+    nodeShadowHighlight: '0 2px 8px rgba(8, 145, 178, 0.2), 0 8px 24px rgba(8, 145, 178, 0.12)',
+    edgeColor: 'rgba(103, 232, 249, 0.6)',
+    edgeColorHighlight: '#06b6d4',
+    groupFill: 'rgba(8, 145, 178, 0.04)',
+    groupStroke: 'rgba(8, 145, 178, 0.2)',
+    groupLabel: 'rgba(8, 145, 178, 0.7)',
+    groupGradientStart: 'rgba(224, 247, 250, 0.15)',
+    groupGradientEnd: 'rgba(178, 235, 242, 0.08)',
+  },
+  // 13. Charcoal Ink - Editorial, refined
+  {
+    id: 'charcoal-ink',
+    name: 'Charcoal Ink',
+    canvasBg: 'linear-gradient(145deg, #fafafa 0%, #f4f4f5 50%, #fafafa 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.97)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(39, 39, 42, 0.98) 0%, rgba(24, 24, 27, 0.95) 100%)',
+    nodeBorder: 'rgba(161, 161, 170, 0.4)',
+    nodeBorderHighlight: 'rgba(39, 39, 42, 0.8)',
+    nodeText: '#27272a',
+    nodeTextHighlight: '#fafafa',
+    nodeShadow: '0 1px 4px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03)',
+    nodeShadowHighlight: '0 4px 12px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)',
+    edgeColor: 'rgba(161, 161, 170, 0.5)',
+    edgeColorHighlight: '#27272a',
+    groupFill: 'rgba(39, 39, 42, 0.03)',
+    groupStroke: 'rgba(39, 39, 42, 0.15)',
+    groupLabel: 'rgba(39, 39, 42, 0.6)',
+    groupGradientStart: 'rgba(244, 244, 245, 0.5)',
+    groupGradientEnd: 'rgba(228, 228, 231, 0.3)',
+  },
+  // 14. Cotton Candy - Playful, youthful
+  {
+    id: 'cotton-candy',
+    name: 'Cotton Candy',
+    canvasBg: 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 25%, #ede9fe 50%, #e0e7ff 75%, #fdf2f8 100%)',
+    nodeBg: 'rgba(255, 255, 255, 0.9)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(251, 207, 232, 0.9) 0%, rgba(221, 214, 254, 0.9) 100%)',
+    nodeBorder: 'rgba(249, 168, 212, 0.5)',
+    nodeBorderHighlight: 'rgba(192, 132, 252, 0.7)',
+    nodeText: '#9d174d',
+    nodeTextHighlight: '#7c3aed',
+    nodeShadow: '0 2px 8px rgba(236, 72, 153, 0.08), 0 4px 16px rgba(168, 85, 247, 0.06)',
+    nodeShadowHighlight: '0 4px 16px rgba(236, 72, 153, 0.2), 0 8px 32px rgba(168, 85, 247, 0.15)',
+    edgeColor: 'rgba(249, 168, 212, 0.5)',
+    edgeColorHighlight: '#c084fc',
+    groupFill: 'rgba(249, 168, 212, 0.08)',
+    groupStroke: 'rgba(192, 132, 252, 0.3)',
+    groupLabel: 'rgba(168, 85, 247, 0.7)',
+    groupGradientStart: 'rgba(251, 207, 232, 0.15)',
+    groupGradientEnd: 'rgba(221, 214, 254, 0.1)',
+  },
+  // 15. Deep Space - Mysterious, immersive
+  {
+    id: 'deep-space',
+    name: 'Deep Space',
+    canvasBg: 'radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 70%, #000000 100%)',
+    nodeBg: 'rgba(20, 20, 35, 0.9)',
+    nodeBgHighlight: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(20, 20, 35, 0.95) 100%)',
+    nodeBorder: 'rgba(99, 102, 241, 0.3)',
+    nodeBorderHighlight: 'rgba(129, 140, 248, 0.7)',
+    nodeText: '#a5b4fc',
+    nodeTextHighlight: '#c7d2fe',
+    nodeShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.1)',
+    nodeShadowHighlight: '0 0 30px rgba(99, 102, 241, 0.25), 0 0 60px rgba(99, 102, 241, 0.15)',
+    edgeColor: 'rgba(99, 102, 241, 0.35)',
+    edgeColorHighlight: '#818cf8',
+    groupFill: 'rgba(99, 102, 241, 0.05)',
+    groupStroke: 'rgba(99, 102, 241, 0.2)',
+    groupLabel: 'rgba(165, 180, 252, 0.7)',
+    groupGradientStart: 'rgba(99, 102, 241, 0.08)',
+    groupGradientEnd: 'rgba(67, 56, 202, 0.04)',
+  },
+];
+
+const DIAGRAM_THEME_ORDER = DIAGRAM_THEMES.map(t => t.id);
+
+function getDiagramTheme(id: string): DiagramTheme {
+  return DIAGRAM_THEMES.find(t => t.id === id) || DIAGRAM_THEMES[0];
+}
+
 // Component to render grouping rectangles behind nodes
-function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
+function NodeGroupingOverlay({ nodes, diagramTheme }: { nodes: Node[]; diagramTheme: DiagramTheme }) {
   const { x, y, zoom } = useViewport();
   
   // Calculate bounding boxes for each group
@@ -1294,8 +1637,8 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
             {/* Glass effect background */}
             <defs>
               <linearGradient id={`glass-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.08)" />
-                <stop offset="100%" stopColor="rgba(148, 163, 184, 0.04)" />
+                <stop offset="0%" stopColor={diagramTheme.groupGradientStart} />
+                <stop offset="100%" stopColor={diagramTheme.groupGradientEnd} />
               </linearGradient>
             </defs>
             {/* Background rectangle with glass effect */}
@@ -1307,7 +1650,7 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
               rx={16}
               ry={16}
               fill={`url(#glass-${rect.name.replace(/\s+/g, '-')})`}
-              stroke={GLASS_GROUP_STYLE.stroke}
+              stroke={diagramTheme.groupStroke}
               strokeWidth={1}
             />
             {/* Inner subtle border for depth */}
@@ -1326,7 +1669,7 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
             <text
               x={rect.x + 16}
               y={rect.y + 22}
-              fill={GLASS_GROUP_STYLE.label}
+              fill={diagramTheme.groupLabel}
               fontSize={11}
               fontWeight={500}
               fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
@@ -1488,6 +1831,11 @@ function DiagramContent() {
     const saved = localStorage.getItem('cinaps-hide-connectors');
     return saved === 'true';
   });
+  const [diagramThemeId, setDiagramThemeId] = useState(() => {
+    const saved = localStorage.getItem('cinaps-diagram-theme');
+    return saved && DIAGRAM_THEME_ORDER.includes(saved) ? saved : 'minimal-slate';
+  });
+  const diagramTheme = getDiagramTheme(diagramThemeId);
   
   // Persist dark mode preference
   useEffect(() => {
@@ -1504,7 +1852,21 @@ function DiagramContent() {
     localStorage.setItem('cinaps-hide-connectors', String(hideConnectors));
   }, [hideConnectors]);
   
-  // Update all nodes when dark mode changes
+  // Persist diagram theme preference
+  useEffect(() => {
+    localStorage.setItem('cinaps-diagram-theme', diagramThemeId);
+  }, [diagramThemeId]);
+  
+  // Cycle to next diagram theme
+  const cycleDiagramTheme = useCallback(() => {
+    setDiagramThemeId(current => {
+      const currentIndex = DIAGRAM_THEME_ORDER.indexOf(current);
+      const nextIndex = (currentIndex + 1) % DIAGRAM_THEME_ORDER.length;
+      return DIAGRAM_THEME_ORDER[nextIndex];
+    });
+  }, []);
+  
+  // Update all nodes when dark mode or diagram theme changes
   useEffect(() => {
     setNodes((nds) =>
       nds.map((n) => ({
@@ -1512,10 +1874,24 @@ function DiagramContent() {
         data: {
           ...n.data,
           darkMode,
+          diagramTheme,
         },
       }))
     );
-  }, [darkMode, setNodes]);
+  }, [darkMode, diagramTheme, setNodes]);
+  
+  // Update edges when diagram theme changes
+  useEffect(() => {
+    setEdges((eds: Edge[]) =>
+      eds.map((e: Edge) => ({
+        ...e,
+        style: {
+          ...e.style,
+          stroke: e.style?.opacity === 1 ? diagramTheme.edgeColorHighlight : diagramTheme.edgeColor,
+        },
+      }))
+    );
+  }, [diagramTheme, setEdges]);
   
   // Keyboard shortcuts for settings toggles
   useEffect(() => {
@@ -1541,11 +1917,16 @@ function DiagramContent() {
         e.preventDefault();
         setHideConnectors(prev => !prev);
       }
+      // Cmd/Ctrl + Shift + T = Cycle Diagram Theme
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        cycleDiagramTheme();
+      }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [cycleDiagramTheme]);
   
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -3107,7 +3488,7 @@ function DiagramContent() {
         return {
           ...e,
           style: {
-            stroke: isActive ? highlightColor : EDGE_COLOR,
+            stroke: isActive ? diagramTheme.edgeColorHighlight : diagramTheme.edgeColor,
             opacity: isActive ? 1 : 0.25,
             strokeWidth: isActive ? 2.5 : 1.5,
           },
@@ -3208,7 +3589,7 @@ function DiagramContent() {
       eds.map((e: Edge) => ({
         ...e,
         style: {
-          stroke: EDGE_COLOR,
+          stroke: diagramTheme.edgeColor,
           opacity: 0.5,
           strokeWidth: 1.5,
         },
@@ -3234,7 +3615,7 @@ function DiagramContent() {
   const theme = getTheme(darkMode);
 
   return (
-    <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: theme.canvasBg, transition: 'background 0.3s ease' }}>
+    <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: diagramTheme.canvasBg, transition: 'background 0.3s ease' }}>
       <ReactFlow
         nodes={nodes}
         edges={hideConnectors ? [] : edges}
@@ -3249,7 +3630,7 @@ function DiagramContent() {
       >
         <Controls />
         {/* Node grouping overlay - draws rectangles around grouped nodes */}
-        {!hideGroups && <NodeGroupingOverlay nodes={nodes} />}
+        {!hideGroups && <NodeGroupingOverlay nodes={nodes} diagramTheme={diagramTheme} />}
         {/* <Background color="#222" gap={16} /> */}
 
         {/* Left sidebar - draggable and resizable */}
@@ -4423,6 +4804,81 @@ function DiagramContent() {
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }} />
                 </button>
+              </div>
+              
+              {/* Diagram Theme Selector */}
+              <div style={{
+                marginTop: '10px',
+                padding: '14px 16px',
+                background: darkMode ? 'rgba(148, 163, 184, 0.06)' : 'rgba(241, 245, 249, 0.8)',
+                borderRadius: '12px',
+                border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%)' 
+                      : 'linear-gradient(135deg, #ddd6fe 0%, #bfdbfe 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#a78bfa' : '#7c3aed'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <circle cx="12" cy="12" r="4"/>
+                      <line x1="21.17" y1="8" x2="12" y2="8"/>
+                      <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
+                      <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      color: darkMode ? '#f1f5f9' : '#1e293b',
+                      marginBottom: '2px',
+                    }}>
+                      Diagram Theme
+                    </div>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: darkMode ? '#64748b' : '#94a3b8',
+                    }}>
+                      ⌘⇧T to cycle
+                    </div>
+                  </div>
+                </div>
+                <select
+                  value={diagramThemeId}
+                  onChange={(e) => setDiagramThemeId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    borderRadius: '8px',
+                    border: darkMode ? '1px solid rgba(148, 163, 184, 0.2)' : '1px solid rgba(203, 213, 225, 0.6)',
+                    background: darkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+                    color: darkMode ? '#e2e8f0' : '#334155',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    transition: 'all 0.15s ease',
+                    appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${darkMode ? '%2394a3b8' : '%2364748b'}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 12px center',
+                    paddingRight: '36px',
+                  }}
+                >
+                  {DIAGRAM_THEMES.map(theme => (
+                    <option key={theme.id} value={theme.id}>
+                      {theme.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             
