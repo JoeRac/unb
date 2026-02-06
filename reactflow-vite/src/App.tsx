@@ -1127,33 +1127,12 @@ function PersonalizedNode(props: any) {
   );
 }
 
-// Group colors palette for visual distinction (used by index)
-const GROUP_COLOR_PALETTE = [
-  { fill: 'rgba(59, 130, 246, 0.08)', stroke: 'rgba(59, 130, 246, 0.4)', label: '#3b82f6' },   // Blue
-  { fill: 'rgba(16, 185, 129, 0.08)', stroke: 'rgba(16, 185, 129, 0.4)', label: '#10b981' },   // Green
-  { fill: 'rgba(245, 158, 11, 0.08)', stroke: 'rgba(245, 158, 11, 0.4)', label: '#f59e0b' },   // Amber
-  { fill: 'rgba(239, 68, 68, 0.08)', stroke: 'rgba(239, 68, 68, 0.4)', label: '#ef4444' },     // Red
-  { fill: 'rgba(168, 85, 247, 0.08)', stroke: 'rgba(168, 85, 247, 0.4)', label: '#a855f7' },   // Purple
-  { fill: 'rgba(236, 72, 153, 0.08)', stroke: 'rgba(236, 72, 153, 0.4)', label: '#ec4899' },   // Pink
-  { fill: 'rgba(20, 184, 166, 0.08)', stroke: 'rgba(20, 184, 166, 0.4)', label: '#14b8a6' },   // Teal
-  { fill: 'rgba(99, 102, 241, 0.08)', stroke: 'rgba(99, 102, 241, 0.4)', label: '#6366f1' },   // Indigo
-  { fill: 'rgba(234, 179, 8, 0.08)', stroke: 'rgba(234, 179, 8, 0.4)', label: '#eab308' },     // Yellow
-  { fill: 'rgba(6, 182, 212, 0.08)', stroke: 'rgba(6, 182, 212, 0.4)', label: '#06b6d4' },     // Cyan
-  { fill: 'rgba(244, 63, 94, 0.08)', stroke: 'rgba(244, 63, 94, 0.4)', label: '#f43f5e' },     // Rose
-  { fill: 'rgba(34, 197, 94, 0.08)', stroke: 'rgba(34, 197, 94, 0.4)', label: '#22c55e' },     // Lime
-];
-
-// Cache to assign consistent colors to group names
-const groupColorCache = new Map<string, number>();
-let nextColorIndex = 0;
-
-function getGroupColor(groupName: string) {
-  if (!groupColorCache.has(groupName)) {
-    groupColorCache.set(groupName, nextColorIndex);
-    nextColorIndex = (nextColorIndex + 1) % GROUP_COLOR_PALETTE.length;
-  }
-  return GROUP_COLOR_PALETTE[groupColorCache.get(groupName)!];
-}
+// Unified glass style for all group rectangles
+const GLASS_GROUP_STYLE = {
+  fill: 'rgba(148, 163, 184, 0.06)',   // Subtle slate with low opacity
+  stroke: 'rgba(148, 163, 184, 0.25)', // Soft slate border
+  label: 'rgba(100, 116, 139, 0.85)',  // Muted slate for text
+};
 
 // Component to render grouping rectangles behind nodes
 function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
@@ -1310,38 +1289,53 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
       }}
     >
       <g transform={`translate(${x}, ${y}) scale(${zoom})`}>
-        {adjustedBounds.map((rect) => {
-          const colors = getGroupColor(rect.name);
-          
-          return (
-            <g key={rect.name}>
-              {/* Background rectangle */}
-              <rect
-                x={rect.x}
-                y={rect.y}
-                width={rect.width}
-                height={rect.height}
-                rx={12}
-                ry={12}
-                fill={colors.fill}
-                stroke={colors.stroke}
-                strokeWidth={2}
-                strokeDasharray="6 4"
-              />
-              {/* Group label */}
-              <text
-                x={rect.x + 14}
-                y={rect.y + 20}
-                fill={colors.label}
-                fontSize={12}
-                fontWeight={600}
-                fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-              >
-                {rect.name}
-              </text>
-            </g>
-          );
-        })}
+        {adjustedBounds.map((rect) => (
+          <g key={rect.name}>
+            {/* Glass effect background */}
+            <defs>
+              <linearGradient id={`glass-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.08)" />
+                <stop offset="100%" stopColor="rgba(148, 163, 184, 0.04)" />
+              </linearGradient>
+            </defs>
+            {/* Background rectangle with glass effect */}
+            <rect
+              x={rect.x}
+              y={rect.y}
+              width={rect.width}
+              height={rect.height}
+              rx={16}
+              ry={16}
+              fill={`url(#glass-${rect.name.replace(/\s+/g, '-')})`}
+              stroke={GLASS_GROUP_STYLE.stroke}
+              strokeWidth={1}
+            />
+            {/* Inner subtle border for depth */}
+            <rect
+              x={rect.x + 1}
+              y={rect.y + 1}
+              width={rect.width - 2}
+              height={rect.height - 2}
+              rx={15}
+              ry={15}
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.05)"
+              strokeWidth={1}
+            />
+            {/* Group label */}
+            <text
+              x={rect.x + 16}
+              y={rect.y + 22}
+              fill={GLASS_GROUP_STYLE.label}
+              fontSize={11}
+              fontWeight={500}
+              fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+              style={{ letterSpacing: '0.02em' }}
+            >
+              {rect.name}
+            </text>
+          </g>
+        ))}
       </g>
     </svg>
   );
@@ -2457,7 +2451,7 @@ function DiagramContent() {
   
   // Re-apply layout when layout type changes
   useEffect(() => {
-    if (nodes.length > 0 && currentLayoutType !== 'default') {
+    if (nodes.length > 0) {
       const relaidOut = applyLayout(nodes as FlowNode[], edges as FlowEdge[], currentLayoutType);
       setNodes(relaidOut);
       setTimeout(() => {
