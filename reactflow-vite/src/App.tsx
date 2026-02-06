@@ -49,6 +49,463 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 240;
 const nodeHeight = 80;
 
+// ============================================
+// Layout Types and Functions
+// ============================================
+
+type LayoutType = 
+  | 'default'           // Standard dagre hierarchy (TB)
+  | 'centered'          // Centered horizontally per rank
+  | 'horizontal'        // Left-to-right hierarchy
+  | 'horizontal-row'    // All nodes in single horizontal row
+  | 'vertical-column'   // All nodes in single vertical column
+  | 'diagonal'          // Nodes arranged diagonally
+  | 'circle'            // Nodes in a circle
+  | 'spiral'            // Nodes in a spiral pattern
+  | 'grid'              // Grid layout
+  | 'radial'            // Radial/sunburst from center
+  | 'tree-centered'     // Centered tree layout
+  | 'inverted'          // Bottom-to-top hierarchy
+  | 'wave'              // Sine wave pattern
+  | 'diamond'           // Diamond shape
+  | 'hexagonal'         // Hexagonal grid
+  | 'zigzag'            // Alternating left-right
+  | 'scattered'         // Artistic scattered
+  | 'concentric'        // Concentric circles by depth
+  | 'columns-by-depth'  // Vertical columns per depth level
+  | 'cascade';          // Cascading waterfall
+
+const LAYOUT_LABELS: Record<LayoutType, string> = {
+  'default': 'Hierarchy',
+  'centered': 'Centered',
+  'horizontal': 'Horizontal Tree',
+  'horizontal-row': 'Single Row',
+  'vertical-column': 'Single Column',
+  'diagonal': 'Diagonal',
+  'circle': 'Circle',
+  'spiral': 'Spiral',
+  'grid': 'Grid',
+  'radial': 'Radial',
+  'tree-centered': 'Centered Tree',
+  'inverted': 'Inverted',
+  'wave': 'Wave',
+  'diamond': 'Diamond',
+  'hexagonal': 'Hexagonal',
+  'zigzag': 'Zigzag',
+  'scattered': 'Scattered',
+  'concentric': 'Concentric',
+  'columns-by-depth': 'Depth Columns',
+  'cascade': 'Cascade',
+};
+
+const LAYOUT_ORDER: LayoutType[] = [
+  'default', 'centered', 'horizontal', 'tree-centered', 'inverted',
+  'horizontal-row', 'vertical-column', 'diagonal', 'zigzag', 'cascade',
+  'circle', 'spiral', 'radial', 'concentric',
+  'grid', 'hexagonal', 'diamond', 'wave', 'columns-by-depth', 'scattered'
+];
+
+// Helper to calculate node depth from edges
+function calculateNodeDepths(nodes: FlowNode[], edges: FlowEdge[]): Map<string, number> {
+  const depths = new Map<string, number>();
+  const childToParents = new Map<string, string[]>();
+  
+  edges.forEach(edge => {
+    const parents = childToParents.get(edge.target) || [];
+    parents.push(edge.source);
+    childToParents.set(edge.target, parents);
+  });
+  
+  // Find roots (nodes with no parents)
+  const nodeIds = new Set(nodes.map(n => n.id));
+  const hasParent = new Set(edges.map(e => e.target));
+  const roots = nodes.filter(n => !hasParent.has(n.id)).map(n => n.id);
+  
+  // BFS to calculate depths
+  const queue = roots.map(id => ({ id, depth: 0 }));
+  while (queue.length > 0) {
+    const { id, depth } = queue.shift()!;
+    if (depths.has(id) && depths.get(id)! <= depth) continue;
+    depths.set(id, depth);
+    
+    // Find children
+    edges.forEach(edge => {
+      if (edge.source === id && nodeIds.has(edge.target)) {
+        queue.push({ id: edge.target, depth: depth + 1 });
+      }
+    });
+  }
+  
+  // Assign depth 0 to any disconnected nodes
+  nodes.forEach(n => {
+    if (!depths.has(n.id)) depths.set(n.id, 0);
+  });
+  
+  return depths;
+}
+
+// Apply different layout algorithms
+function applyLayout(
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+  layoutType: LayoutType
+): FlowNode[] {
+  if (nodes.length === 0) return nodes;
+  
+  const spacing = { x: nodeWidth + 60, y: nodeHeight + 50 };
+  const depths = calculateNodeDepths(nodes, edges);
+  void depths; // Used in multiple layout cases
+  
+  switch (layoutType) {
+    case 'default': {
+      // Standard dagre top-to-bottom
+      dagreGraph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 70 });
+      nodes.forEach(node => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
+      edges.forEach(edge => dagreGraph.setEdge(edge.source, edge.target));
+      dagre.layout(dagreGraph);
+      return nodes.map(node => {
+        const pos = dagreGraph.node(node.id);
+        return { ...node, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } };
+      });
+    }
+    
+    case 'centered': {
+      // Dagre layout, then center each rank horizontally
+      dagreGraph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 70 });
+      nodes.forEach(node => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
+      edges.forEach(edge => dagreGraph.setEdge(edge.source, edge.target));
+      dagre.layout(dagreGraph);
+      
+      const positioned = nodes.map(node => {
+        const pos = dagreGraph.node(node.id);
+        return { ...node, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } };
+      });
+      
+      // Group by Y position (rank) and center each rank
+      const ranks = new Map<number, FlowNode[]>();
+      positioned.forEach(node => {
+        const y = Math.round(node.position.y / 10) * 10; // Round to avoid float issues
+        const rank = ranks.get(y) || [];
+        rank.push(node);
+        ranks.set(y, rank);
+      });
+      
+      let globalMinX = Infinity, globalMaxX = -Infinity;
+      positioned.forEach(n => {
+        globalMinX = Math.min(globalMinX, n.position.x);
+        globalMaxX = Math.max(globalMaxX, n.position.x + nodeWidth);
+      });
+      const centerX = (globalMinX + globalMaxX) / 2;
+      
+      ranks.forEach(rankNodes => {
+        const minX = Math.min(...rankNodes.map(n => n.position.x));
+        const maxX = Math.max(...rankNodes.map(n => n.position.x + nodeWidth));
+        const rankCenter = (minX + maxX) / 2;
+        const offset = centerX - rankCenter;
+        rankNodes.forEach(n => { n.position.x += offset; });
+      });
+      
+      return positioned;
+    }
+    
+    case 'horizontal': {
+      // Left-to-right hierarchy
+      dagreGraph.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 80 });
+      nodes.forEach(node => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
+      edges.forEach(edge => dagreGraph.setEdge(edge.source, edge.target));
+      dagre.layout(dagreGraph);
+      return nodes.map(node => {
+        const pos = dagreGraph.node(node.id);
+        return { ...node, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } };
+      });
+    }
+    
+    case 'horizontal-row': {
+      // All nodes in a single horizontal row
+      return nodes.map((node, i) => ({
+        ...node,
+        position: { x: i * spacing.x, y: 0 }
+      }));
+    }
+    
+    case 'vertical-column': {
+      // All nodes in a single vertical column
+      return nodes.map((node, i) => ({
+        ...node,
+        position: { x: 0, y: i * spacing.y }
+      }));
+    }
+    
+    case 'diagonal': {
+      // Nodes arranged diagonally
+      return nodes.map((node, i) => ({
+        ...node,
+        position: { x: i * spacing.x * 0.7, y: i * spacing.y * 0.7 }
+      }));
+    }
+    
+    case 'circle': {
+      // Nodes arranged in a circle
+      const n = nodes.length;
+      const radius = Math.max(150, n * 40);
+      return nodes.map((node, i) => {
+        const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+        return {
+          ...node,
+          position: {
+            x: radius * Math.cos(angle) + radius,
+            y: radius * Math.sin(angle) + radius
+          }
+        };
+      });
+    }
+    
+    case 'spiral': {
+      // Nodes in a spiral pattern
+      const a = 20; // Spiral tightness
+      return nodes.map((node, i) => {
+        const angle = i * 0.5;
+        const r = a * angle;
+        return {
+          ...node,
+          position: {
+            x: r * Math.cos(angle) + 500,
+            y: r * Math.sin(angle) + 500
+          }
+        };
+      });
+    }
+    
+    case 'grid': {
+      // Nodes in a grid
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      return nodes.map((node, i) => ({
+        ...node,
+        position: {
+          x: (i % cols) * spacing.x,
+          y: Math.floor(i / cols) * spacing.y
+        }
+      }));
+    }
+    
+    case 'radial': {
+      // Radial layout from center based on depth
+      const depthNodes = new Map<number, FlowNode[]>();
+      nodes.forEach(node => {
+        const d = depths.get(node.id) || 0;
+        const arr = depthNodes.get(d) || [];
+        arr.push(node);
+        depthNodes.set(d, arr);
+      });
+      
+      const result: FlowNode[] = [];
+      depthNodes.forEach((nodesAtDepth, depth) => {
+        const radius = depth === 0 ? 0 : 150 + depth * 120;
+        const n = nodesAtDepth.length;
+        nodesAtDepth.forEach((node, i) => {
+          const angle = n === 1 ? 0 : (2 * Math.PI * i) / n - Math.PI / 2;
+          result.push({
+            ...node,
+            position: {
+              x: radius * Math.cos(angle) + 500,
+              y: radius * Math.sin(angle) + 400
+            }
+          });
+        });
+      });
+      return result;
+    }
+    
+    case 'tree-centered': {
+      // Centered tree - dagre with center alignment
+      dagreGraph.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 80, align: 'UL' });
+      nodes.forEach(node => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
+      edges.forEach(edge => dagreGraph.setEdge(edge.source, edge.target));
+      dagre.layout(dagreGraph);
+      
+      const positioned = nodes.map(node => {
+        const pos = dagreGraph.node(node.id);
+        return { ...node, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } };
+      });
+      
+      // Center the entire tree
+      const minX = Math.min(...positioned.map(n => n.position.x));
+      const maxX = Math.max(...positioned.map(n => n.position.x + nodeWidth));
+      const offsetX = -minX + (500 - (maxX - minX) / 2);
+      positioned.forEach(n => { n.position.x += offsetX; });
+      
+      return positioned;
+    }
+    
+    case 'inverted': {
+      // Bottom-to-top hierarchy
+      dagreGraph.setGraph({ rankdir: 'BT', nodesep: 50, ranksep: 70 });
+      nodes.forEach(node => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
+      edges.forEach(edge => dagreGraph.setEdge(edge.source, edge.target));
+      dagre.layout(dagreGraph);
+      return nodes.map(node => {
+        const pos = dagreGraph.node(node.id);
+        return { ...node, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } };
+      });
+    }
+    
+    case 'wave': {
+      // Sine wave pattern
+      const amplitude = 100;
+      const wavelength = 3;
+      return nodes.map((node, i) => ({
+        ...node,
+        position: {
+          x: i * spacing.x * 0.6,
+          y: amplitude * Math.sin((i / wavelength) * Math.PI) + 300
+        }
+      }));
+    }
+    
+    case 'diamond': {
+      // Diamond shape arrangement
+      const n = nodes.length;
+      const half = Math.ceil(n / 2);
+      return nodes.map((node, i) => {
+        const row = i < half ? i : n - 1 - i;
+        const col = i < half ? i : i - half;
+        return {
+          ...node,
+          position: {
+            x: row * spacing.x * 0.5 + 200,
+            y: col * spacing.y + (i >= half ? half * spacing.y : 0)
+          }
+        };
+      });
+    }
+    
+    case 'hexagonal': {
+      // Hexagonal grid pattern
+      const cols = Math.ceil(Math.sqrt(nodes.length * 1.5));
+      return nodes.map((node, i) => {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        const offsetX = row % 2 === 1 ? spacing.x * 0.5 : 0;
+        return {
+          ...node,
+          position: {
+            x: col * spacing.x + offsetX,
+            y: row * spacing.y * 0.85
+          }
+        };
+      });
+    }
+    
+    case 'zigzag': {
+      // Alternating left-right pattern
+      return nodes.map((node, i) => ({
+        ...node,
+        position: {
+          x: (i % 2 === 0 ? 0 : spacing.x * 1.5),
+          y: i * spacing.y * 0.6
+        }
+      }));
+    }
+    
+    case 'scattered': {
+      // Artistic scattered with some structure based on depth
+      const seededRandom = (seed: number) => {
+        const x = Math.sin(seed * 9999) * 10000;
+        return x - Math.floor(x);
+      };
+      
+      return nodes.map((node, i) => {
+        const depth = depths.get(node.id) || 0;
+        const baseY = depth * spacing.y * 1.2;
+        const randomOffsetX = (seededRandom(i * 17) - 0.5) * 300;
+        const randomOffsetY = (seededRandom(i * 31) - 0.5) * 80;
+        return {
+          ...node,
+          position: {
+            x: 400 + randomOffsetX + (i % 3 - 1) * 150,
+            y: baseY + randomOffsetY
+          }
+        };
+      });
+    }
+    
+    case 'concentric': {
+      // Concentric circles by depth level
+      const depthNodes = new Map<number, FlowNode[]>();
+      nodes.forEach(node => {
+        const d = depths.get(node.id) || 0;
+        const arr = depthNodes.get(d) || [];
+        arr.push(node);
+        depthNodes.set(d, arr);
+      });
+      
+      const result: FlowNode[] = [];
+      const centerX = 500, centerY = 400;
+      
+      depthNodes.forEach((nodesAtDepth, depth) => {
+        const radius = 80 + depth * 140;
+        const n = nodesAtDepth.length;
+        const startAngle = -Math.PI / 2;
+        
+        nodesAtDepth.forEach((node, i) => {
+          const angle = startAngle + (2 * Math.PI * i) / Math.max(n, 1);
+          result.push({
+            ...node,
+            position: {
+              x: centerX + radius * Math.cos(angle) - nodeWidth / 2,
+              y: centerY + radius * Math.sin(angle) - nodeHeight / 2
+            }
+          });
+        });
+      });
+      return result;
+    }
+    
+    case 'columns-by-depth': {
+      // Vertical columns, one per depth level
+      const depthNodes = new Map<number, FlowNode[]>();
+      nodes.forEach(node => {
+        const d = depths.get(node.id) || 0;
+        const arr = depthNodes.get(d) || [];
+        arr.push(node);
+        depthNodes.set(d, arr);
+      });
+      
+      const result: FlowNode[] = [];
+      depthNodes.forEach((nodesAtDepth, depth) => {
+        nodesAtDepth.forEach((node, i) => {
+          result.push({
+            ...node,
+            position: {
+              x: depth * spacing.x,
+              y: i * spacing.y
+            }
+          });
+        });
+      });
+      return result;
+    }
+    
+    case 'cascade': {
+      // Cascading waterfall effect
+      return nodes.map((node, i) => ({
+        ...node,
+        position: {
+          x: (i % 5) * spacing.x * 0.3 + i * 30,
+          y: i * spacing.y * 0.5
+        }
+      }));
+    }
+    
+    default:
+      return nodes;
+  }
+}
+
+// ============================================
+// End Layout Functions
+// ============================================
+
 // Premium glass theme - Light mode (clean whites and subtle accents)
 const LIGHT_THEME = {
   canvasBg: 'linear-gradient(145deg, #ffffff 0%, #fafcfe 50%, #f8fafc 100%)',
@@ -971,6 +1428,9 @@ function DiagramContent() {
   
   // Track newly created path for auto-edit mode
   const [autoEditPathId, setAutoEditPathId] = useState<string | null>(null);
+  
+  // Layout cycling state
+  const [currentLayoutType, setCurrentLayoutType] = useState<LayoutType>('default');
 
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
@@ -1921,9 +2381,30 @@ function DiagramContent() {
 
   const layoutNodes = useCallback(
     (nodesToLayout: Node[], edgesToLayout: Edge[]) =>
-      getLayoutedNodes(nodesToLayout, edgesToLayout, 'TB'),
-    []
+      applyLayout(nodesToLayout as FlowNode[], edgesToLayout as FlowEdge[], currentLayoutType),
+    [currentLayoutType]
   );
+  
+  // Cycle to next layout
+  const cycleLayout = useCallback(() => {
+    setCurrentLayoutType(current => {
+      const currentIndex = LAYOUT_ORDER.indexOf(current);
+      const nextIndex = (currentIndex + 1) % LAYOUT_ORDER.length;
+      return LAYOUT_ORDER[nextIndex];
+    });
+  }, []);
+  
+  // Re-apply layout when layout type changes
+  useEffect(() => {
+    if (nodes.length > 0 && currentLayoutType !== 'default') {
+      const relaidOut = applyLayout(nodes as FlowNode[], edges as FlowEdge[], currentLayoutType);
+      setNodes(relaidOut);
+      setTimeout(() => {
+        fitView({ duration: 400, padding: 0.15 });
+      }, 50);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLayoutType]);
 
   const enforceRootHidden = useCallback(
     (nds: Node[], explicitRoots?: string[]) => {
@@ -2874,6 +3355,53 @@ function DiagramContent() {
                 title="Create new path"
               >
                 <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span>
+              </button>
+              {/* Layout cycle button */}
+              <button
+                onClick={cycleLayout}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '6px',
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  background: darkMode 
+                    ? 'linear-gradient(135deg, rgba(71, 85, 105, 0.6) 0%, rgba(51, 65, 85, 0.8) 100%)'
+                    : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+                  color: darkMode ? '#94a3b8' : '#64748b',
+                  border: darkMode ? '1px solid rgba(71, 85, 105, 0.4)' : '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  boxShadow: darkMode ? '0 1px 2px rgba(0,0,0,0.2)' : '0 1px 2px rgba(0,0,0,0.05)',
+                  transition: 'all 0.15s ease',
+                  minWidth: '28px',
+                  height: '28px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.background = darkMode 
+                    ? 'linear-gradient(135deg, rgba(96, 165, 250, 0.3) 0%, rgba(59, 130, 246, 0.4) 100%)'
+                    : 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)';
+                  e.currentTarget.style.borderColor = darkMode ? 'rgba(96, 165, 250, 0.5)' : '#a5b4fc';
+                  e.currentTarget.style.color = darkMode ? '#60a5fa' : '#4f46e5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.background = darkMode 
+                    ? 'linear-gradient(135deg, rgba(71, 85, 105, 0.6) 0%, rgba(51, 65, 85, 0.8) 100%)'
+                    : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)';
+                  e.currentTarget.style.borderColor = darkMode ? 'rgba(71, 85, 105, 0.4)' : '#cbd5e1';
+                  e.currentTarget.style.color = darkMode ? '#94a3b8' : '#64748b';
+                }}
+                title={`Layout: ${LAYOUT_LABELS[currentLayoutType]} (click to cycle)`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
               </button>
             </div>
           </div>
