@@ -1666,7 +1666,7 @@ function NodeGroupingOverlay({ nodes, diagramTheme, darkMode }: { nodes: Node[];
   const adjustedBounds = useMemo(() => {
     const basePadding = 30;
     const labelHeight = 28;
-    const minGap = 4; // Minimum gap between rectangles
+    const minGap = 12; // Minimum gap between rectangles for cleaner spacing
     
     // Convert to rectangle format with padding
     const rects: Array<{
@@ -3677,6 +3677,8 @@ function DiagramContent() {
     setPathName(pathName); // Populate path name input with loaded path name
     // Reset to only the new path's nodes (don't accumulate between path buttons)
     setManualHighlights(new Set(pathNodes));
+    // Reset to centered layout when loading a path
+    setCurrentLayoutType('centered');
     setNodes((nds) => {
       // Update and layout the regular nodes (no path notes node added to diagram)
       const updated = enforceRootHidden(nds)
