@@ -1127,17 +1127,33 @@ function PersonalizedNode(props: any) {
   );
 }
 
-// Group colors for visual distinction
-const GROUP_COLORS: Record<string, { fill: string; stroke: string; label: string }> = {
-  group1: { fill: 'rgba(59, 130, 246, 0.08)', stroke: 'rgba(59, 130, 246, 0.4)', label: '#3b82f6' },
-  group2: { fill: 'rgba(16, 185, 129, 0.08)', stroke: 'rgba(16, 185, 129, 0.4)', label: '#10b981' },
-  group3: { fill: 'rgba(245, 158, 11, 0.08)', stroke: 'rgba(245, 158, 11, 0.4)', label: '#f59e0b' },
-  group4: { fill: 'rgba(239, 68, 68, 0.08)', stroke: 'rgba(239, 68, 68, 0.4)', label: '#ef4444' },
-  group5: { fill: 'rgba(168, 85, 247, 0.08)', stroke: 'rgba(168, 85, 247, 0.4)', label: '#a855f7' },
-  group6: { fill: 'rgba(236, 72, 153, 0.08)', stroke: 'rgba(236, 72, 153, 0.4)', label: '#ec4899' },
-  group7: { fill: 'rgba(20, 184, 166, 0.08)', stroke: 'rgba(20, 184, 166, 0.4)', label: '#14b8a6' },
-  group8: { fill: 'rgba(99, 102, 241, 0.08)', stroke: 'rgba(99, 102, 241, 0.4)', label: '#6366f1' },
-};
+// Group colors palette for visual distinction (used by index)
+const GROUP_COLOR_PALETTE = [
+  { fill: 'rgba(59, 130, 246, 0.08)', stroke: 'rgba(59, 130, 246, 0.4)', label: '#3b82f6' },   // Blue
+  { fill: 'rgba(16, 185, 129, 0.08)', stroke: 'rgba(16, 185, 129, 0.4)', label: '#10b981' },   // Green
+  { fill: 'rgba(245, 158, 11, 0.08)', stroke: 'rgba(245, 158, 11, 0.4)', label: '#f59e0b' },   // Amber
+  { fill: 'rgba(239, 68, 68, 0.08)', stroke: 'rgba(239, 68, 68, 0.4)', label: '#ef4444' },     // Red
+  { fill: 'rgba(168, 85, 247, 0.08)', stroke: 'rgba(168, 85, 247, 0.4)', label: '#a855f7' },   // Purple
+  { fill: 'rgba(236, 72, 153, 0.08)', stroke: 'rgba(236, 72, 153, 0.4)', label: '#ec4899' },   // Pink
+  { fill: 'rgba(20, 184, 166, 0.08)', stroke: 'rgba(20, 184, 166, 0.4)', label: '#14b8a6' },   // Teal
+  { fill: 'rgba(99, 102, 241, 0.08)', stroke: 'rgba(99, 102, 241, 0.4)', label: '#6366f1' },   // Indigo
+  { fill: 'rgba(234, 179, 8, 0.08)', stroke: 'rgba(234, 179, 8, 0.4)', label: '#eab308' },     // Yellow
+  { fill: 'rgba(6, 182, 212, 0.08)', stroke: 'rgba(6, 182, 212, 0.4)', label: '#06b6d4' },     // Cyan
+  { fill: 'rgba(244, 63, 94, 0.08)', stroke: 'rgba(244, 63, 94, 0.4)', label: '#f43f5e' },     // Rose
+  { fill: 'rgba(34, 197, 94, 0.08)', stroke: 'rgba(34, 197, 94, 0.4)', label: '#22c55e' },     // Lime
+];
+
+// Cache to assign consistent colors to group names
+const groupColorCache = new Map<string, number>();
+let nextColorIndex = 0;
+
+function getGroupColor(groupName: string) {
+  if (!groupColorCache.has(groupName)) {
+    groupColorCache.set(groupName, nextColorIndex);
+    nextColorIndex = (nextColorIndex + 1) % GROUP_COLOR_PALETTE.length;
+  }
+  return GROUP_COLOR_PALETTE[groupColorCache.get(groupName)!];
+}
 
 // Default color for unknown groups
 const DEFAULT_GROUP_COLOR = { fill: 'rgba(100, 116, 139, 0.08)', stroke: 'rgba(100, 116, 139, 0.4)', label: '#64748b' };
@@ -1298,7 +1314,7 @@ function NodeGroupingOverlay({ nodes }: { nodes: Node[] }) {
     >
       <g transform={`translate(${x}, ${y}) scale(${zoom})`}>
         {adjustedBounds.map((rect) => {
-          const colors = GROUP_COLORS[rect.name.toLowerCase()] || DEFAULT_GROUP_COLOR;
+          const colors = getGroupColor(rect.name);
           
           return (
             <g key={rect.name}>
@@ -1473,11 +1489,29 @@ function DiagramContent() {
     const saved = localStorage.getItem('cinaps-dark-mode');
     return saved === 'true';
   });
+  const [hideGroups, setHideGroups] = useState(() => {
+    const saved = localStorage.getItem('cinaps-hide-groups');
+    return saved === 'true';
+  });
+  const [hideConnectors, setHideConnectors] = useState(() => {
+    const saved = localStorage.getItem('cinaps-hide-connectors');
+    return saved === 'true';
+  });
   
   // Persist dark mode preference
   useEffect(() => {
     localStorage.setItem('cinaps-dark-mode', String(darkMode));
   }, [darkMode]);
+  
+  // Persist hide groups preference
+  useEffect(() => {
+    localStorage.setItem('cinaps-hide-groups', String(hideGroups));
+  }, [hideGroups]);
+  
+  // Persist hide connectors preference
+  useEffect(() => {
+    localStorage.setItem('cinaps-hide-connectors', String(hideConnectors));
+  }, [hideConnectors]);
   
   // Update all nodes when dark mode changes
   useEffect(() => {
@@ -1491,6 +1525,36 @@ function DiagramContent() {
       }))
     );
   }, [darkMode, setNodes]);
+  
+  // Keyboard shortcuts for settings toggles
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in input fields
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
+      // Cmd/Ctrl + Shift + D = Toggle Dark Mode
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setDarkMode(prev => !prev);
+      }
+      // Cmd/Ctrl + Shift + G = Toggle Hide Groups
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        setHideGroups(prev => !prev);
+      }
+      // Cmd/Ctrl + Shift + C = Toggle Hide Connectors
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        setHideConnectors(prev => !prev);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
   
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -3134,6 +3198,9 @@ function DiagramContent() {
     setSidebarNodeContent({});
     setPathName(''); // Clear path name input
     
+    // Reset to default layout
+    setCurrentLayoutType('default');
+    
     setNodes((nds) =>
       enforceRootHidden(nds)
         .map((n) => ({
@@ -3179,7 +3246,7 @@ function DiagramContent() {
     <div ref={flowRef} style={{ width: '100vw', height: '100vh', background: theme.canvasBg, transition: 'background 0.3s ease' }}>
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={hideConnectors ? [] : edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -3191,7 +3258,7 @@ function DiagramContent() {
       >
         <Controls />
         {/* Node grouping overlay - draws rectangles around grouped nodes */}
-        <NodeGroupingOverlay nodes={nodes} />
+        {!hideGroups && <NodeGroupingOverlay nodes={nodes} />}
         {/* <Background color="#222" gap={16} /> */}
 
         {/* Left sidebar - draggable and resizable */}
@@ -4171,7 +4238,7 @@ function DiagramContent() {
                       fontSize: '11px', 
                       color: darkMode ? '#64748b' : '#94a3b8',
                     }}>
-                      {darkMode ? 'Currently enabled' : 'Currently disabled'}
+                      ⌘⇧D • {darkMode ? 'Currently enabled' : 'Currently disabled'}
                     </div>
                   </div>
                 </div>
@@ -4209,6 +4276,161 @@ function DiagramContent() {
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                   />
+                </button>
+              </div>
+              
+              {/* Hide Groups Toggle */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 16px',
+                marginTop: '10px',
+                background: darkMode ? 'rgba(148, 163, 184, 0.06)' : 'rgba(241, 245, 249, 0.8)',
+                borderRadius: '12px',
+                border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, rgba(100, 116, 139, 0.3) 0%, rgba(71, 85, 105, 0.4) 100%)' 
+                      : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#94a3b8' : '#64748b'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      color: darkMode ? '#f1f5f9' : '#1e293b',
+                      marginBottom: '2px',
+                    }}>
+                      Hide Groups
+                    </div>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: darkMode ? '#64748b' : '#94a3b8',
+                    }}>
+                      ⌘⇧G • {hideGroups ? 'Groups hidden' : 'Groups visible'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setHideGroups(!hideGroups)}
+                  style={{
+                    position: 'relative',
+                    width: '52px',
+                    height: '28px',
+                    borderRadius: '14px',
+                    background: hideGroups 
+                      ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' 
+                      : 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: hideGroups 
+                      ? '0 2px 8px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)' 
+                      : '0 1px 3px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: '3px',
+                    left: hideGroups ? '26px' : '3px',
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '11px',
+                    background: '#ffffff',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }} />
+                </button>
+              </div>
+              
+              {/* Hide Connectors Toggle */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 16px',
+                marginTop: '10px',
+                background: darkMode ? 'rgba(148, 163, 184, 0.06)' : 'rgba(241, 245, 249, 0.8)',
+                borderRadius: '12px',
+                border: darkMode ? '1px solid rgba(148, 163, 184, 0.1)' : '1px solid rgba(226, 232, 240, 0.6)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, rgba(100, 116, 139, 0.3) 0%, rgba(71, 85, 105, 0.4) 100%)' 
+                      : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#94a3b8' : '#64748b'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      color: darkMode ? '#f1f5f9' : '#1e293b',
+                      marginBottom: '2px',
+                    }}>
+                      Hide Connectors
+                    </div>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: darkMode ? '#64748b' : '#94a3b8',
+                    }}>
+                      ⌘⇧E • {hideConnectors ? 'Edges hidden' : 'Edges visible'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setHideConnectors(!hideConnectors)}
+                  style={{
+                    position: 'relative',
+                    width: '52px',
+                    height: '28px',
+                    borderRadius: '14px',
+                    background: hideConnectors 
+                      ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' 
+                      : 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: hideConnectors 
+                      ? '0 2px 8px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)' 
+                      : '0 1px 3px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: '3px',
+                    left: hideConnectors ? '26px' : '3px',
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '11px',
+                    background: '#ffffff',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }} />
                 </button>
               </div>
             </div>
