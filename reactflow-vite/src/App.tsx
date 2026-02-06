@@ -3692,7 +3692,8 @@ function DiagramContent() {
             },
           };
         });
-      return getLayoutedNodes(updated, edges);
+      // Use applyLayout with 'centered' to ensure centered layout
+      return applyLayout(updated as FlowNode[], edges as FlowEdge[], 'centered');
     });
     setTimeout(() => {
       fitView({ 
