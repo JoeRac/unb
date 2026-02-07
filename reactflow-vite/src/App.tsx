@@ -3923,8 +3923,8 @@ function DiagramContent() {
                 src="/favicon.svg" 
                 alt="Cinapps logo" 
                 style={{ 
-                  width: '18px', 
-                  height: '18px', 
+                  width: '25px', 
+                  height: '25px', 
                   flexShrink: 0,
                 }} 
               />
