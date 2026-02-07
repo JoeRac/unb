@@ -3928,7 +3928,7 @@ function DiagramContent() {
                   flexShrink: 0,
                 }} 
               />
-              Cinapps
+              CINAPs
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
