@@ -1762,17 +1762,17 @@ function NodeGroupingOverlay({ nodes, diagramTheme, darkMode }: { nodes: Node[];
       <g transform={`translate(${x}, ${y}) scale(${zoom})`}>
         {adjustedBounds.map((rect) => (
           <g key={rect.name}>
-            {/* Premium glass gradient */}
+            {/* Premium glass gradient - uses theme colors */}
             <defs>
               <linearGradient id={`glass-gradient-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor="rgba(255, 255, 255, 0.12)" />
                 <stop offset="50%" stopColor="rgba(255, 255, 255, 0.02)" />
-                <stop offset="100%" stopColor="rgba(59, 130, 246, 0.03)" />
+                <stop offset="100%" stopColor={groupStyle.fill} />
               </linearGradient>
               <linearGradient id={`border-gradient-${rect.name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgba(147, 197, 253, 0.25)" />
-                <stop offset="50%" stopColor="rgba(59, 130, 246, 0.12)" />
-                <stop offset="100%" stopColor="rgba(147, 197, 253, 0.2)" />
+                <stop offset="0%" stopColor={groupStyle.stroke} />
+                <stop offset="50%" stopColor={groupStyle.fill} />
+                <stop offset="100%" stopColor={groupStyle.stroke} />
               </linearGradient>
             </defs>
             {/* Outer glow layer */}
@@ -1784,7 +1784,7 @@ function NodeGroupingOverlay({ nodes, diagramTheme, darkMode }: { nodes: Node[];
               rx={18}
               ry={18}
               fill="none"
-              stroke="rgba(59, 130, 246, 0.08)"
+              stroke={groupStyle.fill}
               strokeWidth={3}
             />
             {/* Main background with glass gradient */}
@@ -2067,18 +2067,18 @@ function DiagramContent() {
   
   // Update edge colors when diagram theme changes
   useEffect(() => {
-    const themeEdgeColor = darkMode ? EDGE_COLOR : DIAGRAM_THEMES[diagramTheme].edge.color;
+    const theme = DIAGRAM_THEMES[diagramTheme];
+    const themeEdgeColor = darkMode ? EDGE_COLOR : theme.edge.color;
+    const themeHighlightColor = darkMode ? HIGHLIGHT_COLOR : theme.edge.highlightColor;
     setEdges((eds: Edge[]) =>
       eds.map((e: Edge) => {
-        // Preserve highlighted edges' colors, only update non-highlighted ones
         const currentOpacity = (e.style as Record<string, unknown>)?.opacity as number | undefined;
         const isHighlighted = currentOpacity !== undefined && currentOpacity > 0.5;
-        if (isHighlighted) return e;
         return {
           ...e,
           style: {
             ...e.style,
-            stroke: themeEdgeColor,
+            stroke: isHighlighted ? themeHighlightColor : themeEdgeColor,
           },
         };
       })
