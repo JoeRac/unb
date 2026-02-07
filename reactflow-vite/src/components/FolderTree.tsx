@@ -323,8 +323,23 @@ const FolderItem: React.FC<FolderItemProps> = ({
 
     const pathName = e.dataTransfer.getData('pathName');
     const draggedFolderId = e.dataTransfer.getData('folderId');
+    const multiPaths = e.dataTransfer.getData('application/x-multi-paths');
 
-    if (pathName) {
+    if (multiPaths) {
+      // Handle multi-path drop - move all selected paths to this folder
+      try {
+        const pathIds = JSON.parse(multiPaths) as string[];
+        // Find path names from paths array
+        pathIds.forEach(pathId => {
+          const path = paths.find(p => p.id === pathId);
+          if (path) {
+            onMovePathToFolder(path.name, folder.id);
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing multi-path drop data:', error);
+      }
+    } else if (pathName) {
       onMovePathToFolder(pathName, folder.id);
     } else if (draggedFolderId && draggedFolderId !== folder.id) {
       // Don't allow dropping a folder onto itself or its descendants
@@ -732,8 +747,22 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 
     const pathName = e.dataTransfer.getData('pathName');
     const folderId = e.dataTransfer.getData('folderId');
+    const multiPaths = e.dataTransfer.getData('application/x-multi-paths');
 
-    if (pathName) {
+    if (multiPaths) {
+      // Handle multi-path drop - move all selected paths to uncategorized
+      try {
+        const pathIds = JSON.parse(multiPaths) as string[];
+        pathIds.forEach(pathId => {
+          const path = paths.find(p => p.id === pathId);
+          if (path) {
+            onMovePathToFolder(path.name, '');
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing multi-path drop data:', error);
+      }
+    } else if (pathName) {
       // Move path to uncategorized (no folder)
       onMovePathToFolder(pathName, '');
     } else if (folderId) {
@@ -885,7 +914,22 @@ export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
     e.preventDefault();
     setIsDragOver(false);
     const pathName = e.dataTransfer.getData('pathName');
-    if (pathName) {
+    const multiPaths = e.dataTransfer.getData('application/x-multi-paths');
+    
+    if (multiPaths) {
+      // Handle multi-path drop - move all selected paths to uncategorized
+      try {
+        const pathIds = JSON.parse(multiPaths) as string[];
+        pathIds.forEach(pathId => {
+          const path = paths.find(p => p.id === pathId);
+          if (path) {
+            onMovePathToFolder(path.name, '');
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing multi-path drop data:', error);
+      }
+    } else if (pathName) {
       // Move path to uncategorized (no folder)
       onMovePathToFolder(pathName, '');
     }

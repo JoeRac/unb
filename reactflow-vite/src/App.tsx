@@ -1919,6 +1919,12 @@ function DiagramContent() {
   // Separate archived view mode for path manager focus window only
   const [focusViewMode, setFocusViewMode] = useState<'folder' | 'alpha' | 'latest' | 'priority' | 'archived'>('folder');
   
+  // Multi-select state for path manager focus window
+  const [selectedPathIds, setSelectedPathIds] = useState<Set<string>>(new Set());
+  const [lastClickedPathId, setLastClickedPathId] = useState<string | null>(null);
+  const [_isDraggingSelected, setIsDraggingSelected] = useState(false);
+  const [draggedPathIds, setDraggedPathIds] = useState<string[]>([]);
+  
   // Track last updated timestamps for each path (pathId -> timestamp)
   const [pathLastUpdated, setPathLastUpdated] = useState<Record<string, number>>({});
   
@@ -3913,17 +3919,16 @@ function DiagramContent() {
               alignItems: 'center',
               gap: '6px',
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                <defs>
-                  <linearGradient id="cinaps-triangle-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#2563eb"/>
-                    <stop offset="100%" stopColor="#3b82f6"/>
-                  </linearGradient>
-                </defs>
-                <polygon points="12,2 22,20 2,20" fill="url(#cinaps-triangle-grad)"/>
-                <polygon points="12,7 17,17 7,17" fill="rgba(255,255,255,0.25)"/>
-              </svg>
-              CinApps
+              <img 
+                src="/favicon.svg" 
+                alt="Cinapps logo" 
+                style={{ 
+                  width: '18px', 
+                  height: '18px', 
+                  flexShrink: 0,
+                }} 
+              />
+              Cinapps
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Focus mode button */}
@@ -6518,15 +6523,19 @@ function DiagramContent() {
             backdropFilter: 'blur(24px)',
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setSidebarFocusMode(false);
+            if (e.target === e.currentTarget) {
+              setSidebarFocusMode(false);
+              setSelectedPathIds(new Set());
+            }
           }}
         >
           <div
             style={{
               width: '95%',
-              maxWidth: '520px',
+              maxWidth: '800px',
+              minWidth: '50vw',
               height: '85vh',
-              maxHeight: '700px',
+              maxHeight: '800px',
               background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.92) 100%)',
               backdropFilter: 'blur(40px)',
               borderRadius: '20px',
@@ -6636,7 +6645,10 @@ function DiagramContent() {
                 </svg>
               </button>
               <button
-                onClick={() => setSidebarFocusMode(false)}
+                onClick={() => {
+                  setSidebarFocusMode(false);
+                  setSelectedPathIds(new Set());
+                }}
                 title="Close (Esc)"
                 style={{
                   background: 'transparent',
@@ -6781,27 +6793,201 @@ function DiagramContent() {
                 />
                 )
               ) : (
-                /* Sleek list for A-Z, Latest, and Priority views */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                  {(focusViewMode === 'alpha' 
-                    ? [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => a.name.localeCompare(b.name))
-                    : focusViewMode === 'priority'
-                    ? [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50))
-                    : [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0))
-                  ).map((path, index, arr) => {
+                /* Sleek list for A-Z, Latest, and Priority views with multi-select */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                  {/* Multi-select action bar */}
+                  {selectedPathIds.size >= 2 && (
+                    <div 
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        marginBottom: '8px',
+                        background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(99,102,241,0.08) 100%)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(59,130,246,0.2)',
+                      }}
+                    >
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6' }}>
+                        {selectedPathIds.size} selected
+                      </span>
+                      <div style={{ flex: 1 }} />
+                      {/* Archive all selected */}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const idsToArchive = Array.from(selectedPathIds);
+                          // Update local state immediately
+                          setPathsList(prev => prev.map(p => 
+                            idsToArchive.includes(p.id) ? { ...p, status: 'archived' } : p
+                          ));
+                          // Save to Notion
+                          try {
+                            if (DATA_SOURCE === 'notion') {
+                              await Promise.all(idsToArchive.map(id => notionService.updatePathStatus(id, 'archived')));
+                            }
+                          } catch (error) {
+                            console.error('Error archiving paths:', error);
+                          }
+                          setSelectedPathIds(new Set());
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '4px 10px',
+                          fontSize: '10px',
+                          fontWeight: 500,
+                          background: 'rgba(100,116,139,0.1)',
+                          color: '#64748b',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(100,116,139,0.2)';
+                          e.currentTarget.style.color = '#475569';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(100,116,139,0.1)';
+                          e.currentTarget.style.color = '#64748b';
+                        }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>
+                        </svg>
+                        Archive
+                      </button>
+                      {/* Delete all selected */}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const idsToDelete = Array.from(selectedPathIds);
+                          const pathNames = pathsList.filter(p => idsToDelete.includes(p.id)).map(p => p.name);
+                          if (window.confirm(`Delete ${pathNames.length} paths?`)) {
+                            for (const name of pathNames) {
+                              await deletePathByName(name);
+                            }
+                            setSelectedPathIds(new Set());
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '4px 10px',
+                          fontSize: '10px',
+                          fontWeight: 500,
+                          background: 'rgba(239,68,68,0.1)',
+                          color: '#ef4444',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                        }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Delete
+                      </button>
+                      {/* Clear selection */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPathIds(new Set());
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          fontWeight: 500,
+                          background: 'transparent',
+                          color: '#94a3b8',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = '#64748b';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = '#94a3b8';
+                        }}
+                      >
+                        ✕ Clear
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Path list */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                  {(() => {
+                    const sortedPaths = focusViewMode === 'alpha' 
+                      ? [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => a.name.localeCompare(b.name))
+                      : focusViewMode === 'priority'
+                      ? [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50))
+                      : [...pathsList].filter(p => p.status !== 'archived').sort((a, b) => (pathLastUpdated[b.id] || 0) - (pathLastUpdated[a.id] || 0));
+                    
+                    return sortedPaths.map((path, index, arr) => {
                     const priorityColor = `rgb(${Math.round(239 * ((path.priority ?? 50) / 100) + 59 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 130 * (1 - (path.priority ?? 50) / 100))}, ${Math.round(68 * ((path.priority ?? 50) / 100) + 246 * (1 - (path.priority ?? 50) / 100))})`;
                     const isFirst = index === 0;
                     const isLast = index === arr.length - 1;
+                    const isSelected = selectedPathIds.has(path.id);
+                    const isDragging = draggedPathIds.includes(path.id);
+                    
                     return (
                     <div
                       key={path.id}
-                      onClick={() => {
-                        showPath(path.name);
-                        setSidebarFocusMode(false);
+                      draggable={isSelected && selectedPathIds.size >= 2}
+                      onDragStart={(e) => {
+                        if (isSelected && selectedPathIds.size >= 2) {
+                          setIsDraggingSelected(true);
+                          setDraggedPathIds(Array.from(selectedPathIds));
+                          e.dataTransfer.setData('application/x-multi-paths', JSON.stringify(Array.from(selectedPathIds)));
+                          e.dataTransfer.effectAllowed = 'move';
+                        }
+                      }}
+                      onDragEnd={() => {
+                        setIsDraggingSelected(false);
+                        setDraggedPathIds([]);
+                      }}
+                      onClick={(e) => {
+                        // Handle multi-select with shift key
+                        if (e.shiftKey && lastClickedPathId) {
+                          const currentIndex = arr.findIndex(p => p.id === path.id);
+                          const lastIndex = arr.findIndex(p => p.id === lastClickedPathId);
+                          const [start, end] = [Math.min(currentIndex, lastIndex), Math.max(currentIndex, lastIndex)];
+                          const rangeIds = arr.slice(start, end + 1).map(p => p.id);
+                          setSelectedPathIds(prev => {
+                            const newSet = new Set(prev);
+                            rangeIds.forEach(id => newSet.add(id));
+                            return newSet;
+                          });
+                        } else if (selectedPathIds.size > 0 && !e.ctrlKey && !e.metaKey) {
+                          // If something is selected and no modifier, clear selection and navigate
+                          setSelectedPathIds(new Set());
+                          showPath(path.name);
+                          setSidebarFocusMode(false);
+                        } else {
+                          showPath(path.name);
+                          setSidebarFocusMode(false);
+                        }
+                        setLastClickedPathId(path.id);
                       }}
                       style={{
                         padding: '8px 12px',
-                        background: activePath === path.name 
+                        background: isSelected 
+                          ? 'linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.06) 100%)'
+                          : activePath === path.name 
                           ? 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.04) 100%)'
                           : 'transparent',
                         borderRadius: isFirst ? '8px 8px 0 0' : isLast ? '0 0 8px 8px' : '0',
@@ -6810,14 +6996,20 @@ function DiagramContent() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '10px',
-                        borderLeft: activePath === path.name 
+                        borderLeft: isSelected 
+                          ? '2px solid #6366f1'
+                          : activePath === path.name 
                           ? '2px solid #3b82f6' 
                           : '2px solid transparent',
+                        opacity: isDragging ? 0.5 : 1,
                       }}
                       onMouseEnter={(e) => {
-                        if (activePath !== path.name) {
+                        if (!isSelected && activePath !== path.name) {
                           e.currentTarget.style.background = 'rgba(241,245,249,0.8)';
                         }
+                        // Show checkbox on hover
+                        const checkbox = e.currentTarget.querySelector('.path-checkbox') as HTMLElement;
+                        if (checkbox) checkbox.style.opacity = '1';
                         // Show priority slider on hover in priority view
                         const slider = e.currentTarget.querySelector('.priority-slider-inline') as HTMLElement;
                         if (slider) {
@@ -6826,9 +7018,12 @@ function DiagramContent() {
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (activePath !== path.name) {
+                        if (!isSelected && activePath !== path.name) {
                           e.currentTarget.style.background = 'transparent';
                         }
+                        // Hide checkbox if not selected
+                        const checkbox = e.currentTarget.querySelector('.path-checkbox') as HTMLElement;
+                        if (checkbox && !isSelected) checkbox.style.opacity = '0';
                         // Hide priority slider
                         const slider = e.currentTarget.querySelector('.priority-slider-inline') as HTMLElement;
                         if (slider) {
@@ -6837,8 +7032,46 @@ function DiagramContent() {
                         }
                       }}
                     >
+                      {/* Checkbox for multi-select */}
+                      <div
+                        className="path-checkbox"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPathIds(prev => {
+                            const newSet = new Set(prev);
+                            if (newSet.has(path.id)) {
+                              newSet.delete(path.id);
+                            } else {
+                              newSet.add(path.id);
+                            }
+                            return newSet;
+                          });
+                          setLastClickedPathId(path.id);
+                        }}
+                        style={{
+                          width: '14px',
+                          height: '14px',
+                          borderRadius: '3px',
+                          border: isSelected ? 'none' : '1.5px solid #cbd5e1',
+                          background: isSelected ? 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)' : 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          opacity: isSelected ? 1 : 0,
+                          transition: 'all 0.15s ease',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {isSelected && (
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </div>
+                      
                       {/* File icon */}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={activePath === path.name ? '#3b82f6' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isSelected ? '#6366f1' : activePath === path.name ? '#3b82f6' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
                       </svg>
@@ -6859,8 +7092,8 @@ function DiagramContent() {
                       {/* Path name */}
                       <span style={{ 
                         fontSize: '11px', 
-                        fontWeight: activePath === path.name ? 600 : 500, 
-                        color: activePath === path.name ? '#1d4ed8' : '#475569',
+                        fontWeight: isSelected ? 600 : activePath === path.name ? 600 : 500, 
+                        color: isSelected ? '#4f46e5' : activePath === path.name ? '#1d4ed8' : '#475569',
                         flex: 1,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -7021,7 +7254,9 @@ function DiagramContent() {
                         </svg>
                       </button>
                     </div>
-                  )})}
+                  )});
+                  })()}
+                  </div>
                   
                   {/* Empty state */}
                   {pathsList.filter(p => p.status !== 'archived').length === 0 && (
