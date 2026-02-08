@@ -10,6 +10,8 @@ import {
   archivePage,
   NotionAPIError,
   uploadFile,
+  getAllPageBlocks,
+  searchPages,
 } from './client';
 import {
   notionPagesToNodes,
@@ -883,3 +885,59 @@ export {
   clearCache,
   NotionAPIError,
 };
+
+// ============================================
+// Page Content Operations
+// ============================================
+
+/**
+ * Fetch all blocks (content) for a Notion page, given its notionPageId.
+ * Falls back to searching by page title if notionPageId is not provided.
+ */
+export async function fetchPageContent(
+  notionPageId?: string,
+  nodeName?: string,
+): Promise<{ blocks: unknown[]; pageId: string | null }> {
+  try {
+    // Strategy 1: Use the page ID directly (most reliable)
+    if (notionPageId) {
+      const blocks = await getAllPageBlocks(notionPageId);
+      if (blocks.length > 0) {
+        return { blocks, pageId: notionPageId };
+      }
+    }
+
+    // Strategy 2: Search by name across the entire workspace
+    if (nodeName) {
+      const pages = await searchPages(nodeName);
+      // Find an exact title match (case-insensitive, trim whitespace)
+      const normalised = nodeName.trim().toLowerCase();
+      const match = pages.find((p) => {
+        const title = extractPageTitle(p);
+        return title.trim().toLowerCase() === normalised;
+      });
+      if (match) {
+        const blocks = await getAllPageBlocks(match.id);
+        return { blocks, pageId: match.id };
+      }
+    }
+
+    return { blocks: [], pageId: notionPageId || null };
+  } catch (error) {
+    console.error('Error fetching page content:', error);
+    return { blocks: [], pageId: notionPageId || null };
+  }
+}
+
+/** Extract page title from a NotionPage's properties */
+function extractPageTitle(page: NotionPage): string {
+  const props = page.properties;
+  for (const key of Object.keys(props)) {
+    const prop = props[key];
+    if (prop && (prop as Record<string, unknown>).type === 'title') {
+      const titleProp = prop as { type: 'title'; title: Array<{ plain_text: string }> };
+      return titleProp.title.map((t) => t.plain_text).join('');
+    }
+  }
+  return '';
+}

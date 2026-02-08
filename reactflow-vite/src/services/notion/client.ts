@@ -395,6 +395,42 @@ export async function getPageBlocks(pageId: string): Promise<NotionQueryResponse
   });
 }
 
+/**
+ * Get ALL page blocks (handles pagination — Notion returns max 100 per request)
+ */
+export async function getAllPageBlocks(pageId: string): Promise<NotionPage[]> {
+  const allBlocks: NotionPage[] = [];
+  let startCursor: string | undefined;
+
+  do {
+    const qs = startCursor ? `?start_cursor=${startCursor}` : '';
+    const response = await notionRequest<NotionQueryResponse>({
+      method: 'GET',
+      path: `/blocks/${pageId}/children${qs}`,
+    });
+    allBlocks.push(...response.results);
+    startCursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (startCursor);
+
+  return allBlocks;
+}
+
+/**
+ * Search Notion workspace for pages by title
+ */
+export async function searchPages(query: string): Promise<NotionPage[]> {
+  const response = await notionRequest<NotionQueryResponse>({
+    method: 'POST',
+    path: '/search',
+    body: {
+      query,
+      filter: { value: 'page', property: 'object' },
+      page_size: 10,
+    },
+  });
+  return response.results;
+}
+
 // ============================================
 // Utility Functions
 // ============================================

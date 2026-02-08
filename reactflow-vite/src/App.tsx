@@ -43,6 +43,9 @@ import { FolderTree, UnassignedPathsSection, type FolderTreeNode, type PathItem 
 // Import AudioRecorder component
 import { AudioRecorder } from './components/AudioRecorder';
 
+// Import NotionPageRenderer for documentation panel
+import NotionPageRenderer from './components/NotionPageRenderer';
+
 // Dagre layout helper
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -1053,6 +1056,8 @@ type NodeData = {
   color: string;
   category: string;
 
+  // Notion page ID (for fetching page content / documentation)
+  notionPageId?: string;
   
   // Text
   description?: string;
@@ -1997,6 +2002,11 @@ function DiagramContent() {
   const mainEditorInitialized = useRef<string | null>(null); // Track which node's content is loaded in main editor
   const updatePathNodesCallbackRef = useRef<((pathId: string, pathName: string, nodeIds: Set<string>) => void) | null>(null);
   const [highlightedFolderId, setHighlightedFolderId] = useState<string | null>(null);
+
+  // Notion page content for the documentation panel (right side of focus mode)
+  const [notionPageBlocks, setNotionPageBlocks] = useState<unknown[]>([]);
+  const [notionPageLoading, setNotionPageLoading] = useState(false);
+  const [notionPageError, setNotionPageError] = useState<string | null>(null);
   
   // Settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -2187,6 +2197,45 @@ function DiagramContent() {
       mainEditorInitialized.current = null;
     }
   }, [editorFocusMode, selectedNode, activePathId]);
+
+  // Fetch Notion page content when focus mode opens for a node
+  useEffect(() => {
+    if (!editorFocusMode || !selectedNode) {
+      // Clear when closed
+      if (!editorFocusMode) {
+        setNotionPageBlocks([]);
+        setNotionPageError(null);
+      }
+      return;
+    }
+    if (DATA_SOURCE !== 'notion') return;
+
+    const nodeData = selectedNode.data as NodeData;
+    const notionPageId = nodeData?.notionPageId;
+    const nodeName = nodeData?.label;
+
+    let cancelled = false;
+    setNotionPageLoading(true);
+    setNotionPageError(null);
+    setNotionPageBlocks([]);
+
+    notionService.fetchPageContent(notionPageId, nodeName).then(
+      (result) => {
+        if (!cancelled) {
+          setNotionPageBlocks(result.blocks);
+          setNotionPageLoading(false);
+        }
+      },
+      (err) => {
+        if (!cancelled) {
+          setNotionPageError(err instanceof Error ? err.message : 'Failed to load page');
+          setNotionPageLoading(false);
+        }
+      },
+    );
+
+    return () => { cancelled = true; };
+  }, [editorFocusMode, selectedNode]);
 
   // Initialize path notes editor when path notes focus mode opens
   useEffect(() => {
@@ -3315,6 +3364,7 @@ function DiagramContent() {
               label: n.label,
               color: n.color || '#3b82f6',
               category: n.category,
+              notionPageId: n.notionPageId,
               description: n.description,
               details: n.details,
               longDescription: n.longDescription,
@@ -5580,8 +5630,8 @@ function DiagramContent() {
               </div>
                 </div>
                 
-                {/* Right column: Documentation */}
-                <div style={{ width: '380px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'rgba(248,250,252,0.6)' }}>
+                {/* Right column: Notion Page Documentation */}
+                <div style={{ width: '420px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'rgba(248,250,252,0.6)' }}>
                   <div style={{
                     padding: '12px 16px',
                     borderBottom: '1px solid rgba(226,232,240,0.6)',
@@ -5596,78 +5646,62 @@ function DiagramContent() {
                   }}>
                     <span style={{ fontSize: '14px' }}>📚</span>
                     <span>Documentation</span>
+                    {selectedNodeData?.notionPageId && (
+                      <a
+                        href={`https://www.notion.so/${selectedNodeData.notionPageId.replace(/-/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open in Notion"
+                        style={{
+                          marginLeft: 'auto',
+                          fontSize: '11px',
+                          color: '#94a3b8',
+                          textDecoration: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          borderRadius: '5px',
+                          background: 'rgba(100,116,139,0.08)',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = '#475569';
+                          e.currentTarget.style.background = 'rgba(100,116,139,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = '#94a3b8';
+                          e.currentTarget.style.background = 'rgba(100,116,139,0.08)';
+                        }}
+                      >
+                        Open in Notion ↗
+                      </a>
+                    )}
                   </div>
                   <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
-                    {/* Long description */}
-                    {selectedNodeData?.longDescription && (
-                      <div 
-                        style={{ 
-                          lineHeight: 1.7, 
-                          color: '#475569',
-                          fontSize: '13px',
-                          margin: '0 0 16px',
-                          padding: '12px 14px',
-                          background: 'rgba(255,255,255,0.9)',
-                          borderRadius: '8px',
-                          borderLeft: `3px solid ${selectedNodeData.color || '#3b82f6'}`,
-                          border: '1px solid rgba(226,232,240,0.6)',
-                          borderLeftWidth: '3px',
-                          borderLeftColor: selectedNodeData.color || '#3b82f6',
-                        }}
-                        dangerouslySetInnerHTML={{ __html: selectedNodeData.longDescription }}
-                      />
-                    )}
+                    {/* Notion page content */}
+                    <NotionPageRenderer
+                      blocks={notionPageBlocks}
+                      isLoading={notionPageLoading}
+                      error={notionPageError}
+                      accentColor={selectedNodeData?.color || '#3b82f6'}
+                      onRetry={() => {
+                        const nd = selectedNode?.data as NodeData;
+                        if (nd) {
+                          setNotionPageLoading(true);
+                          setNotionPageError(null);
+                          notionService.fetchPageContent(nd.notionPageId, nd.label).then(
+                            (r) => { setNotionPageBlocks(r.blocks); setNotionPageLoading(false); },
+                            (e) => { setNotionPageError(e instanceof Error ? e.message : 'Failed'); setNotionPageLoading(false); },
+                          );
+                        }
+                      }}
+                    />
 
-                    {/* Images */}
-                    {selectedNodeData?.images?.map((img) => (
-                      <img
-                        key={img.src}
-                        src={img.src}
-                        alt={img.alt || ''}
-                        style={{
-                          width: '100%',
-                          borderRadius: '8px',
-                          marginBottom: '12px',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                          border: '1px solid rgba(226,232,240,0.6)',
-                        }}
-                      />
-                    ))}
-
-                    {/* Video */}
-                    {selectedNodeData?.video && (
-                      selectedNodeData.video.type === 'html5' ? (
-                        <video
-                          controls
-                          src={selectedNodeData.video.url}
-                          style={{
-                            width: '100%',
-                            borderRadius: '8px',
-                            marginBottom: '12px',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                            border: '1px solid rgba(226,232,240,0.6)',
-                          }}
-                        />
-                      ) : (
-                        <iframe
-                          src={selectedNodeData.video.url}
-                          style={{
-                            width: '100%',
-                            aspectRatio: '16 / 9',
-                            borderRadius: '8px',
-                            marginBottom: '12px',
-                            border: '1px solid rgba(226,232,240,0.6)',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                          }}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      )
-                    )}
-
-                    {/* External links */}
+                    {/* External links — shown below the Notion content */}
                     {(selectedNodeData?.externalLinks?.length ?? 0) > 0 && (
-                      <div style={{ marginBottom: '12px' }}>
+                      <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(226,232,240,0.5)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>External Links</div>
                         {selectedNodeData!.externalLinks!.map((link) => (
                           <a
                             key={link.url}
@@ -5678,13 +5712,13 @@ function DiagramContent() {
                               display: 'flex',
                               alignItems: 'center',
                               gap: '8px',
-                              padding: '10px 14px',
-                              marginBottom: '8px',
+                              padding: '8px 12px',
+                              marginBottom: '6px',
                               background: 'rgba(255,255,255,0.9)',
                               borderRadius: '8px',
                               color: '#2563eb',
                               fontWeight: 500,
-                              fontSize: '13px',
+                              fontSize: '12px',
                               textDecoration: 'none',
                               transition: 'all 0.15s ease',
                               border: '1px solid rgba(226,232,240,0.6)',
@@ -5706,55 +5740,41 @@ function DiagramContent() {
                       </div>
                     )}
 
-                    {/* Wiki / Documentation button */}
+                    {/* Wiki link */}
                     {selectedNodeData?.wikiUrl && (
-                      <a
-                        href={selectedNodeData.wikiUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '8px',
-                          padding: '12px 16px',
-                          background: `linear-gradient(135deg, ${selectedNodeData.color || '#3b82f6'} 0%, ${selectedNodeData.color || '#3b82f6'}dd 100%)`,
-                          color: 'white',
-                          borderRadius: '10px',
-                          fontWeight: 600,
-                          fontSize: '13px',
-                          textDecoration: 'none',
-                          boxShadow: `0 4px 14px ${selectedNodeData.color || '#3b82f6'}40`,
-                          transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = `0 6px 20px ${selectedNodeData?.color || '#3b82f6'}50`;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = `0 4px 14px ${selectedNodeData?.color || '#3b82f6'}40`;
-                        }}
-                      >
-                        <span>📚</span>
-                        <span>Open Documentation</span>
-                        <span>↗</span>
-                      </a>
-                    )}
-                    
-                    {/* No documentation message */}
-                    {!selectedNodeData?.longDescription && !selectedNodeData?.images?.length && !selectedNodeData?.video && !selectedNodeData?.externalLinks?.length && !selectedNodeData?.wikiUrl && (
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '32px 16px',
-                        color: '#94a3b8',
-                        fontSize: '12px',
-                        background: 'rgba(248,250,252,0.5)',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(226,232,240,0.4)',
-                      }}>
-                        <span style={{ fontSize: '28px', display: 'block', marginBottom: '10px', opacity: 0.4 }}>📄</span>
-                        <p style={{ margin: 0 }}>No documentation available</p>
+                      <div style={{ marginTop: '12px' }}>
+                        <a
+                          href={selectedNodeData.wikiUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: '10px 14px',
+                            background: `linear-gradient(135deg, ${selectedNodeData.color || '#3b82f6'} 0%, ${selectedNodeData.color || '#3b82f6'}dd 100%)`,
+                            color: 'white',
+                            borderRadius: '10px',
+                            fontWeight: 600,
+                            fontSize: '12px',
+                            textDecoration: 'none',
+                            boxShadow: `0 4px 14px ${selectedNodeData.color || '#3b82f6'}40`,
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = `0 6px 20px ${selectedNodeData?.color || '#3b82f6'}50`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = `0 4px 14px ${selectedNodeData?.color || '#3b82f6'}40`;
+                          }}
+                        >
+                          <span>📚</span>
+                          <span>Open Wiki</span>
+                          <span>↗</span>
+                        </a>
                       </div>
                     )}
                   </div>

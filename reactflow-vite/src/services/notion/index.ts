@@ -45,6 +45,8 @@ export {
   updatePage,
   archivePage,
   getPageBlocks,
+  getAllPageBlocks,
+  searchPages,
   addSyncStatusListener,
   getSyncStatus,
   getIsOnline,
@@ -116,6 +118,7 @@ export {
   uploadAudioNote,
   saveNodePathAudioNote,
   savePathAudioNote,
+  fetchPageContent,
 } from './service';
 
 // Create a default service instance for easy importing
