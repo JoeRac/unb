@@ -204,7 +204,12 @@ async function executeRequest<T>(options: RequestOptions): Promise<T> {
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       
-      // Check if we should retry
+      // Don't retry client errors (4xx) - they won't succeed on retry
+      if (error instanceof NotionAPIError && error.status && error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+      
+      // Check if we should retry (only for network/server errors)
       if (attempt < retries) {
         // Exponential backoff
         const delay = NOTION_CONFIG.SYNC.RETRY_DELAY * Math.pow(2, attempt);

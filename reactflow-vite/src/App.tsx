@@ -2865,22 +2865,30 @@ function DiagramContent() {
 
   // Toggle favourite status for a path
   const handleToggleFav = useCallback(async (pathId: string, fav: boolean) => {
-    // Optimistic UI update
+    // Update UI state
     setPathsList(prev => prev.map(p => 
       p.id === pathId ? { ...p, fav } : p
     ));
     
-    // Persist to backend
+    // Persist to localStorage immediately (reliable, instant)
     try {
-      if (DATA_SOURCE === 'notion') {
-        await notionService.updatePathFav(pathId, fav);
+      const stored = JSON.parse(localStorage.getItem('pathFavourites') || '{}');
+      if (fav) {
+        stored[pathId] = true;
+      } else {
+        delete stored[pathId];
       }
-    } catch (error) {
-      console.error('Error updating fav status:', error);
-      // Revert on error
-      setPathsList(prev => prev.map(p => 
-        p.id === pathId ? { ...p, fav: !fav } : p
-      ));
+      localStorage.setItem('pathFavourites', JSON.stringify(stored));
+    } catch (e) {
+      console.warn('Error saving fav to localStorage:', e);
+    }
+    
+    // Also persist to Notion (non-blocking, best-effort)
+    if (DATA_SOURCE === 'notion') {
+      notionService.updatePathFav(pathId, fav).catch(error => {
+        console.warn('Could not save fav to Notion (column may not exist):', error);
+        // Don't revert - localStorage is the source of truth
+      });
     }
   }, []);
 
@@ -3396,6 +3404,13 @@ function DiagramContent() {
         if (DATA_SOURCE === 'notion') {
           // Load from Notion
           const paths = await notionService.fetchPaths();
+          
+          // Load saved favourites from localStorage
+          let savedFavs: Record<string, boolean> = {};
+          try {
+            savedFavs = JSON.parse(localStorage.getItem('pathFavourites') || '{}');
+          } catch { /* ignore parse errors */ }
+          
           const list: PathRow[] = paths
             .filter((p: PathRecord) => p.name && (p.status ? p.status.toLowerCase() !== 'deleted' : true))
             .map((p: PathRecord) => {
@@ -3413,7 +3428,7 @@ function DiagramContent() {
                 dateUpdated: p.dateUpdated,
                 lastUpdated: Number.isNaN(parsedLastUpdated) ? undefined : parsedLastUpdated,
                 priority: p.priority,
-                fav: p.fav,
+                fav: savedFavs[p.id] || p.fav,
               };
             });
           
