@@ -2214,6 +2214,8 @@ function DiagramContent() {
     const notionPageId = nodeData?.notionPageId;
     const nodeName = nodeData?.label;
 
+    console.log('[NotionPageLoad] Opening focus mode for:', { nodeName, notionPageId, nodeId: selectedNode.id });
+
     let cancelled = false;
     setNotionPageLoading(true);
     setNotionPageError(null);
@@ -2222,12 +2224,14 @@ function DiagramContent() {
     notionService.fetchPageContent(notionPageId, nodeName).then(
       (result) => {
         if (!cancelled) {
+          console.log('[NotionPageLoad] Got result:', result.blocks.length, 'blocks, pageId:', result.pageId);
           setNotionPageBlocks(result.blocks);
           setNotionPageLoading(false);
         }
       },
       (err) => {
         if (!cancelled) {
+          console.error('[NotionPageLoad] Error:', err);
           setNotionPageError(err instanceof Error ? err.message : 'Failed to load page');
           setNotionPageLoading(false);
         }
@@ -5685,6 +5689,9 @@ function DiagramContent() {
                       isLoading={notionPageLoading}
                       error={notionPageError}
                       accentColor={selectedNodeData?.color || '#3b82f6'}
+                      fallbackDescription={selectedNodeData?.longDescription}
+                      fallbackImages={selectedNodeData?.images}
+                      fallbackVideo={selectedNodeData?.video}
                       onRetry={() => {
                         const nd = selectedNode?.data as NodeData;
                         if (nd) {

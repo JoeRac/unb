@@ -898,35 +898,46 @@ export async function fetchPageContent(
   notionPageId?: string,
   nodeName?: string,
 ): Promise<{ blocks: unknown[]; pageId: string | null }> {
-  try {
-    // Strategy 1: Use the page ID directly (most reliable)
-    if (notionPageId) {
-      const blocks = await getAllPageBlocks(notionPageId);
-      if (blocks.length > 0) {
-        return { blocks, pageId: notionPageId };
-      }
-    }
+  console.log('[fetchPageContent] called with', { notionPageId, nodeName });
 
-    // Strategy 2: Search by name across the entire workspace
-    if (nodeName) {
+  // Strategy 1: Use the page ID directly (most reliable)
+  if (notionPageId) {
+    try {
+      console.log('[fetchPageContent] Fetching blocks for pageId:', notionPageId);
+      const blocks = await getAllPageBlocks(notionPageId);
+      console.log('[fetchPageContent] Got', blocks.length, 'blocks');
+      // Always return — even 0 blocks means the page just has no body content
+      return { blocks, pageId: notionPageId };
+    } catch (error) {
+      console.error('[fetchPageContent] Error fetching blocks for pageId:', notionPageId, error);
+      // Don't swallow — let the caller know what happened
+      throw error;
+    }
+  }
+
+  // Strategy 2: No pageId — search by name across the entire workspace
+  if (nodeName) {
+    try {
+      console.log('[fetchPageContent] No pageId, searching by name:', nodeName);
       const pages = await searchPages(nodeName);
-      // Find an exact title match (case-insensitive, trim whitespace)
       const normalised = nodeName.trim().toLowerCase();
       const match = pages.find((p) => {
         const title = extractPageTitle(p);
         return title.trim().toLowerCase() === normalised;
       });
       if (match) {
+        console.log('[fetchPageContent] Found matching page:', match.id);
         const blocks = await getAllPageBlocks(match.id);
         return { blocks, pageId: match.id };
       }
+      console.log('[fetchPageContent] No exact match found among', pages.length, 'results');
+    } catch (error) {
+      console.error('[fetchPageContent] Error searching by name:', error);
+      throw error;
     }
-
-    return { blocks: [], pageId: notionPageId || null };
-  } catch (error) {
-    console.error('Error fetching page content:', error);
-    return { blocks: [], pageId: notionPageId || null };
   }
+
+  return { blocks: [], pageId: null };
 }
 
 /** Extract page title from a NotionPage's properties */

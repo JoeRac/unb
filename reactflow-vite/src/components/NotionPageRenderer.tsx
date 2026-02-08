@@ -488,6 +488,12 @@ interface NotionPageRendererProps {
   error: string | null;
   accentColor?: string;
   onRetry?: () => void;
+  /** Fallback: HTML description from node properties (shown when page body is empty) */
+  fallbackDescription?: string;
+  /** Fallback: images from node properties */
+  fallbackImages?: { src: string; alt?: string }[];
+  /** Fallback: video from node properties */
+  fallbackVideo?: { type: string; url: string };
 }
 
 export default function NotionPageRenderer({
@@ -496,6 +502,9 @@ export default function NotionPageRenderer({
   error,
   accentColor = '#3b82f6',
   onRetry,
+  fallbackDescription,
+  fallbackImages,
+  fallbackVideo,
 }: NotionPageRendererProps) {
   if (isLoading) {
     return (
@@ -554,6 +563,74 @@ export default function NotionPageRenderer({
   }
 
   if (!blocks || blocks.length === 0) {
+    // Check if we have fallback content from node properties
+    const hasFallback = fallbackDescription || (fallbackImages && fallbackImages.length > 0) || fallbackVideo;
+
+    if (hasFallback) {
+      return (
+        <div style={{ fontSize: '13px', lineHeight: 1.7, color: '#334155' }}>
+          {fallbackDescription && (
+            <div
+              style={{
+                margin: '0 0 12px',
+                padding: '12px 14px',
+                background: 'rgba(255,255,255,0.9)',
+                borderRadius: '8px',
+                borderLeft: `3px solid ${accentColor}`,
+                border: '1px solid rgba(226,232,240,0.6)',
+                borderLeftWidth: '3px',
+                borderLeftColor: accentColor,
+              }}
+              dangerouslySetInnerHTML={{ __html: fallbackDescription }}
+            />
+          )}
+          {fallbackImages?.map((img) => (
+            <img
+              key={img.src}
+              src={img.src}
+              alt={img.alt || ''}
+              style={{
+                width: '100%',
+                borderRadius: '8px',
+                marginBottom: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                border: '1px solid rgba(226,232,240,0.6)',
+              }}
+            />
+          ))}
+          {fallbackVideo && (() => {
+            const ytMatch = fallbackVideo.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+            if (ytMatch) {
+              return (
+                <div style={{ aspectRatio: '16/9', margin: '0 0 12px' }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${ytMatch[1]}`}
+                    style={{ width: '100%', height: '100%', borderRadius: '8px', border: '1px solid rgba(226,232,240,0.6)' }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              );
+            }
+            if (fallbackVideo.type === 'html5') {
+              return <video controls src={fallbackVideo.url} style={{ width: '100%', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(226,232,240,0.6)' }} />;
+            }
+            return (
+              <iframe
+                src={fallbackVideo.url}
+                style={{ width: '100%', aspectRatio: '16/9', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(226,232,240,0.6)' }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            );
+          })()}
+          <div style={{ fontSize: '10px', color: '#b0b8c4', textAlign: 'center', marginTop: '8px', fontStyle: 'italic' }}>
+            Showing data from node properties. Add content to the page body in Notion for richer documentation.
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         style={{
@@ -567,9 +644,9 @@ export default function NotionPageRenderer({
         }}
       >
         <span style={{ fontSize: '28px', display: 'block', marginBottom: '10px', opacity: 0.4 }}>📄</span>
-        <p style={{ margin: 0 }}>No page content found in Notion.</p>
+        <p style={{ margin: 0 }}>This page has no body content yet.</p>
         <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#b0b8c4' }}>
-          Add content to this page in Notion to see it here.
+          Open this page in Notion and add content to see it here.
         </p>
       </div>
     );
