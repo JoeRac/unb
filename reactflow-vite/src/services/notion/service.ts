@@ -427,7 +427,7 @@ export async function updatePathFav(
   }
   
   await updatePage(existingPage.id, {
-    fav: { checkbox: fav },
+    fav: { rich_text: [{ text: { content: fav ? 'true' : 'false' } }] },
   });
   
   // Invalidate cache

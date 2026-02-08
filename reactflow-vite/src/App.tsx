@@ -3412,6 +3412,25 @@ function DiagramContent() {
         if (DATA_SOURCE === 'notion') {
           // Load from Notion
           const paths = await notionService.fetchPaths();
+          
+          // Sync favourites from Notion into favouritePathIds and localStorage
+          const notionFavIds = new Set<string>();
+          paths.forEach((p: PathRecord) => {
+            if (p.fav) notionFavIds.add(p.id);
+          });
+          setFavouritePathIds(prev => {
+            // Merge: Notion is source of truth, localStorage provides fast initial render
+            const merged = new Set(prev);
+            notionFavIds.forEach(id => merged.add(id));
+            // Sync merged set back to localStorage
+            try {
+              const obj: Record<string, boolean> = {};
+              merged.forEach(id => { obj[id] = true; });
+              localStorage.setItem('pathFavourites', JSON.stringify(obj));
+            } catch { /* ignore */ }
+            return merged;
+          });
+          
           const list: PathRow[] = paths
             .filter((p: PathRecord) => p.name && (p.status ? p.status.toLowerCase() !== 'deleted' : true))
             .map((p: PathRecord) => {

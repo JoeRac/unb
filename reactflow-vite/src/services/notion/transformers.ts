@@ -299,7 +299,7 @@ export function notionPageToPath(page: NotionPage): PathRecord {
     dateUpdated: extractDate(props['date_updated']) || extractDate(props['dateUpdated']) || undefined,
     lastModified: page.last_edited_time,
     priority: extractNumber(props['priority']),
-    fav: extractCheckbox(props['fav']) || undefined,
+    fav: extractRichText(props['fav']) === 'true' ? true : undefined,
   };
 }
 
@@ -499,7 +499,7 @@ export function pathToNotionProperties(path: Partial<PathRecord>): Record<string
     props['priority'] = { number: path.priority };
   }
   if (path.fav !== undefined) {
-    props['fav'] = createCheckboxProperty(!!path.fav);
+    props['fav'] = createRichTextProperty(path.fav ? 'true' : 'false');
   }
   
   return props;
