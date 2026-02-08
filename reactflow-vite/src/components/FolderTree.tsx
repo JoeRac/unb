@@ -690,7 +690,7 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
           onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
           style={{
             ...styles.actionButton,
-            color: isFav ? '#FCFDFE' : '#94a3b8',
+            color: isFav ? '#ebd085' : '#94a3b8',
             opacity: isFav ? 1 : 0,
             transition: 'all 0.15s ease',
             ...(isHovered && !isFav ? { opacity: 0.6 } : {}),
@@ -834,7 +834,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
             <span style={{ width: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ChevronIcon isOpen={showFavourites} />
             </span>
-            <span style={{ color: '#FCFDFE', display: 'flex' }}>
+            <span style={{ color: '#ebd085', display: 'flex' }}>
               <StarIcon filled size={13} />
             </span>
             <span style={{
