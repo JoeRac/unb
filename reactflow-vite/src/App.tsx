@@ -1888,6 +1888,16 @@ function DiagramContent() {
   // Categories loaded from Notion (used as folders)
   const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>([]);
 
+  // Favourite path IDs - stored independently in localStorage for reliable persistence
+  const [favouritePathIds, setFavouritePathIds] = useState<Set<string>>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('pathFavourites') || '{}');
+      return new Set(Object.keys(stored));
+    } catch {
+      return new Set();
+    }
+  });
+
   // Build the nested folder tree for rendering
   const folderTree: FolderTreeNode[] = useMemo(() => buildCategoryTree(categoriesList) as FolderTreeNode[], [categoriesList]);
 
@@ -2864,30 +2874,28 @@ function DiagramContent() {
   };
 
   // Toggle favourite status for a path
-  const handleToggleFav = useCallback(async (pathId: string, fav: boolean) => {
-    // Update UI state
-    setPathsList(prev => prev.map(p => 
-      p.id === pathId ? { ...p, fav } : p
-    ));
-    
-    // Persist to localStorage immediately (reliable, instant)
-    try {
-      const stored = JSON.parse(localStorage.getItem('pathFavourites') || '{}');
+  const handleToggleFav = useCallback((pathId: string, fav: boolean) => {
+    // Update in-memory state
+    setFavouritePathIds(prev => {
+      const next = new Set(prev);
       if (fav) {
-        stored[pathId] = true;
+        next.add(pathId);
       } else {
-        delete stored[pathId];
+        next.delete(pathId);
       }
-      localStorage.setItem('pathFavourites', JSON.stringify(stored));
-    } catch (e) {
-      console.warn('Error saving fav to localStorage:', e);
-    }
+      // Persist to localStorage immediately
+      try {
+        const obj: Record<string, boolean> = {};
+        next.forEach(id => { obj[id] = true; });
+        localStorage.setItem('pathFavourites', JSON.stringify(obj));
+      } catch { /* ignore */ }
+      return next;
+    });
     
     // Also persist to Notion (non-blocking, best-effort)
     if (DATA_SOURCE === 'notion') {
-      notionService.updatePathFav(pathId, fav).catch(error => {
-        console.warn('Could not save fav to Notion (column may not exist):', error);
-        // Don't revert - localStorage is the source of truth
+      notionService.updatePathFav(pathId, fav).catch(() => {
+        // Silently ignore - localStorage is the source of truth
       });
     }
   }, []);
@@ -2901,9 +2909,9 @@ function DiagramContent() {
         name: p.name,
         category: p.category,
         priority: p.priority,
-        fav: p.fav,
+        fav: favouritePathIds.has(p.id),
       })),
-    [pathsList]
+    [pathsList, favouritePathIds]
   );
 
   // Archived paths for the archived view
@@ -2915,9 +2923,9 @@ function DiagramContent() {
         name: p.name,
         category: p.category,
         priority: p.priority,
-        fav: p.fav,
+        fav: favouritePathIds.has(p.id),
       })),
-    [pathsList]
+    [pathsList, favouritePathIds]
   );
 
   // Sorted paths for alpha view (A-Z by name)
@@ -3404,13 +3412,6 @@ function DiagramContent() {
         if (DATA_SOURCE === 'notion') {
           // Load from Notion
           const paths = await notionService.fetchPaths();
-          
-          // Load saved favourites from localStorage
-          let savedFavs: Record<string, boolean> = {};
-          try {
-            savedFavs = JSON.parse(localStorage.getItem('pathFavourites') || '{}');
-          } catch { /* ignore parse errors */ }
-          
           const list: PathRow[] = paths
             .filter((p: PathRecord) => p.name && (p.status ? p.status.toLowerCase() !== 'deleted' : true))
             .map((p: PathRecord) => {
@@ -3428,7 +3429,6 @@ function DiagramContent() {
                 dateUpdated: p.dateUpdated,
                 lastUpdated: Number.isNaN(parsedLastUpdated) ? undefined : parsedLastUpdated,
                 priority: p.priority,
-                fav: savedFavs[p.id] || p.fav,
               };
             });
           
