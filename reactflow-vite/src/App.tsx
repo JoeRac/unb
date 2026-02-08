@@ -158,8 +158,8 @@ function applyLayout(
   
   switch (layoutType) {
     case 'default': {
-      // Standard dagre top-to-bottom
-      dagreGraph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 70 });
+      // Standard dagre top-to-bottom (wider spacing, left-aligned — visually distinct from centered)
+      dagreGraph.setGraph({ rankdir: 'TB', nodesep: 30, ranksep: 90, align: 'UL' });
       nodes.forEach(node => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
       edges.forEach(edge => dagreGraph.setEdge(edge.source, edge.target));
       dagre.layout(dagreGraph);
@@ -2910,8 +2910,9 @@ function DiagramContent() {
         category: p.category,
         priority: p.priority,
         fav: favouritePathIds.has(p.id),
+        lastUpdated: pathLastUpdated[p.id] || p.lastUpdated || 0,
       })),
-    [pathsList, favouritePathIds]
+    [pathsList, favouritePathIds, pathLastUpdated]
   );
 
   // Archived paths for the archived view
@@ -2924,8 +2925,9 @@ function DiagramContent() {
         category: p.category,
         priority: p.priority,
         fav: favouritePathIds.has(p.id),
+        lastUpdated: pathLastUpdated[p.id] || p.lastUpdated || 0,
       })),
-    [pathsList, favouritePathIds]
+    [pathsList, favouritePathIds, pathLastUpdated]
   );
 
   // Sorted paths for alpha view (A-Z by name)
@@ -3605,14 +3607,23 @@ function DiagramContent() {
   const updatePathNodes = useCallback(async (pathId: string, pathName: string, nodeIds: Set<string>) => {
     if (!pathId) return;
     
-    // Debounce to avoid too many saves on rapid clicking
+    const nodeIdsArray = Array.from(nodeIds);
+    
+    // Update local state immediately for instant UI feedback
+    setPathsList(prev => prev.map(p => 
+      p.id === pathId ? { ...p, nodeIds: nodeIdsArray } : p
+    ));
+    setPathsMap(prev => ({
+      ...prev,
+      [pathName]: nodeIdsArray,
+    }));
+    
+    // Debounce only the backend save to avoid flooding the API
     if (updatePathNodesRef.current) {
       clearTimeout(updatePathNodesRef.current);
     }
     
     updatePathNodesRef.current = setTimeout(async () => {
-      const nodeIdsArray = Array.from(nodeIds);
-      
       try {
         if (DATA_SOURCE === 'notion') {
           // Save to Notion
@@ -3632,19 +3643,10 @@ function DiagramContent() {
             }),
           });
         }
-        
-        // Update local state
-        setPathsList(prev => prev.map(p => 
-          p.id === pathId ? { ...p, nodeIds: nodeIdsArray } : p
-        ));
-        setPathsMap(prev => ({
-          ...prev,
-          [pathName]: nodeIdsArray,
-        }));
       } catch (error) {
         console.error('Error updating path nodes:', error);
       }
-    }, 500); // 500ms debounce
+    }, 500); // 500ms debounce for backend only
   }, [GOOGLE_SCRIPT_URL]);
 
   // Keep the ref updated with the latest callback

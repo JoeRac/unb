@@ -22,6 +22,7 @@ export interface PathItem {
   category?: string;
   priority?: number; // 0-100, higher = more important
   fav?: boolean; // Favourite flag
+  lastUpdated?: number; // timestamp for sorting
 }
 
 interface FolderTreeProps {
@@ -689,7 +690,7 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
           onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
           style={{
             ...styles.actionButton,
-            color: isFav ? '#f59e0b' : '#94a3b8',
+            color: isFav ? '#b8963a' : '#94a3b8',
             opacity: isFav ? 1 : 0,
             transition: 'all 0.15s ease',
             ...(isHovered && !isFav ? { opacity: 0.6 } : {}),
@@ -753,8 +754,12 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   const [isDragOverRoot, setIsDragOverRoot] = useState(false);
   const [showFavourites, setShowFavourites] = useState(true);
 
-  // Favourite paths
-  const favouritePaths = paths.filter(p => p.fav);
+  // Favourite paths — sorted by priority (highest first), then latest modified
+  const favouritePaths = paths.filter(p => p.fav).sort((a, b) => {
+    const priDiff = (b.priority ?? 50) - (a.priority ?? 50);
+    if (priDiff !== 0) return priDiff;
+    return (b.lastUpdated ?? 0) - (a.lastUpdated ?? 0);
+  });
 
   // Paths without a folder (uncategorized)
   const uncategorizedPaths = paths.filter(p => !p.category);
@@ -829,13 +834,13 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
             <span style={{ width: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ChevronIcon isOpen={showFavourites} />
             </span>
-            <span style={{ color: '#f59e0b', display: 'flex' }}>
+            <span style={{ color: '#b8963a', display: 'flex' }}>
               <StarIcon filled size={13} />
             </span>
             <span style={{
               fontSize: '10px',
               fontWeight: 600,
-              color: '#92400e',
+              color: '#7a6d3a',
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
               flex: 1,
@@ -844,8 +849,8 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
             </span>
             <span style={{
               fontSize: '9px',
-              color: '#b45309',
-              background: 'rgba(245, 158, 11, 0.1)',
+              color: '#8a7a3e',
+              background: 'rgba(184, 150, 58, 0.1)',
               padding: '1px 6px',
               borderRadius: '8px',
               fontWeight: 600,
@@ -879,7 +884,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           )}
           <div style={{
             height: '1px',
-            background: 'linear-gradient(90deg, transparent 0%, rgba(245, 158, 11, 0.2) 20%, rgba(245, 158, 11, 0.2) 80%, transparent 100%)',
+            background: 'linear-gradient(90deg, transparent 0%, rgba(184, 150, 58, 0.15) 20%, rgba(184, 150, 58, 0.15) 80%, transparent 100%)',
             margin: '6px 8px',
           }} />
         </div>
