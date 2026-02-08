@@ -21,6 +21,7 @@ export interface PathItem {
   name: string;
   category?: string;
   priority?: number; // 0-100, higher = more important
+  fav?: boolean; // Favourite flag
 }
 
 interface FolderTreeProps {
@@ -39,6 +40,7 @@ interface FolderTreeProps {
   onDeletePath: (pathName: string) => void;
   onRenamePath: (oldName: string, newName: string) => void;
   onDoubleClickPath: (pathName: string) => void; // Double-click opens path notes focus mode
+  onToggleFav?: (pathId: string, fav: boolean) => void; // Toggle favourite status
   hideUnassigned?: boolean; // If true, don't render unassigned paths (they're rendered separately)
   autoEditPathId?: string | null; // If set, automatically start editing this path name
   onAutoEditComplete?: () => void; // Called when auto-edit is complete
@@ -105,6 +107,12 @@ const EditIcon = ({ size = 12 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
+const StarIcon = ({ filled = false, size = 12 }: { filled?: boolean; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
   </svg>
 );
 
@@ -264,6 +272,7 @@ interface FolderItemProps {
   onDeletePath: (pathName: string) => void;
   onRenamePath: (oldName: string, newName: string) => void;
   onDoubleClickPath: (pathName: string) => void;
+  onToggleFav?: (pathId: string, fav: boolean) => void;
   allFolders: FolderTreeNode[];
   expandedFolders: Record<string, boolean>;
   onToggleFolder: (folderId: string) => void;
@@ -288,6 +297,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
   onDeletePath,
   onRenamePath,
   onDoubleClickPath,
+  onToggleFav,
   allFolders,
   expandedFolders,
   onToggleFolder,
@@ -502,6 +512,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
               onDeletePath={onDeletePath}
               onRenamePath={onRenamePath}
               onDoubleClickPath={onDoubleClickPath}
+              onToggleFav={onToggleFav}
               allFolders={allFolders}
               expandedFolders={expandedFolders}
               onToggleFolder={onToggleFolder}
@@ -521,6 +532,8 @@ const FolderItem: React.FC<FolderItemProps> = ({
               onDelete={() => onDeletePath(path.name)}
               onRename={(newName) => onRenamePath(path.name, newName)}
               onDoubleClick={() => onDoubleClickPath(path.name)}
+              onToggleFav={onToggleFav ? () => onToggleFav(path.id, !path.fav) : undefined}
+              isFav={!!path.fav}
               onDragStart={(e) => {
                 e.dataTransfer.setData('pathName', path.name);
                 e.dataTransfer.effectAllowed = 'move';
@@ -547,6 +560,8 @@ interface PathItemRowProps {
   onDelete: () => void;
   onRename: (newName: string) => void;
   onDoubleClick: () => void; // Double-click opens path notes focus mode
+  onToggleFav?: () => void; // Toggle favourite status
+  isFav?: boolean; // Whether path is favourited
   onDragStart: (e: React.DragEvent) => void;
   autoEdit?: boolean; // If true, automatically start editing when mounted
   onAutoEditComplete?: () => void; // Called when auto-edit is complete
@@ -560,6 +575,8 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
   onDelete,
   onRename,
   onDoubleClick,
+  onToggleFav,
+  isFav = false,
   onDragStart,
   autoEdit = false,
   onAutoEditComplete,
@@ -666,6 +683,23 @@ const PathItemRow: React.FC<PathItemRowProps> = ({
         </span>
       )}
 
+      {/* Fav star - always visible when favourited, otherwise on hover */}
+      {!isEditing && onToggleFav && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
+          style={{
+            ...styles.actionButton,
+            color: isFav ? '#f59e0b' : '#94a3b8',
+            opacity: isFav ? 1 : 0,
+            transition: 'all 0.15s ease',
+            ...(isHovered && !isFav ? { opacity: 0.6 } : {}),
+          }}
+          title={isFav ? 'Remove from favourites' : 'Add to favourites'}
+        >
+          <StarIcon filled={isFav} />
+        </button>
+      )}
+
       {/* Actions - removed notes button, double-click opens notes instead */}
       {!isEditing && (
         <div style={{ ...styles.folderActions, ...(isHovered ? styles.folderActionsVisible : {}) }}>
@@ -709,6 +743,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   onDeletePath,
   onRenamePath,
   onDoubleClickPath,
+  onToggleFav,
   hideUnassigned = false,
   autoEditPathId,
   onAutoEditComplete,
@@ -716,6 +751,10 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   const [isAddingRoot, setIsAddingRoot] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [isDragOverRoot, setIsDragOverRoot] = useState(false);
+  const [showFavourites, setShowFavourites] = useState(true);
+
+  // Favourite paths
+  const favouritePaths = paths.filter(p => p.fav);
 
   // Paths without a folder (uncategorized)
   const uncategorizedPaths = paths.filter(p => !p.category);
@@ -773,6 +812,79 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 
   return (
     <div style={styles.container}>
+      {/* Favourites section - shown before folders */}
+      {favouritePaths.length > 0 && (
+        <div style={{ marginBottom: '8px' }}>
+          <div
+            onClick={() => setShowFavourites(!showFavourites)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 8px',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <span style={{ width: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ChevronIcon isOpen={showFavourites} />
+            </span>
+            <span style={{ color: '#f59e0b', display: 'flex' }}>
+              <StarIcon filled size={13} />
+            </span>
+            <span style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#92400e',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              flex: 1,
+            }}>
+              Favourites
+            </span>
+            <span style={{
+              fontSize: '9px',
+              color: '#b45309',
+              background: 'rgba(245, 158, 11, 0.1)',
+              padding: '1px 6px',
+              borderRadius: '8px',
+              fontWeight: 600,
+            }}>
+              {favouritePaths.length}
+            </span>
+          </div>
+          {showFavourites && (
+            <div style={{ paddingLeft: '8px' }}>
+              {favouritePaths.map((path) => (
+                <PathItemRow
+                  key={`fav-${path.id}`}
+                  path={path}
+                  level={1}
+                  isActive={activePath === path.name}
+                  onSelect={() => onSelectPath(path.name)}
+                  onDelete={() => onDeletePath(path.name)}
+                  onRename={(newName) => onRenamePath(path.name, newName)}
+                  onDoubleClick={() => onDoubleClickPath(path.name)}
+                  onToggleFav={onToggleFav ? () => onToggleFav(path.id, false) : undefined}
+                  isFav={true}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('pathName', path.name);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  autoEdit={autoEditPathId === path.id}
+                  onAutoEditComplete={onAutoEditComplete}
+                />
+              ))}
+            </div>
+          )}
+          <div style={{
+            height: '1px',
+            background: 'linear-gradient(90deg, transparent 0%, rgba(245, 158, 11, 0.2) 20%, rgba(245, 158, 11, 0.2) 80%, transparent 100%)',
+            margin: '6px 8px',
+          }} />
+        </div>
+      )}
+
       {/* Folder tree */}
       {folders.map((folder) => (
         <FolderItem
@@ -793,6 +905,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           onDeletePath={onDeletePath}
           onRenamePath={onRenamePath}
           onDoubleClickPath={onDoubleClickPath}
+          onToggleFav={onToggleFav}
           allFolders={folders}
           expandedFolders={expandedFolders}
           onToggleFolder={onToggleFolder}
@@ -853,6 +966,8 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
               onDelete={() => onDeletePath(path.name)}
               onRename={(newName) => onRenamePath(path.name, newName)}
               onDoubleClick={() => onDoubleClickPath(path.name)}
+              onToggleFav={onToggleFav ? () => onToggleFav(path.id, !path.fav) : undefined}
+              isFav={!!path.fav}
               onDragStart={(e) => {
                 e.dataTransfer.setData('pathName', path.name);
                 e.dataTransfer.effectAllowed = 'move';
@@ -879,6 +994,7 @@ interface UnassignedPathsSectionProps {
   onDeletePath: (pathName: string) => void;
   onRenamePath: (oldName: string, newName: string) => void;
   onDoubleClickPath: (pathName: string) => void;
+  onToggleFav?: (pathId: string, fav: boolean) => void;
   autoEditPathId?: string | null;
   onAutoEditComplete?: () => void;
 }
@@ -891,6 +1007,7 @@ export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
   onDeletePath,
   onRenamePath,
   onDoubleClickPath,
+  onToggleFav,
   autoEditPathId,
   onAutoEditComplete,
 }) => {
@@ -978,6 +1095,8 @@ export const UnassignedPathsSection: React.FC<UnassignedPathsSectionProps> = ({
             onDelete={() => onDeletePath(path.name)}
             onRename={(newName) => onRenamePath(path.name, newName)}
             onDoubleClick={() => onDoubleClickPath(path.name)}
+            onToggleFav={onToggleFav ? () => onToggleFav(path.id, !path.fav) : undefined}
+            isFav={!!path.fav}
             onDragStart={(e) => {
               e.dataTransfer.setData('pathName', path.name);
               e.dataTransfer.effectAllowed = 'move';

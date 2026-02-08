@@ -1863,6 +1863,7 @@ type PathRow = {
   dateUpdated?: string;
   lastUpdated?: number; // timestamp for sorting by latest activity
   priority?: number; // 0-100, higher = more important (red), lower = less important (blue)
+  fav?: boolean; // Favourite flag
 };
 
 function DiagramContent() {
@@ -1930,7 +1931,7 @@ function DiagramContent() {
   
   // Panel position and size state for draggable/resizable panels
   const [leftPanelPos, setLeftPanelPos] = useState({ x: 20, y: 20 });
-  const [leftPanelSize, setLeftPanelSize] = useState({ width: 260, height: 600 });
+  const [leftPanelSize, setLeftPanelSize] = useState({ width: 390, height: 700 });
   const [notesPathName, setNotesPathName] = useState<string | null>(null);
   const [isDraggingPanel, setIsDraggingPanel] = useState<'left' | 'info' | null>(null);
   const [resizeEdge, setResizeEdge] = useState<{ panel: 'left' | 'info'; edge: string } | null>(null);
@@ -2862,6 +2863,27 @@ function DiagramContent() {
     }
   };
 
+  // Toggle favourite status for a path
+  const handleToggleFav = useCallback(async (pathId: string, fav: boolean) => {
+    // Optimistic UI update
+    setPathsList(prev => prev.map(p => 
+      p.id === pathId ? { ...p, fav } : p
+    ));
+    
+    // Persist to backend
+    try {
+      if (DATA_SOURCE === 'notion') {
+        await notionService.updatePathFav(pathId, fav);
+      }
+    } catch (error) {
+      console.error('Error updating fav status:', error);
+      // Revert on error
+      setPathsList(prev => prev.map(p => 
+        p.id === pathId ? { ...p, fav: !fav } : p
+      ));
+    }
+  }, []);
+
   // Convert paths list to PathItem format for FolderTree (excludes archived paths)
   const folderPathItems: PathItem[] = useMemo(() => 
     pathsList
@@ -2871,6 +2893,7 @@ function DiagramContent() {
         name: p.name,
         category: p.category,
         priority: p.priority,
+        fav: p.fav,
       })),
     [pathsList]
   );
@@ -2884,6 +2907,7 @@ function DiagramContent() {
         name: p.name,
         category: p.category,
         priority: p.priority,
+        fav: p.fav,
       })),
     [pathsList]
   );
@@ -3389,6 +3413,7 @@ function DiagramContent() {
                 dateUpdated: p.dateUpdated,
                 lastUpdated: Number.isNaN(parsedLastUpdated) ? undefined : parsedLastUpdated,
                 priority: p.priority,
+                fav: p.fav,
               };
             });
           
@@ -4495,6 +4520,7 @@ function DiagramContent() {
                   setNotesPathName(pathName);
                   setPathNotesFocusMode(true);
                 }}
+                onToggleFav={handleToggleFav}
                 hideUnassigned={true}
                 autoEditPathId={autoEditPathId}
                 onAutoEditComplete={() => setAutoEditPathId(null)}
@@ -4603,6 +4629,7 @@ function DiagramContent() {
                   setNotesPathName(pathName);
                   setPathNotesFocusMode(true);
                 }}
+                onToggleFav={handleToggleFav}
                 autoEditPathId={autoEditPathId}
                 onAutoEditComplete={() => setAutoEditPathId(null)}
               />
@@ -6749,6 +6776,7 @@ function DiagramContent() {
                     setPathNotesFocusMode(true);
                     setSidebarFocusMode(false);
                   }}
+                  onToggleFav={handleToggleFav}
                   hideUnassigned={true}
                   autoEditPathId={autoEditPathId}
                   onAutoEditComplete={() => setAutoEditPathId(null)}
@@ -6787,6 +6815,7 @@ function DiagramContent() {
                     setPathNotesFocusMode(true);
                     setSidebarFocusMode(false);
                   }}
+                  onToggleFav={handleToggleFav}
                   hideUnassigned={false}
                   autoEditPathId={autoEditPathId}
                   onAutoEditComplete={() => setAutoEditPathId(null)}
@@ -7289,6 +7318,7 @@ function DiagramContent() {
                     setPathNotesFocusMode(true);
                     setSidebarFocusMode(false);
                   }}
+                  onToggleFav={handleToggleFav}
                   autoEditPathId={autoEditPathId}
                   onAutoEditComplete={() => setAutoEditPathId(null)}
                 />

@@ -158,6 +158,7 @@ export interface PathRecord {
   dateUpdated?: string;
   lastModified?: string;
   priority?: number; // 0-100, higher = more important (red), lower = less important (blue)
+  fav?: boolean; // Favourite flag
 }
 
 // Audio note data

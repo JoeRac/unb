@@ -413,6 +413,28 @@ export async function updatePathStatus(
 }
 
 /**
+ * Update path favourite status
+ */
+export async function updatePathFav(
+  pathId: string,
+  fav: boolean
+): Promise<void> {
+  const existingPage = await findPathByAppId(pathId);
+  
+  if (!existingPage) {
+    console.error('Path not found for fav update:', pathId);
+    return;
+  }
+  
+  await updatePage(existingPage.id, {
+    fav: { checkbox: fav },
+  });
+  
+  // Invalidate cache
+  cache.paths = null;
+}
+
+/**
  * Rename a path
  */
 export async function renamePath(

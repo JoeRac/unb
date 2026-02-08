@@ -101,6 +101,7 @@ export {
   updatePathNodes,
   updatePathCategory,
   updatePathPriority,
+  updatePathFav,
   updatePathStatus,
   renamePath,
   savePathNotes,
