@@ -61,6 +61,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // GET and HEAD requests must NOT have a body
+    if (actualMethod === 'GET' || actualMethod === 'HEAD') {
+      notionBody = undefined;
+    }
+
     console.log('[Notion Proxy] Actual method:', actualMethod);
     console.log('[Notion Proxy] Notion body:', notionBody);
 
@@ -71,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Notion-Version': NOTION_API_VERSION,
         'Content-Type': 'application/json',
       },
-      body: notionBody,
+      ...(notionBody ? { body: notionBody } : {}),
     });
 
     console.log('[Notion Proxy] Notion response status:', notionResponse.status);

@@ -163,7 +163,7 @@ async function executeRequest<T>(options: RequestOptions): Promise<T> {
       },
       body: JSON.stringify({
         method,
-        body: body || {},
+        ...(body ? { body } : {}),
       }),
     };
   }
