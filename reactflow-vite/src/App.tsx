@@ -2198,14 +2198,16 @@ function DiagramContent() {
     return () => { cancelled = true; };
   }, [editorFocusMode, selectedNode]);
 
-  // Initialize path notes editor content when focus mode opens or path changes
-  // The contentEditable uses key={activePathId} so React remounts it for each path.
-  // We set innerHTML via useEffect after mount.
+  // Backup: if path notes data loads after the contentEditable mounts,
+  // set innerHTML via useEffect. The key={activePathId} forces remount on path change,
+  // and dangerouslySetInnerHTML handles initial content. This covers late-loading data.
   useEffect(() => {
     if (pathNotesFocusMode && activePathId && pathNotesEditorRef.current) {
-      if (!pathNotesEditorRef.current.dataset.initialized) {
-        pathNotesEditorRef.current.innerHTML = pathNotes[activePathId] || '';
-        pathNotesEditorRef.current.dataset.initialized = '1';
+      const currentContent = pathNotesEditorRef.current.innerHTML;
+      const expected = pathNotes[activePathId] || '';
+      // Only set if the editor is empty and we have content to show
+      if ((!currentContent || currentContent === '<br>') && expected) {
+        pathNotesEditorRef.current.innerHTML = expected;
       }
     }
   }, [pathNotesFocusMode, activePathId, pathNotes]);
@@ -5764,9 +5766,16 @@ function DiagramContent() {
           return Math.max(...parentEdges.map(e => getNodeDepth(e.source, visited))) + 1;
         };
         
-        const sortedNodeIds = Array.from(manualHighlights).sort((a, b) => {
-          return getNodeDepth(a) - getNodeDepth(b);
-        });
+        // Only show nodes that exist in the diagram OR have existing content
+        const sortedNodeIds = Array.from(manualHighlights)
+          .filter(id => {
+            const nodeExists = nodes.some(n => n.id === id);
+            const hasContent = !!(sidebarNodeContent[id] || nodePathMap[activePathId]?.[id]);
+            return nodeExists || hasContent;
+          })
+          .sort((a, b) => {
+            return getNodeDepth(a) - getNodeDepth(b);
+          });
         
         // Priority calculations
         const currentPath = pathsList.find(p => p.id === activePathId);
@@ -6220,7 +6229,13 @@ function DiagramContent() {
                   
                   <div
                     key={`path-notes-${activePathId}`}
-                    ref={pathNotesEditorRef}
+                    ref={(el) => {
+                      pathNotesEditorRef.current = el;
+                      if (el && !el.dataset.initialized) {
+                        el.innerHTML = pathNotes[activePathId] || '';
+                        el.dataset.initialized = '1';
+                      }
+                    }}
                     contentEditable
                     dir="ltr"
                     onInput={(e) => {
