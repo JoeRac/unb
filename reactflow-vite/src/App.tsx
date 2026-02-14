@@ -1246,7 +1246,7 @@ function MethodNode(props: any) {
     ? (isHighlighted ? theme.glassShadowSelected : theme.glassShadow)
     : (isHighlighted ? diagramTheme.node.shadowHighlight : diagramTheme.node.shadow);
 
-  // "i" button now toggles selection (like clicking the node)
+  // Checkbox button toggles selection
   const handleToggleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (data.onToggleSelect) {
@@ -1254,8 +1254,8 @@ function MethodNode(props: any) {
     }
   };
 
-  // Clicking the title opens the popup
-  const handleTitleClick = (e: React.MouseEvent) => {
+  // Clicking anywhere on the node body opens focus mode
+  const handleNodeBodyClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (data.onInfoClick) {
       data.onInfoClick(props.id);
@@ -1263,10 +1263,11 @@ function MethodNode(props: any) {
   };
 
   const handleNoteAreaClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
     if (isHighlighted && data.onStartEditNote) {
+      e.stopPropagation();
       data.onStartEditNote(props.id);
     }
+    // If not highlighted, let the click bubble up to the outer div -> opens focus mode
   };
 
   const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1298,6 +1299,7 @@ function MethodNode(props: any) {
 
   return (
     <div
+      onClick={handleNodeBodyClick}
       style={{
         padding: '12px 14px',
         fontSize: 13,
@@ -1359,9 +1361,8 @@ function MethodNode(props: any) {
       >
         {isHighlighted ? '✓' : '○'}
       </button>
-      {/* Clickable title - opens popup */}
+      {/* Title with hover highlight */}
       <div 
-        onClick={handleTitleClick}
         style={{ 
           fontWeight: 600, 
           fontSize: 12, 
@@ -2245,12 +2246,19 @@ function DiagramContent() {
   useEffect(() => {
     if (pathNotesFocusMode && activePathId) {
       // Initialize path notes editor
-      if (pathNotesEditorRef.current && pathNotesInitialized.current !== activePathId) {
-        pathNotesEditorRef.current.innerHTML = pathNotes[activePathId] || '';
-        pathNotesInitialized.current = activePathId;
-      }
+      // Use a small delay to ensure the ref is mounted after render
+      const initEditor = () => {
+        if (pathNotesEditorRef.current && pathNotesInitialized.current !== activePathId) {
+          pathNotesEditorRef.current.innerHTML = pathNotes[activePathId] || '';
+          pathNotesInitialized.current = activePathId;
+        }
+      };
+      // Try immediately, then retry after a tick in case ref isn't ready yet
+      initEditor();
+      const timer = setTimeout(initEditor, 50);
       // Initialize node notes editors
       nodeNotesInitialized.current.clear();
+      return () => clearTimeout(timer);
     }
     // Reset when closing
     if (!pathNotesFocusMode) {
@@ -4606,6 +4614,10 @@ function DiagramContent() {
                 onDoubleClickPath={(pathName) => {
                   if (activePath !== pathName) {
                     showPath(pathName);
+                  } else {
+                    // Ensure activePathId is set even if path is already active
+                    const pr = pathsList.find(p => p.name === pathName);
+                    if (pr) setActivePathId(pr.id || pr.name);
                   }
                   setNotesPathName(pathName);
                   setPathNotesFocusMode(true);
@@ -4625,6 +4637,9 @@ function DiagramContent() {
                     onDoubleClick={() => {
                       if (activePath !== path.name) {
                         showPath(path.name);
+                      } else {
+                        const pr = pathsList.find(p => p.name === path.name);
+                        if (pr) setActivePathId(pr.id || pr.name);
                       }
                       setNotesPathName(path.name);
                       setPathNotesFocusMode(true);
@@ -4715,6 +4730,9 @@ function DiagramContent() {
                 onDoubleClickPath={(pathName) => {
                   if (activePath !== pathName) {
                     showPath(pathName);
+                  } else {
+                    const pr = pathsList.find(p => p.name === pathName);
+                    if (pr) setActivePathId(pr.id || pr.name);
                   }
                   setNotesPathName(pathName);
                   setPathNotesFocusMode(true);
@@ -6263,11 +6281,6 @@ function DiagramContent() {
                   <div
                     ref={(el) => {
                       pathNotesEditorRef.current = el;
-                      // Initialize content when ref is set
-                      if (el && pathNotesInitialized.current !== activePathId) {
-                        el.innerHTML = pathNotes[activePathId || ''] || '';
-                        pathNotesInitialized.current = activePathId;
-                      }
                     }}
                     contentEditable
                     dir="ltr"
@@ -6834,6 +6847,9 @@ function DiagramContent() {
                   onDoubleClickPath={(pathName) => {
                     if (activePath !== pathName) {
                       showPath(pathName);
+                    } else {
+                      const pr = pathsList.find(p => p.name === pathName);
+                      if (pr) setActivePathId(pr.id || pr.name);
                     }
                     setNotesPathName(pathName);
                     setPathNotesFocusMode(true);
@@ -6873,6 +6889,9 @@ function DiagramContent() {
                   onDoubleClickPath={(pathName) => {
                     if (activePath !== pathName) {
                       showPath(pathName);
+                    } else {
+                      const pr = pathsList.find(p => p.name === pathName);
+                      if (pr) setActivePathId(pr.id || pr.name);
                     }
                     setNotesPathName(pathName);
                     setPathNotesFocusMode(true);
@@ -7376,6 +7395,9 @@ function DiagramContent() {
                   onDoubleClickPath={(pathName) => {
                     if (activePath !== pathName) {
                       showPath(pathName);
+                    } else {
+                      const pr = pathsList.find(p => p.name === pathName);
+                      if (pr) setActivePathId(pr.id || pr.name);
                     }
                     setNotesPathName(pathName);
                     setPathNotesFocusMode(true);
