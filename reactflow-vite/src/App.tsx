@@ -1955,8 +1955,6 @@ function DiagramContent() {
   const focusModeEditorRef = useRef<HTMLDivElement | null>(null);
   const pathNotesEditorRef = useRef<HTMLDivElement | null>(null); // Ref for path notes in focus mode
   const nodeNotesRefs = useRef<Record<string, HTMLDivElement | null>>({}); // Refs for node notes in focus mode
-  const pathNotesInitialized = useRef<string | null>(null); // Track which path's notes are initialized
-  const nodeNotesInitialized = useRef<Set<string>>(new Set()); // Track which node notes are initialized
   const focusModeInitialized = useRef(false); // Track if focus mode editor has been initialized
   const mainEditorInitialized = useRef<string | null>(null); // Track which node's content is loaded in main editor
   const updatePathNodesCallbackRef = useRef<((pathId: string, pathName: string, nodeIds: Set<string>) => void) | null>(null);
@@ -2200,40 +2198,24 @@ function DiagramContent() {
     return () => { cancelled = true; };
   }, [editorFocusMode, selectedNode]);
 
-  // Initialize path notes editor when path notes focus mode opens
+  // Initialize path notes editor content when focus mode opens or path changes
+  // The contentEditable uses key={activePathId} so React remounts it for each path.
+  // We set innerHTML via useEffect after mount.
   useEffect(() => {
-    if (pathNotesFocusMode && activePathId) {
-      // Initialize path notes editor
-      const initEditors = () => {
-        // Path notes
-        if (pathNotesEditorRef.current && pathNotesInitialized.current !== activePathId) {
-          pathNotesEditorRef.current.innerHTML = pathNotes[activePathId] || '';
-          pathNotesInitialized.current = activePathId;
-        }
-        // Node notes — initialize from current nodePathMap via ref
-        const refs = nodeNotesRefs.current;
-        const npMap = nodePathMapRef.current;
-        const sbContent = sidebarNodeContentRef.current;
-        for (const [nodeId, el] of Object.entries(refs)) {
-          if (el && !nodeNotesInitialized.current.has(nodeId)) {
-            const c = sbContent[nodeId] ?? (npMap[activePathId]?.[nodeId] || '');
-            el.innerHTML = c;
-            nodeNotesInitialized.current.add(nodeId);
-          }
-        }
-      };
-      // Clear and retry after a tick to ensure refs are mounted
-      nodeNotesInitialized.current.clear();
-      initEditors();
-      const timer = setTimeout(initEditors, 80);
-      return () => clearTimeout(timer);
-    }
-    // Reset when closing
-    if (!pathNotesFocusMode) {
-      pathNotesInitialized.current = null;
-      nodeNotesInitialized.current.clear();
+    if (pathNotesFocusMode && activePathId && pathNotesEditorRef.current) {
+      if (!pathNotesEditorRef.current.dataset.initialized) {
+        pathNotesEditorRef.current.innerHTML = pathNotes[activePathId] || '';
+        pathNotesEditorRef.current.dataset.initialized = '1';
+      }
     }
   }, [pathNotesFocusMode, activePathId, pathNotes]);
+
+  // Keep nodeNotesRefs clean on close
+  useEffect(() => {
+    if (!pathNotesFocusMode) {
+      nodeNotesRefs.current = {};
+    }
+  }, [pathNotesFocusMode]);
 
   // Initialize main WYSIWYG editor content when popup opens, node changes, or focus mode exits
   useEffect(() => {
@@ -2319,22 +2301,12 @@ function DiagramContent() {
   // Refs for callbacks to avoid re-render loops
   const handleInlineNoteChangeRef = useRef<(nodeId: string, note: string) => void>(() => {});
   const editingNoteNodeIdRef = useRef<string | null>(null);
-  const sidebarNodeContentRef = useRef<Record<string, string>>({});
-  const nodePathMapRef = useRef<Record<string, Record<string, string>>>({});
   const activePathIdForNotesRef = useRef<string | null>(null);
 
   // Keep refs in sync
   useEffect(() => {
     editingNoteNodeIdRef.current = editingNoteNodeId;
   }, [editingNoteNodeId]);
-  
-  useEffect(() => {
-    sidebarNodeContentRef.current = sidebarNodeContent;
-  }, [sidebarNodeContent]);
-  
-  useEffect(() => {
-    nodePathMapRef.current = nodePathMap;
-  }, [nodePathMap]);
   
   useEffect(() => {
     activePathIdForNotesRef.current = activePathId;
@@ -6247,9 +6219,8 @@ function DiagramContent() {
                   />
                   
                   <div
-                    ref={(el) => {
-                      pathNotesEditorRef.current = el;
-                    }}
+                    key={`path-notes-${activePathId}`}
+                    ref={pathNotesEditorRef}
                     contentEditable
                     dir="ltr"
                     onInput={(e) => {
@@ -6451,8 +6422,13 @@ function DiagramContent() {
                               </div>
                             </div>
                             <div
+                              key={`node-note-${activePathId}-${nodeId}`}
                               ref={(el) => {
                                 nodeNotesRefs.current[nodeId] = el;
+                                if (el && !el.dataset.initialized) {
+                                  el.innerHTML = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
+                                  el.dataset.initialized = '1';
+                                }
                               }}
                               contentEditable
                               dir="ltr"
