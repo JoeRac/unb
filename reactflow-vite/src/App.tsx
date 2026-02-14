@@ -1034,7 +1034,7 @@ const DIAGRAM_THEME_ORDER: DiagramThemeId[] = [
 // Helper to get current theme
 const getTheme = (darkMode: boolean) => darkMode ? DARK_THEME : LIGHT_THEME;
 
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
 import {
   ReactFlow,
@@ -1185,6 +1185,103 @@ export function htmlToText(html: string): string {
 // ============================================
 // End Rich Text Helpers
 // ============================================
+
+// ============================================
+// RichTextEditor — self-contained contentEditable component
+// Uses its own ref + useEffect for guaranteed initialization.
+// Completely isolated from parent re-renders via React.memo.
+// ============================================
+const RichTextEditor = React.memo(function RichTextEditor({
+  initialContent,
+  onChange,
+  editorRef,
+  style,
+}: {
+  initialContent: string;
+  onChange: (html: string) => void;
+  editorRef?: React.MutableRefObject<HTMLDivElement | null>;
+  style?: React.CSSProperties;
+}) {
+  const localRef = useRef<HTMLDivElement | null>(null);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (localRef.current && !initialized.current) {
+      localRef.current.innerHTML = initialContent;
+      initialized.current = true;
+    }
+  }, [initialContent]);
+
+  const handleRef = useCallback((el: HTMLDivElement | null) => {
+    localRef.current = el;
+    if (editorRef) editorRef.current = el;
+    if (el && !initialized.current) {
+      el.innerHTML = initialContent;
+      initialized.current = true;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // stable ref callback — initialContent captured at mount
+
+  return (
+    <div
+      ref={handleRef}
+      contentEditable
+      dir="ltr"
+      onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
+      onBlur={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
+      onMouseDown={(e) => e.stopPropagation()}
+      suppressContentEditableWarning
+      style={{
+        width: '100%',
+        minHeight: '100px',
+        padding: '14px 16px',
+        fontSize: '14px',
+        border: 'none',
+        background: 'white',
+        color: '#1e293b',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        lineHeight: 1.6,
+        boxSizing: 'border-box' as const,
+        outline: 'none',
+        textAlign: 'left' as const,
+        direction: 'ltr' as const,
+        unicodeBidi: 'plaintext' as const,
+        overflow: 'auto',
+        ...style,
+      }}
+    />
+  );
+});
+
+// Error boundary to catch and display render errors in overlays
+class OverlayErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[OverlayErrorBoundary] Render error caught:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, color: 'red', background: '#fff3f3', borderRadius: 8 }}>
+          <strong>Render Error:</strong> {this.state.error?.message}
+          <pre style={{ fontSize: 11, overflow: 'auto', maxHeight: 200 }}>
+            {this.state.error?.stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.state.hasError ? null : this.props.children;
+  }
+}
 
 function MethodNode(props: any) {
   const data = props.data as NodeData & { 
@@ -5754,6 +5851,7 @@ function DiagramContent() {
       
       {/* Full-screen Path Notes Focus Mode Overlay */}
       {pathNotesFocusMode && notesPathName && activePathId && (() => {
+        console.log('[PathNotesOverlay] Rendering overlay for:', { notesPathName, activePathId, hasPathNotes: !!pathNotes[activePathId] });
         const pathContent = pathNotes[activePathId] || '';
         const wordCount = pathContent.trim() ? pathContent.trim().split(/\s+/).length : 0;
         
@@ -6100,6 +6198,7 @@ function DiagramContent() {
                 gap: '20px',
                 background: 'rgba(248,250,252,0.5)',
               }}>
+              <OverlayErrorBoundary>
                 {/* Path-level notes section */}
                 <div style={{
                   background: 'rgba(255,255,255,0.9)',
@@ -6227,45 +6326,12 @@ function DiagramContent() {
                     compact={false}
                   />
                   
-                  <div
+                  <RichTextEditor
                     key={`path-notes-${activePathId}`}
-                    ref={(el) => {
-                      pathNotesEditorRef.current = el;
-                      if (el && !el.dataset.initialized) {
-                        el.innerHTML = pathNotes[activePathId] || '';
-                        el.dataset.initialized = '1';
-                      }
-                    }}
-                    contentEditable
-                    dir="ltr"
-                    onInput={(e) => {
-                      const content = (e.target as HTMLDivElement).innerHTML;
-                      handlePathNotesChange(content);
-                    }}
-                    onBlur={(e) => {
-                      const content = (e.target as HTMLDivElement).innerHTML;
-                      handlePathNotesChange(content);
-                    }}
-                    style={{
-                      width: '100%',
-                      minHeight: '100px',
-                      maxHeight: '250px',
-                      padding: '14px 16px',
-                      fontSize: '14px',
-                      border: 'none',
-                      background: 'white',
-                      color: '#1e293b',
-                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                      lineHeight: 1.6,
-                      boxSizing: 'border-box',
-                      outline: 'none',
-                      textAlign: 'left',
-                      direction: 'ltr',
-                      unicodeBidi: 'plaintext',
-                      overflow: 'auto',
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    suppressContentEditableWarning={true}
+                    initialContent={pathNotes[activePathId] || ''}
+                    onChange={handlePathNotesChange}
+                    editorRef={pathNotesEditorRef}
+                    style={{ maxHeight: '250px' }}
                   />
                 </div>
                 
@@ -6436,22 +6502,11 @@ function DiagramContent() {
                                 />
                               </div>
                             </div>
-                            <div
+                            <RichTextEditor
                               key={`node-note-${activePathId}-${nodeId}`}
-                              ref={(el) => {
-                                nodeNotesRefs.current[nodeId] = el;
-                                if (el && !el.dataset.initialized) {
-                                  el.innerHTML = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
-                                  el.dataset.initialized = '1';
-                                }
-                              }}
-                              contentEditable
-                              dir="ltr"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onInput={(e) => {
-                                const newContent = (e.target as HTMLDivElement).innerHTML;
+                              initialContent={sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '')}
+                              onChange={(newContent) => {
                                 setSidebarNodeContent(prev => ({ ...prev, [nodeId]: newContent }));
-                                
                                 setNodePathMap(prev => ({
                                   ...prev,
                                   [activePathId]: {
@@ -6460,7 +6515,6 @@ function DiagramContent() {
                                   },
                                 }));
                                 setPathLastUpdated(prev => ({ ...prev, [activePathId]: Date.now() }));
-                                
                                 if (debounceTimerRef.current[nodeId]) {
                                   clearTimeout(debounceTimerRef.current[nodeId]);
                                 }
@@ -6492,24 +6546,12 @@ function DiagramContent() {
                                 }, 1000);
                               }}
                               style={{
-                                width: '100%',
                                 minHeight: '50px',
                                 maxHeight: '180px',
                                 padding: '12px 14px',
                                 fontSize: '13px',
-                                border: 'none',
-                                background: 'white',
                                 color: '#334155',
-                                fontFamily: 'inherit',
-                                lineHeight: 1.5,
-                                boxSizing: 'border-box',
-                                outline: 'none',
-                                overflow: 'auto',
-                                textAlign: 'left',
-                                direction: 'ltr',
-                                unicodeBidi: 'plaintext',
                               }}
-                              suppressContentEditableWarning={true}
                             />
                           </div>
                         );
@@ -6517,6 +6559,7 @@ function DiagramContent() {
                     </div>
                   )}
                 </div>
+              </OverlayErrorBoundary>
               </div>
               
               {/* Footer */}
