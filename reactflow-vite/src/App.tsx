@@ -1262,28 +1262,7 @@ function MethodNode(props: any) {
     }
   };
 
-  const handleNoteAreaClick = (e: React.MouseEvent) => {
-    if (isHighlighted && data.onStartEditNote) {
-      e.stopPropagation();
-      data.onStartEditNote(props.id);
-    }
-    // If not highlighted, let the click bubble up to the outer div -> opens focus mode
-  };
-
-  const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    e.stopPropagation();
-    const newValue = e.target.value;
-    setLocalNote(newValue);
-    if (data.onNodeNoteChange) {
-      data.onNodeNoteChange(props.id, newValue);
-    }
-  };
-
-  const handleNoteBlur = () => {
-    if (data.onStopEditNote) {
-      data.onStopEditNote();
-    }
-  };
+  // Note area click does nothing special — clicks bubble up to the outer div which opens focus mode
 
   // Get first line for preview - strip HTML and get plain text
   const getPlainTextPreview = (html: string): string => {
@@ -1411,46 +1390,25 @@ function MethodNode(props: any) {
       {/* Inline note area - only visible when highlighted */}
       {isHighlighted && (
         <div 
-          onClick={handleNoteAreaClick}
           style={{ 
             marginTop: 8,
             borderTop: isDark ? '1px solid rgba(96, 165, 250, 0.2)' : '1px solid rgba(59, 130, 246, 0.15)',
             paddingTop: 6,
           }}
         >
-          {isEditing ? (
-            <textarea
-              ref={textareaRef}
-              autoFocus
-              value={localNote}
-              onChange={handleNoteChange}
-              onBlur={handleNoteBlur}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onWheelCapture={(e) => {
-                // Stop the wheel event from reaching ReactFlow
-                e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-              }}
-              placeholder="Add note..."
+          {hasNote ? (
+            <div
               style={{
-                width: '100%',
-                minHeight: '50px',
-                maxHeight: '210px', // ~15 rows at 14px line height
-                padding: '6px 8px',
                 fontSize: 10,
-                border: isDark ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: 6,
-                background: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-                color: theme.textPrimary,
-                resize: 'both',
-                fontFamily: 'inherit',
-                lineHeight: 1.4,
-                boxSizing: 'border-box',
-                outline: 'none',
-                overflow: 'auto',
+                opacity: 0.6,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
               }}
-            />
+            >
+              {firstLine}
+            </div>
           ) : (
             <div
               style={{
@@ -2246,18 +2204,28 @@ function DiagramContent() {
   useEffect(() => {
     if (pathNotesFocusMode && activePathId) {
       // Initialize path notes editor
-      // Use a small delay to ensure the ref is mounted after render
-      const initEditor = () => {
+      const initEditors = () => {
+        // Path notes
         if (pathNotesEditorRef.current && pathNotesInitialized.current !== activePathId) {
           pathNotesEditorRef.current.innerHTML = pathNotes[activePathId] || '';
           pathNotesInitialized.current = activePathId;
         }
+        // Node notes — initialize from current nodePathMap via ref
+        const refs = nodeNotesRefs.current;
+        const npMap = nodePathMapRef.current;
+        const sbContent = sidebarNodeContentRef.current;
+        for (const [nodeId, el] of Object.entries(refs)) {
+          if (el && !nodeNotesInitialized.current.has(nodeId)) {
+            const c = sbContent[nodeId] ?? (npMap[activePathId]?.[nodeId] || '');
+            el.innerHTML = c;
+            nodeNotesInitialized.current.add(nodeId);
+          }
+        }
       };
-      // Try immediately, then retry after a tick in case ref isn't ready yet
-      initEditor();
-      const timer = setTimeout(initEditor, 50);
-      // Initialize node notes editors
+      // Clear and retry after a tick to ensure refs are mounted
       nodeNotesInitialized.current.clear();
+      initEditors();
+      const timer = setTimeout(initEditors, 80);
       return () => clearTimeout(timer);
     }
     // Reset when closing
@@ -6350,7 +6318,6 @@ function DiagramContent() {
                       {sortedNodeIds.map((nodeId) => {
                         const node = nodes.find(n => n.id === nodeId);
                         const nodeData = node?.data as NodeData | undefined;
-                        const content = sidebarNodeContent[nodeId] ?? (nodePathMap[activePathId]?.[nodeId] || '');
                         
                         return (
                           <div key={nodeId} style={{ 
@@ -6486,11 +6453,6 @@ function DiagramContent() {
                             <div
                               ref={(el) => {
                                 nodeNotesRefs.current[nodeId] = el;
-                                // Initialize content when ref is set
-                                if (el && !nodeNotesInitialized.current.has(nodeId)) {
-                                  el.innerHTML = content || '';
-                                  nodeNotesInitialized.current.add(nodeId);
-                                }
                               }}
                               contentEditable
                               dir="ltr"
